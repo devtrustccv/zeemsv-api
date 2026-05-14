@@ -1,0 +1,25 @@
+services:
+  zeemsv-api:
+    build: .
+    container_name: zeemsv-api
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:16
+    container_name: zeemsv-postgres
+    environment:
+      POSTGRES_DB: db_zeemsv
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - zeemsv_pgdata:/var/lib/postgresql/data
+
+volumes:
+  zeemsv_pgdata:

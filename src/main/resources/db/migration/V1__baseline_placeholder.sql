@@ -1,0 +1,2 @@
+-- Baseline placeholder.
+-- Coloque aqui o DDL real quando decidires gerir o schema por Flyway.
