@@ -2,6 +2,7 @@ package cv.zeemsv.api.application.investidor.service;
 
 import cv.zeemsv.api.application.investidor.dto.InvestidorRequestDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorResponseDTO;
+import cv.zeemsv.api.application.investidor.dto.InvestidorUserResponseDTO;
 import java.util.List;
 
 public interface InvestidorService {
@@ -9,5 +10,6 @@ public interface InvestidorService {
     InvestidorResponseDTO update(Integer id, InvestidorRequestDTO dto);
     InvestidorResponseDTO findById(Integer id);
     List<InvestidorResponseDTO> findAll();
+    List<InvestidorUserResponseDTO> findByUserEmail(String email);
     void delete(Integer id);
 }

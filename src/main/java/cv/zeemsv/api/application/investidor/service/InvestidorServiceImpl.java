@@ -2,6 +2,7 @@ package cv.zeemsv.api.application.investidor.service;
 
 import cv.zeemsv.api.application.investidor.dto.InvestidorRequestDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorResponseDTO;
+import cv.zeemsv.api.application.investidor.dto.InvestidorUserResponseDTO;
 import cv.zeemsv.api.application.investidor.mapper.InvestidorDtoMapper;
 import cv.zeemsv.api.domain.investidor.business.InvestidorBus;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,11 @@ public class InvestidorServiceImpl implements InvestidorService {
 
     @Override @Transactional(readOnly = true)
     public List<InvestidorResponseDTO> findAll() { return bus.findAll().stream().map(mapper::toResponse).toList(); }
+
+    @Override @Transactional(readOnly = true)
+    public List<InvestidorUserResponseDTO> findByUserEmail(String email) {
+        return bus.findByUserEmail(email).stream().map(mapper::toUserResponse).toList();
+    }
 
     @Override @Transactional
     public void delete(Integer id) { bus.delete(id); }

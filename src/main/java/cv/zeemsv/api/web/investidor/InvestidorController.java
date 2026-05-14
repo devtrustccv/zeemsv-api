@@ -2,6 +2,7 @@ package cv.zeemsv.api.web.investidor;
 
 import cv.zeemsv.api.application.investidor.dto.InvestidorRequestDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorResponseDTO;
+import cv.zeemsv.api.application.investidor.dto.InvestidorUserResponseDTO;
 import cv.zeemsv.api.application.investidor.service.InvestidorService;
 import cv.zeemsv.api.interfaces.dto.ApiResponse;
 import jakarta.validation.Valid;
@@ -36,6 +37,11 @@ public class InvestidorController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<InvestidorResponseDTO>>> findAll() {
         return ResponseEntity.ok(ApiResponse.ok("Registos encontrados", service.findAll()));
+    }
+
+    @GetMapping("/user/email/{email}")
+    public ResponseEntity<ApiResponse<List<InvestidorUserResponseDTO>>> findByUserEmail(@PathVariable String email) {
+        return ResponseEntity.ok(ApiResponse.ok("Investidores associados ao utilizador encontrados", service.findByUserEmail(email)));
     }
 
     @DeleteMapping("/{id}")
