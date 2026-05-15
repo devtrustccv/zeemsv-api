@@ -39,6 +39,11 @@ public class SolicitacaoBusImpl implements SolicitacaoBus {
     public List<Solicitacao> findAll() { return repository.findAll().stream().map(mapper::toModel).toList(); }
 
     @Override
+    public List<Solicitacao> findByInvestidorId(Integer idInvestidor) {
+        return repository.findByIdInvestidorOrderByDataSolicDesc(idInvestidor).stream().map(mapper::toModel).toList();
+    }
+
+    @Override
     public void delete(Integer id) {
         if (!repository.existsById(id)) throw new EntityNotFoundException("Solicitacao não encontrado: " + id);
         repository.deleteById(id);

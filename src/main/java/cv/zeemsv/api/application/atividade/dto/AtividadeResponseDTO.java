@@ -1,0 +1,48 @@
+package cv.zeemsv.api.application.atividade.dto;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter @Setter
+public class AtividadeResponseDTO {
+    private Integer id;
+    private Integer idInvestidor;
+    private String idProjeto;
+    private Integer idRepresentante;
+    private Integer idRelacao;
+    private String dmTipoAtividade;
+    private String dmTipoAtividadeDesc;
+    private String dmTag;
+    private LocalDate dataConclusao;
+    private Integer userResponsavel;
+    private String dmEstadoAtividade;
+    private String dmEstadoAtividadeDesc;
+    private Integer idPessoaCont;
+    private String dmTpChamada;
+    private String dmTpChamadaDesc;
+    private String dmResultado;
+    private String dmResultadoDesc;
+    private LocalTime horaChamada;
+    private String assuntoChamada;
+    private String resumoChamada;
+    private String notaTitulo;
+    private String notaConteudo;
+    private String tarefaTitulo;
+    private String tarefaDescricao;
+    private String dmPrioridade;
+    private String dmPrioridadeDesc;
+    private LocalDate dataInicio;
+    private LocalDate dataFim;
+    private String dmEstado;
+    private String dmEstadoDesc;
+    private Integer userRegisto;
+    private LocalDate dataCreate;
+    private String tipoRelacao;
+    private Boolean agendamento;
+    private String tpAgendamento;
+    private String tpAgendamentoDesc;
+    private String horaInicio;
+    private String horaFim;
+}

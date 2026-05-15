@@ -1,0 +1,96 @@
+package cv.zeemsv.api.infrastructure.client;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import cv.zeemsv.api.application.pessoa.dto.PessoaPesquisaResponseDTO;
+import cv.zeemsv.api.config.PesquisaCniProperties;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Component
+@RequiredArgsConstructor
+public class PesquisaCniClient {
+    private final RestClient.Builder restClientBuilder;
+    private final PesquisaCniProperties properties;
+
+    public List<PessoaPesquisaResponseDTO> pesquisar(String nrDocumento, String nomeCompleto) {
+        if (!properties.isEnabled() || !StringUtils.hasText(properties.getUrl()) || !StringUtils.hasText(properties.getAuthorization())) {
+            return List.of();
+        }
+
+        String url = UriComponentsBuilder.fromHttpUrl(properties.getUrl())
+            .queryParamIfPresent("P_NIC", StringUtils.hasText(nrDocumento) ? java.util.Optional.of(nrDocumento) : java.util.Optional.empty())
+            .queryParamIfPresent("P_NOME_COMPLETO", StringUtils.hasText(nomeCompleto) ? java.util.Optional.of(nomeCompleto) : java.util.Optional.empty())
+            .toUriString();
+
+        RestClient.RequestHeadersSpec<?> request = restClientBuilder.build()
+            .get()
+            .uri(url)
+            .accept(MediaType.APPLICATION_JSON)
+            .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+
+        request = request.header(HttpHeaders.AUTHORIZATION, properties.getAuthorization());
+
+        JsonNode response = request.retrieve().body(JsonNode.class);
+        if (response == null) {
+            return List.of();
+        }
+
+        JsonNode entries = response.path("Entries").path("Entry");
+        if (entries.isMissingNode() || entries.isNull()) {
+            return List.of();
+        }
+
+        List<PessoaPesquisaResponseDTO> pessoas = new ArrayList<>();
+        if (entries.isArray()) {
+            entries.forEach(entry -> pessoas.add(toPessoa(entry)));
+        } else if (entries.isObject()) {
+            pessoas.add(toPessoa(entries));
+        }
+        return pessoas;
+    }
+
+    private PessoaPesquisaResponseDTO toPessoa(JsonNode entry) {
+        PessoaPesquisaResponseDTO pessoa = new PessoaPesquisaResponseDTO();
+        pessoa.setNome(firstText(entry, "NOME", "NOME_COMPLETO"));
+        pessoa.setNrDocumento(text(entry, "NUM_DOCUMENTO"));
+        pessoa.setTipoDocumento(text(entry, "id_tp_doc"));
+        pessoa.setTpDoc(StringUtils.hasText(pessoa.getTipoDocumento()) ? pessoa.getTipoDocumento() : "BI");
+        pessoa.setDataNascimento(firstText(entry, "DT_NASC", "DATA_NASC"));
+        pessoa.setDataEmissao(text(entry, "DT_EMISSAO"));
+        pessoa.setDataValidade(text(entry, "DT_VALIDADE"));
+        pessoa.setNacionalidade(firstText(entry, "NACIONALIDADE_ID", "NATURALIDADE_ID"));
+        pessoa.setTelemovel(text(entry, "TELEMOVEL"));
+        pessoa.setEstadoCivil(text(entry, "ESTADO_CIVIL"));
+        pessoa.setGenero(text(entry, "SEXO"));
+        pessoa.setEmail(text(entry, "EMAIL"));
+        pessoa.setResidencia(text(entry, "MORADA"));
+        pessoa.setNomeMae(firstText(entry, "NOME_MAE", "NOME_MAE_PROPRIO"));
+        pessoa.setNomePai(firstText(entry, "NOME_PAI", "NOME_PAI_PROPRIO"));
+        pessoa.setEmissor(text(entry, "EMISSOR"));
+        pessoa.setOrigem("CNI");
+        return pessoa;
+    }
+
+    private String firstText(JsonNode node, String... fields) {
+        for (String field : fields) {
+            String value = text(node, field);
+            if (StringUtils.hasText(value)) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private String text(JsonNode node, String field) {
+        JsonNode value = node.path(field);
+        return value.isMissingNode() || value.isNull() || !StringUtils.hasText(value.asText()) ? null : value.asText();
+    }
+}

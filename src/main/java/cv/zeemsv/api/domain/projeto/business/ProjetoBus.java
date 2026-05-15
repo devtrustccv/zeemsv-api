@@ -8,5 +8,6 @@ public interface ProjetoBus {
     Projeto update(Integer id, Projeto model);
     Projeto findById(Integer id);
     List<Projeto> findAll();
+    List<Projeto> findByInvestidorId(Integer idInvestidor);
     void delete(Integer id);
 }

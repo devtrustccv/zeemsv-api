@@ -8,5 +8,6 @@ public interface SolicitacaoBus {
     Solicitacao update(Integer id, Solicitacao model);
     Solicitacao findById(Integer id);
     List<Solicitacao> findAll();
+    List<Solicitacao> findByInvestidorId(Integer idInvestidor);
     void delete(Integer id);
 }

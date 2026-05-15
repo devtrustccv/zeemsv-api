@@ -3,7 +3,9 @@ package cv.zeemsv.api.web.investidor;
 import cv.zeemsv.api.application.investidor.dto.InvestidorRequestDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorResponseDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorUserResponseDTO;
+import cv.zeemsv.api.application.investidor.dto.RepresentanteInvestidorResponseDTO;
 import cv.zeemsv.api.application.investidor.service.InvestidorService;
+import cv.zeemsv.api.application.investidor.service.RepresentanteInvestidorService;
 import cv.zeemsv.api.interfaces.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +20,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class InvestidorController {
     private final InvestidorService service;
+    private final RepresentanteInvestidorService representanteInvestidorService;
 
     @PostMapping
     public ResponseEntity<ApiResponse<InvestidorResponseDTO>> create(@Valid @RequestBody InvestidorRequestDTO dto) {
@@ -42,6 +45,13 @@ public class InvestidorController {
     @GetMapping("/user/email/{email}")
     public ResponseEntity<ApiResponse<List<InvestidorUserResponseDTO>>> findByUserEmail(@PathVariable String email) {
         return ResponseEntity.ok(ApiResponse.ok("Investidores associados ao utilizador encontrados", service.findByUserEmail(email)));
+    }
+
+    @GetMapping("/{idInvestidor}/representantes")
+    public ResponseEntity<ApiResponse<List<RepresentanteInvestidorResponseDTO>>> findRepresentantesByInvestidor(
+        @PathVariable Integer idInvestidor
+    ) {
+        return ResponseEntity.ok(ApiResponse.ok("Representantes do investidor encontrados", representanteInvestidorService.findByInvestidorId(idInvestidor)));
     }
 
     @DeleteMapping("/{id}")

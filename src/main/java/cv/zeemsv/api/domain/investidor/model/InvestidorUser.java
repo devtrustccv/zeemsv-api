@@ -14,4 +14,5 @@ public class InvestidorUser {
     private String dmEstado;
     private String dmTipoInvestidor;
     private String paisOrigem;
+    private String dmTpRepresentante;
 }

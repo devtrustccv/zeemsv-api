@@ -1,5 +1,6 @@
 package cv.zeemsv.api.application.investidor.service;
 
+import cv.zeemsv.api.application.domain.DomainDescriptionHelper;
 import cv.zeemsv.api.application.investidor.dto.InvestidorRequestDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorResponseDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorUserResponseDTO;
@@ -16,6 +17,7 @@ import java.util.List;
 public class InvestidorServiceImpl implements InvestidorService {
     private final InvestidorBus bus;
     private final InvestidorDtoMapper mapper;
+    private final DomainDescriptionHelper domainHelper;
 
     @Override @Transactional
     public InvestidorResponseDTO create(InvestidorRequestDTO dto) { return mapper.toResponse(bus.create(mapper.toModel(dto))); }
@@ -31,9 +33,17 @@ public class InvestidorServiceImpl implements InvestidorService {
 
     @Override @Transactional(readOnly = true)
     public List<InvestidorUserResponseDTO> findByUserEmail(String email) {
-        return bus.findByUserEmail(email).stream().map(mapper::toUserResponse).toList();
+        return bus.findByUserEmail(email).stream().map(this::toUserResponse).toList();
     }
 
     @Override @Transactional
     public void delete(Integer id) { bus.delete(id); }
+
+    private InvestidorUserResponseDTO toUserResponse(cv.zeemsv.api.domain.investidor.model.InvestidorUser model) {
+        InvestidorUserResponseDTO dto = mapper.toUserResponse(model);
+        dto.setDmEstadoDesc(domainHelper.describe(DomainDescriptionHelper.ESTADO, dto.getDmEstado()));
+        dto.setDmTipoInvestidorDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_INVESTIDOR, dto.getDmTipoInvestidor()));
+        dto.setDmTpRepresentanteDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_REPRESENTANTE, dto.getDmTpRepresentante()));
+        return dto;
+    }
 }

@@ -9,5 +9,6 @@ public interface ProjetoService {
     ProjetoResponseDTO update(Integer id, ProjetoRequestDTO dto);
     ProjetoResponseDTO findById(Integer id);
     List<ProjetoResponseDTO> findAll();
+    List<ProjetoResponseDTO> findByInvestidorId(Integer idInvestidor);
     void delete(Integer id);
 }

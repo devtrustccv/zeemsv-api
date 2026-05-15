@@ -5,6 +5,7 @@ import cv.zeemsv.api.domain.investidor.model.InvestidorUser;
 import cv.zeemsv.api.infrastructure.entity.ZeeTInvestidorEntity;
 import cv.zeemsv.api.infrastructure.mapper.InvestidorEntityMapper;
 import cv.zeemsv.api.infrastructure.repository.ZeeTInvestidorRepository;
+import cv.zeemsv.api.infrastructure.repository.projection.InvestidorUserProjection;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -56,7 +57,7 @@ public class InvestidorBusImpl implements InvestidorBus {
         repository.deleteById(id);
     }
 
-    private InvestidorUser toInvestidorUser(ZeeTInvestidorEntity entity) {
+    private InvestidorUser toInvestidorUser(InvestidorUserProjection entity) {
         InvestidorUser model = new InvestidorUser();
         model.setId(entity.getId());
         model.setDenominacao(entity.getDenominacao());
@@ -66,6 +67,7 @@ public class InvestidorBusImpl implements InvestidorBus {
         model.setDmEstado(entity.getDmEstado());
         model.setDmTipoInvestidor(entity.getDmTipoInvestidor());
         model.setPaisOrigem(entity.getPaisOrigem());
+        model.setDmTpRepresentante(entity.getDmTpRepresentante());
         return model;
     }
 }

@@ -12,6 +12,10 @@ public class InvestidorUserResponseDTO {
     private String email;
     private BigDecimal telemovel;
     private String dmEstado;
+    private String dmEstadoDesc;
     private String dmTipoInvestidor;
+    private String dmTipoInvestidorDesc;
     private String paisOrigem;
+    private String dmTpRepresentante;
+    private String dmTpRepresentanteDesc;
 }

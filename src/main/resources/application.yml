@@ -1,5 +1,18 @@
 zeemsv:
   integration:
     enabled: true
+    pesquisa-cni:
+      enabled: ${PESQUISA_CNI_ENABLED:true}
+      url: ${PESQUISA_CNI_URL:https://gateway-pdex.gov.cv/t/sniac.gov/PesquisaCNI/1.0.0/pesquisa_cni}
+      authorization: ${PESQUISA_CNI_AUTHORIZATION:}
+    pesquisa-nif:
+      enabled: ${PESQUISA_NIF_ENABLED:true}
+      url: ${PESQUISA_NIF_URL:https://gateway-pdex.gov.cv/consultanif/1.0.0/detalhesPessoaOp}
+      authorization: ${PESQUISA_NIF_AUTHORIZATION:}
+    pesquisa-sirc:
+      enabled: ${PESQUISA_SIRC_ENABLED:true}
+      url: ${PESQUISA_SIRC_URL:}
+      authorization: ${PESQUISA_SIRC_AUTHORIZATION:}
+      nif-param: ${PESQUISA_SIRC_NIF_PARAM:NUM_NIF}
   security:
     jwt-secret: ${JWT_SECRET:change-me}

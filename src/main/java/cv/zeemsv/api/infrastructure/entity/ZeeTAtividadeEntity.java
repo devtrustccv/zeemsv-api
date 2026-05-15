@@ -98,4 +98,16 @@ public class ZeeTAtividadeEntity {
     @Column(name = "tipo_relacao", length = 255)
     private String tipoRelacao;
 
+    @Column(name = "agendamento")
+    private Boolean agendamento;
+
+    @Column(name = "tp_agendamento")
+    private String tpAgendamento;
+
+    @Column(name = "hora_inicio")
+    private String horaInicio;
+
+    @Column(name = "hora_fim")
+    private String horaFim;
+
 }

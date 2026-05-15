@@ -9,4 +9,5 @@ public class InvestidorResponseDTO {
     private String nome;
     private String descricao;
     private String estado;
+    private String paisOrigem;
 }

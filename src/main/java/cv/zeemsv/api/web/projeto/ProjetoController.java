@@ -38,6 +38,11 @@ public class ProjetoController {
         return ResponseEntity.ok(ApiResponse.ok("Registos encontrados", service.findAll()));
     }
 
+    @GetMapping("/investidor/{idInvestidor}")
+    public ResponseEntity<ApiResponse<List<ProjetoResponseDTO>>> findByInvestidorId(@PathVariable Integer idInvestidor) {
+        return ResponseEntity.ok(ApiResponse.ok("Projetos do investidor encontrados", service.findByInvestidorId(idInvestidor)));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Integer id) {
         service.delete(id);

@@ -1,5 +1,6 @@
 package cv.zeemsv.api.web.lote;
 
+import cv.zeemsv.api.application.lote.dto.LoteInvestidorResponseDTO;
 import cv.zeemsv.api.application.lote.dto.LoteRequestDTO;
 import cv.zeemsv.api.application.lote.dto.LoteResponseDTO;
 import cv.zeemsv.api.application.lote.service.LoteService;
@@ -36,6 +37,11 @@ public class LoteController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<LoteResponseDTO>>> findAll() {
         return ResponseEntity.ok(ApiResponse.ok("Registos encontrados", service.findAll()));
+    }
+
+    @GetMapping("/investidor/{idInvestidor}")
+    public ResponseEntity<ApiResponse<List<LoteInvestidorResponseDTO>>> findByInvestidorId(@PathVariable Integer idInvestidor) {
+        return ResponseEntity.ok(ApiResponse.ok("Lotes do investidor encontrados", service.findByInvestidorId(idInvestidor)));
     }
 
     @DeleteMapping("/{id}")

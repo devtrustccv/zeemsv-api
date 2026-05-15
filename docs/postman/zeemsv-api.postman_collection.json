@@ -1,0 +1,449 @@
+{
+  "info": {
+    "_postman_id": "5fb4a2f6-22c0-4b72-8a7f-79f9d5cb5c0f",
+    "name": "ZEEMSV API",
+    "description": "Collection local para testar endpoints da ZEEMSV API.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Sistema",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "actuator",
+                "health"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Investidor",
+      "item": [
+        {
+          "name": "Listar Investidores",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/investidors",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "investidors"
+              ]
+            },
+            "description": "Lista todos os investidores, incluindo pais de origem quando disponivel."
+          }
+        },
+        {
+          "name": "Investidores por Email do User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/investidors/user/email/{{email}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "investidors",
+                "user",
+                "email",
+                "{{email}}"
+              ]
+            },
+            "description": "Lista investidores associados a um utilizador pelo email. Campos de dominio incluem *_desc quando a descricao existir em tbl_domain."
+          }
+        },
+        {
+          "name": "Listar Representantes por Investidor",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/investidors/{{idInvestidor}}/representantes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "investidors",
+                "{{idInvestidor}}",
+                "representantes"
+              ]
+            },
+            "description": "Lista todos os representantes de um investidor a partir da tabela zee_t_repres_investidor, incluindo dados de zee_t_socio_repres/zee_t_ordem quando existirem. Campos de dominio incluem *_desc quando a descricao existir em tbl_domain."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Servico",
+      "item": [
+        {
+          "name": "Listar Servicos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/servicos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "servicos"
+              ]
+            },
+            "description": "Lista todos os servicos da tabela zee_t_tp_solicitacao, com dados de zee_t_entidade_externa e descricoes de dominio em *_desc quando existirem em tbl_domain."
+          }
+        },
+        {
+          "name": "Listar Servicos por Tipo Representante",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/servicos?dmTpRepresentante={{dmTpRepresentante}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "servicos"
+              ],
+              "query": [
+                {
+                  "key": "dmTpRepresentante",
+                  "value": "{{dmTpRepresentante}}"
+                }
+              ]
+            },
+            "description": "Lista os servicos permitidos para um tipo de representante usando a tabela zee_t_tp_solic_repre, com dados de zee_t_entidade_externa e descricoes de dominio em *_desc quando existirem em tbl_domain."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Solicitacao",
+      "item": [
+        {
+          "name": "Listar Solicitacoes por Investidor",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/solicitacaos/investidor/{{idInvestidor}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "solicitacaos",
+                "investidor",
+                "{{idInvestidor}}"
+              ]
+            },
+            "description": "Lista todas as solicitacoes da tabela zee_t_solicitacao associadas a um investidor pelo id_investidor, incluindo dados relevantes do tipo de solicitacao, investidor/promotor, projeto e pedido. Campos de dominio incluem *_desc quando a descricao existir em tbl_domain."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Projeto",
+      "item": [
+        {
+          "name": "Listar Projetos por Investidor",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projetos/investidor/{{idInvestidor}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "projetos",
+                "investidor",
+                "{{idInvestidor}}"
+              ]
+            },
+            "description": "Lista todos os projetos da tabela zee_t_proj_invest associados a um investidor pelo id_investidor, incluindo atividade_principal e atividade_principal_setor a partir de id_investidor_cae/CAE. Campos de dominio incluem *_desc quando a descricao existir em tbl_domain."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Lote",
+      "item": [
+        {
+          "name": "Listar Lotes por Investidor",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/lotes/investidor/{{idInvestidor}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "lotes",
+                "investidor",
+                "{{idInvestidor}}"
+              ]
+            },
+            "description": "Lista lotes associados ao investidor usando zee_t_lote_proprietario e zee_t_lote_proj, seguindo a regra do ListaProprietarioHelper. Quando existir id_projeto, inclui informacoes relevantes do projeto. Campos de dominio incluem *_desc quando a descricao existir em tbl_domain."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ordem",
+      "item": [
+        {
+          "name": "Listar Ordens",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ordens",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ordens"
+              ]
+            },
+            "description": "Lista todas as ordens da tabela zee_t_ordem. Campos de dominio incluem *_desc quando a descricao existir em tbl_domain."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Atividade",
+      "item": [
+        {
+          "name": "Listar Notificacoes por Investidor",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/atividades/investidor/{{idInvestidor}}/notificacoes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "atividades",
+                "investidor",
+                "{{idInvestidor}}",
+                "notificacoes"
+              ]
+            },
+            "description": "Lista notificacoes de um investidor a partir de gestao_notificacao.t_notificacao_relacao e gestao_notificacao.t_notificacao. Para cada relacao, inclui informacoes relevantes conforme tp_relacao: ATIVIDADE, SOLICITACAO, PROJETO ou LOTE."
+          }
+        },
+        {
+          "name": "Listar Atividades Agendadas por Investidor",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/atividades/investidor/{{idInvestidor}}/agendadas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "atividades",
+                "investidor",
+                "{{idInvestidor}}",
+                "agendadas"
+              ]
+            },
+            "description": "Lista atividades de um investidor filtrando zee_t_atividade.agendamento = true. Campos de dominio incluem *_desc quando a descricao existir em tbl_domain, incluindo tp_agendamento_desc pelo dominio TIPO_AGENDAMENTO."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pessoa",
+      "item": [
+        {
+          "name": "Pesquisa Pessoa por Documento",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pessoas/pesquisa-cni?nrDocumento={{nrDocumento}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pessoas",
+                "pesquisa-cni"
+              ],
+              "query": [
+                {
+                  "key": "nrDocumento",
+                  "value": "{{nrDocumento}}"
+                }
+              ]
+            },
+            "description": "Pesquisa pessoa pelo numero de documento. Procura primeiro na BD local e depois na API CNI se configurada."
+          }
+        },
+        {
+          "name": "Pesquisa Pessoa por Nome Completo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pessoas/pesquisa-cni?nomeCompleto={{nomeCompleto}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pessoas",
+                "pesquisa-cni"
+              ],
+              "query": [
+                {
+                  "key": "nomeCompleto",
+                  "value": "{{nomeCompleto}}"
+                }
+              ]
+            },
+            "description": "Pesquisa pessoa pelo nome completo. Procura primeiro na BD local e depois na API CNI se configurada."
+          }
+        },
+        {
+          "name": "Pesquisa Pessoa por Nome e Documento",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pessoas/pesquisa-cni?nomeCompleto={{nomeCompleto}}&nrDocumento={{nrDocumento}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pessoas",
+                "pesquisa-cni"
+              ],
+              "query": [
+                {
+                  "key": "nomeCompleto",
+                  "value": "{{nomeCompleto}}"
+                },
+                {
+                  "key": "nrDocumento",
+                  "value": "{{nrDocumento}}"
+                }
+              ]
+            },
+            "description": "Pesquisa pessoa combinando nome completo e numero de documento."
+          }
+        },
+        {
+          "name": "Pesquisa NIF",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pessoas/pesquisa-nif?nif={{nif}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pessoas",
+                "pesquisa-nif"
+              ],
+              "query": [
+                {
+                  "key": "nif",
+                  "value": "{{nif}}"
+                }
+              ]
+            },
+            "description": "Pesquisa contribuinte pelo NIF. Procura primeiro na BD local e depois na API NIF externa se configurada."
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8086/zeemsv-api",
+      "type": "string"
+    },
+    {
+      "key": "email",
+      "value": "user@exemplo.cv",
+      "type": "string"
+    },
+    {
+      "key": "nrDocumento",
+      "value": "teste",
+      "type": "string"
+    },
+    {
+      "key": "nomeCompleto",
+      "value": "JOAO SILVA",
+      "type": "string"
+    },
+    {
+      "key": "nif",
+      "value": "123456789",
+      "type": "string"
+    },
+    {
+      "key": "dmTpRepresentante",
+      "value": "SOCIO",
+      "type": "string"
+    },
+    {
+      "key": "idInvestidor",
+      "value": "1",
+      "type": "string"
+    }
+  ]
+}

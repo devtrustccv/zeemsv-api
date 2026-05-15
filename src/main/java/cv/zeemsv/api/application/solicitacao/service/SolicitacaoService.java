@@ -9,5 +9,6 @@ public interface SolicitacaoService {
     SolicitacaoResponseDTO update(Integer id, SolicitacaoRequestDTO dto);
     SolicitacaoResponseDTO findById(Integer id);
     List<SolicitacaoResponseDTO> findAll();
+    List<SolicitacaoResponseDTO> findByInvestidorId(Integer idInvestidor);
     void delete(Integer id);
 }

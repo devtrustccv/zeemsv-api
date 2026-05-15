@@ -38,6 +38,11 @@ public class SolicitacaoController {
         return ResponseEntity.ok(ApiResponse.ok("Registos encontrados", service.findAll()));
     }
 
+    @GetMapping("/investidor/{idInvestidor}")
+    public ResponseEntity<ApiResponse<List<SolicitacaoResponseDTO>>> findByInvestidorId(@PathVariable Integer idInvestidor) {
+        return ResponseEntity.ok(ApiResponse.ok("Solicitacoes do investidor encontradas", service.findByInvestidorId(idInvestidor)));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Integer id) {
         service.delete(id);

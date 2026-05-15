@@ -39,6 +39,11 @@ public class ProjetoBusImpl implements ProjetoBus {
     public List<Projeto> findAll() { return repository.findAll().stream().map(mapper::toModel).toList(); }
 
     @Override
+    public List<Projeto> findByInvestidorId(Integer idInvestidor) {
+        return repository.findByIdInvestidorOrderByDateCreateDesc(idInvestidor).stream().map(mapper::toModel).toList();
+    }
+
+    @Override
     public void delete(Integer id) {
         if (!repository.existsById(id)) throw new EntityNotFoundException("Projeto não encontrado: " + id);
         repository.deleteById(id);
