@@ -78,6 +78,11 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         dto.setPrazoReal(p.getPrazoReal());
         dto.setEtapaAtual(p.getEtapaAtual());
         dto.setIdPontoFocalResp(p.getIdPontoFocalResp());
+        dto.setFlagCorrecao(p.getFlagCorrecao());
+        dto.setDataEnvioCorrecao(p.getDataEnvioCorrecao());
+        dto.setDataFimPrevistaCorrecao(p.getDataFimPrevistaCorrecao());
+        dto.setDataCorrecao(p.getDataCorrecao());
+        dto.setUserCorecao(p.getUserCorecao());
 
         dto.setTpSolicitacaoNome(p.getTpSolicitacaoNome());
         dto.setTpSolicitacaoDescricao(p.getTpSolicitacaoDescricao());

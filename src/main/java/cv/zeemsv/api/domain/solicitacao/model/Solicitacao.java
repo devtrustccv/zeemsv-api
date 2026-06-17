@@ -34,4 +34,9 @@ public class Solicitacao {
     private BigDecimal prazoReal;
     private String etapaAtual;
     private Integer idPontoFocalResp;
+    private Boolean flagCorrecao;
+    private LocalDate dataEnvioCorrecao;
+    private LocalDate dataFimPrevistaCorrecao;
+    private LocalDate dataCorrecao;
+    private String userCorecao;
 }

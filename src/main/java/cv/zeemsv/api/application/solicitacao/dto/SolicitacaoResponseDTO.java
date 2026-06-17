@@ -35,6 +35,11 @@ public class SolicitacaoResponseDTO {
     private BigDecimal prazoReal;
     private String etapaAtual;
     private Integer idPontoFocalResp;
+    private Boolean flagCorrecao;
+    private LocalDate dataEnvioCorrecao;
+    private LocalDate dataFimPrevistaCorrecao;
+    private LocalDate dataCorrecao;
+    private String userCorecao;
 
     private String tpSolicitacaoNome;
     private String tpSolicitacaoDescricao;

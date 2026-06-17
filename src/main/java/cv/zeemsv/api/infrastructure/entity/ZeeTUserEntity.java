@@ -40,4 +40,10 @@ public class ZeeTUserEntity {
     @Column(name = "data_registo", nullable = false)
     private LocalDate dataRegisto;
 
+    @Column(name = "pessoa_id")
+    private Integer pessoaId;
+
+    @Column(name = "sub_cmdcv")
+    private String subCmdcv;
+
 }

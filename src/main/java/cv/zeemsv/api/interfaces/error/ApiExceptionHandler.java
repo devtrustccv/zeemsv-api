@@ -1,5 +1,6 @@
 package cv.zeemsv.api.interfaces.error;
 
+import cv.zeemsv.api.exceptions.BusinessException;
 import cv.zeemsv.api.interfaces.dto.ApiResponse;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.http.HttpStatus;
@@ -17,6 +18,12 @@ public class ApiExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> notFound(EntityNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail(ex.getMessage(), null));
     }
+
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ApiResponse<Void>> business(BusinessException ex) {
+        return ResponseEntity.badRequest().body(ApiResponse.fail(ex.getMessage(), null));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Map<String, String>>> validation(MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();

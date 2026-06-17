@@ -1,0 +1,28 @@
+package cv.zeemsv.api.application.user.dto;
+
+import cv.zeemsv.api.utils.enums.UserStatus;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class LoginResponseDTO {
+    private Integer userId;
+    private String nome;
+    private String email;
+    private String subCmdcv;
+    private String numDocumento;
+    private String tipoDocumento;
+    @Enumerated(EnumType.STRING)
+    private UserStatus status;
+    private Integer pessoaId;
+    private String sessionToken;
+}

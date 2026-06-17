@@ -31,6 +31,11 @@ public interface SolicitacaoInvestidorProjection {
     BigDecimal getPrazoReal();
     String getEtapaAtual();
     Integer getIdPontoFocalResp();
+    Boolean getFlagCorrecao();
+    LocalDate getDataEnvioCorrecao();
+    LocalDate getDataFimPrevistaCorrecao();
+    LocalDate getDataCorrecao();
+    String getUserCorecao();
 
     String getTpSolicitacaoNome();
     String getTpSolicitacaoDescricao();

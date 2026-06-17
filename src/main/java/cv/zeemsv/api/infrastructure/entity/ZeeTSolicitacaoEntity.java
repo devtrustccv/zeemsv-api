@@ -89,4 +89,19 @@ public class ZeeTSolicitacaoEntity {
     @Column(name = "id_ponto_focal_resp")
     private Integer idPontoFocalResp;
 
+    @Column(name = "flag_correcao")
+    private Boolean flagCorrecao;
+
+    @Column(name = "data_envio_correcao")
+    private LocalDate dataEnvioCorrecao;
+
+    @Column(name = "data_fim_prevista_correcao")
+    private LocalDate dataFimPrevistaCorrecao;
+
+    @Column(name = "data_correcao")
+    private LocalDate dataCorrecao;
+
+    @Column(name = "user_corecao")
+    private String userCorecao;
+
 }
