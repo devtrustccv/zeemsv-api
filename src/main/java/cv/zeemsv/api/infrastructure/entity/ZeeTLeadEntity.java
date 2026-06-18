@@ -99,7 +99,7 @@ public class ZeeTLeadEntity {
     @Column(name = "flag_conversao")
     private Integer flagConversao;
 
-    @Column(name = "id_projeto")
+    @Column(name = "id_projeto", precision = 19, scale = 2)
     private BigDecimal idProjeto;
 
 }

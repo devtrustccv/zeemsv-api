@@ -80,7 +80,7 @@ public class ZeeTPagamentoEntity {
     @Column(name = "user_pagamento")
     private String userPagamento;
 
-    @Column(name = "id_taxa")
+    @Column(name = "id_taxa", precision = 19, scale = 2)
     private BigDecimal idTaxa;
 
 }

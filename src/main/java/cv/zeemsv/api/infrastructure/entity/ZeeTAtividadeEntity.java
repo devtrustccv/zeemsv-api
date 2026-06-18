@@ -21,16 +21,16 @@ public class ZeeTAtividadeEntity {
     @Column(name = "id", nullable = false)
     private Integer id;
 
-    @Column(name = "id_investidor")
+    @Column(name = "id_investidor", precision = 20, scale = 0)
     private BigDecimal idInvestidor;
 
     @Column(name = "id_projeto", length = 500)
     private String idProjeto;
 
-    @Column(name = "id_representante")
+    @Column(name = "id_representante", precision = 19, scale = 2)
     private BigDecimal idRepresentante;
 
-    @Column(name = "id_relacao")
+    @Column(name = "id_relacao", precision = 20, scale = 0)
     private BigDecimal idRelacao;
 
     @Column(name = "dm_tipo_atividade", nullable = false, length = 255)
