@@ -81,6 +81,6 @@ public class ZeeTPagamentoEntity {
     private String userPagamento;
 
     @Column(name = "id_taxa")
-    private Integer idTaxa;
+    private BigDecimal idTaxa;
 
 }

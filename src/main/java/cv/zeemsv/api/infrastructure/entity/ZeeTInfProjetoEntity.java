@@ -97,7 +97,7 @@ public class ZeeTInfProjetoEntity {
     private String userUpdate;
 
     @Column(name = "tempo_construcao")
-    private String tempoConstrucao;
+    private BigDecimal tempoConstrucao;
 
     @Column(name = "categoria_n_empreg")
     private String categoriaNEmpreg;

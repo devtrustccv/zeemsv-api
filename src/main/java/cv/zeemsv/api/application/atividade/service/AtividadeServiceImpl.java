@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +37,7 @@ public class AtividadeServiceImpl implements AtividadeService {
     @Override
     @Transactional(readOnly = true)
     public List<AtividadeResponseDTO> findAgendadasByInvestidorId(Integer idInvestidor) {
-        return repository.findByIdInvestidorAndAgendamentoTrueOrderByDataCreateDescIdDesc(idInvestidor)
+        return repository.findByIdInvestidorAndAgendamentoTrueOrderByDataCreateDescIdDesc(toBigDecimal(idInvestidor))
             .stream()
             .map(this::toResponse)
             .toList();
@@ -45,10 +46,10 @@ public class AtividadeServiceImpl implements AtividadeService {
     private AtividadeResponseDTO toResponse(ZeeTAtividadeEntity entity) {
         AtividadeResponseDTO dto = new AtividadeResponseDTO();
         dto.setId(entity.getId());
-        dto.setIdInvestidor(entity.getIdInvestidor());
+        dto.setIdInvestidor(toInteger(entity.getIdInvestidor()));
         dto.setIdProjeto(entity.getIdProjeto());
-        dto.setIdRepresentante(entity.getIdRepresentante());
-        dto.setIdRelacao(entity.getIdRelacao());
+        dto.setIdRepresentante(toInteger(entity.getIdRepresentante()));
+        dto.setIdRelacao(toInteger(entity.getIdRelacao()));
         dto.setDmTipoAtividade(entity.getDmTipoAtividade());
         dto.setDmTipoAtividadeDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_ATIVIDADE, entity.getDmTipoAtividade()));
         dto.setDmTag(entity.getDmTag());
@@ -83,6 +84,14 @@ public class AtividadeServiceImpl implements AtividadeService {
         dto.setHoraInicio(entity.getHoraInicio());
         dto.setHoraFim(entity.getHoraFim());
         return dto;
+    }
+
+    private BigDecimal toBigDecimal(Integer value) {
+        return value == null ? null : BigDecimal.valueOf(value);
+    }
+
+    private Integer toInteger(BigDecimal value) {
+        return value == null ? null : value.intValueExact();
     }
 
     private NotificacaoInvestidorResponseDTO toNotificacaoResponse(NotificacaoInvestidorProjection projection) {

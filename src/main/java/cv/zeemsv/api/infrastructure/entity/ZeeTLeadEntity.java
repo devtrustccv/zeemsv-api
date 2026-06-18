@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import lombok.Getter;
@@ -99,6 +100,6 @@ public class ZeeTLeadEntity {
     private Integer flagConversao;
 
     @Column(name = "id_projeto")
-    private Integer idProjeto;
+    private BigDecimal idProjeto;
 
 }

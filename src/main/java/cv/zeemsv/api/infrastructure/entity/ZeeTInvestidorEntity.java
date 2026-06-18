@@ -119,7 +119,4 @@ public class ZeeTInvestidorEntity {
     @Column(name = "moeda", length = 20)
     private String moeda;
 
-    @Column(name = "dm_geenro", length = 20)
-    private String dmGeenro;
-
 }

@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import lombok.Getter;
@@ -21,16 +22,16 @@ public class ZeeTAtividadeEntity {
     private Integer id;
 
     @Column(name = "id_investidor")
-    private Integer idInvestidor;
+    private BigDecimal idInvestidor;
 
     @Column(name = "id_projeto", length = 500)
     private String idProjeto;
 
     @Column(name = "id_representante")
-    private Integer idRepresentante;
+    private BigDecimal idRepresentante;
 
     @Column(name = "id_relacao")
-    private Integer idRelacao;
+    private BigDecimal idRelacao;
 
     @Column(name = "dm_tipo_atividade", nullable = false, length = 255)
     private String dmTipoAtividade;
