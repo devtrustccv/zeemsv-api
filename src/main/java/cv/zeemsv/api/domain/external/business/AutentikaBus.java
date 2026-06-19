@@ -10,6 +10,7 @@ import cv.zeemsv.api.domain.external.model.AuthenticatedUserInfo;
 import cv.zeemsv.api.domain.external.model.CniResponseModel;
 import cv.zeemsv.api.exceptions.ExternalApiException;
 import cv.zeemsv.api.utils.Constants;
+import cv.zeemsv.api.utils.FirebaseCredentialsHelper;
 import cv.zeemsv.api.utils.enums.LoginProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,7 +19,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
-import java.io.FileInputStream;
 import java.io.IOException;
 
 @Component
@@ -31,6 +31,12 @@ public class AutentikaBus {
 
     @Value("${firebase.config-path:}")
     private String firebaseConfig;
+
+    @Value("${firebase.config-json:}")
+    private String firebaseConfigJson;
+
+    @Value("${firebase.config-base64:}")
+    private String firebaseConfigBase64;
 
     public AuthenticatedUserInfo getUserInfo(String accessToken, LoginProvider loginProvider) {
         if (LoginProvider.GOOGLE.equals(loginProvider)) {
@@ -84,15 +90,20 @@ public class AutentikaBus {
         if (!FirebaseApp.getApps().isEmpty()) {
             return;
         }
-        if (firebaseConfig == null || firebaseConfig.isBlank()) {
-            throw new ExternalApiException("firebase.config-path is not configured.", HttpStatus.BAD_GATEWAY);
+        if (!FirebaseCredentialsHelper.isConfigured(firebaseConfig, firebaseConfigJson, firebaseConfigBase64)) {
+            throw new ExternalApiException("Firebase credentials are not configured.", HttpStatus.BAD_GATEWAY);
         }
-        try (FileInputStream serviceAccount = new FileInputStream(firebaseConfig)) {
+        try {
+            GoogleCredentials credentials = FirebaseCredentialsHelper.load(
+                firebaseConfig,
+                firebaseConfigJson,
+                firebaseConfigBase64
+            );
             FirebaseOptions options = new FirebaseOptions.Builder()
-                .setCredentials(GoogleCredentials.fromStream(serviceAccount))
+                .setCredentials(credentials)
                 .build();
             FirebaseApp.initializeApp(options);
-        } catch (IOException e) {
+        } catch (IOException | IllegalArgumentException e) {
             throw new ExternalApiException("Arquivo de configuracao Firebase nao encontrado ou invalido.", HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }

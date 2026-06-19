@@ -2,3 +2,6 @@ target/
 .env
 .idea/
 *.iml
+src/main/resources/firebase-adminsdk-keys.json
+src/main/resources/fire/firebase-adminsdk-keys.json
+firebase-adminsdk-keys.json
