@@ -4,24 +4,31 @@ import cv.zeemsv.api.domain.generic.model.OtpModel;
 import cv.zeemsv.api.utils.JwtUtil;
 import java.security.SecureRandom;
 import java.util.concurrent.ConcurrentHashMap;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
 @Log4j2
+@RequiredArgsConstructor
 public class OTPService {
+    private final EmailService emailService;
     private final ConcurrentHashMap<String, OtpModel> otpStorage = new ConcurrentHashMap<>();
 
     @Value("${application.session.otp-expiration-in-minutes:5}")
     private int otpExpirationTime;
+
+    @Value("${application.mail.otp-subject:Codigo de verificacao ZEEMSV}")
+    private String otpSubject;
 
     public OtpModel sendOTP(String email) {
         String otp = String.valueOf(new SecureRandom().nextInt(900000) + 100000);
         OtpModel otpEntry = new OtpModel(email, JwtUtil.generateSecureHash(otp), otpExpirationTime, otp.length());
         otpStorage.put(email, otpEntry);
 
-        log.info("OTP generated for {}. Configure a mail provider before using this in production.", email);
+        emailService.sendText(email, otpSubject, buildOtpMessage(otp));
+        log.info("OTP generated for {}.", email);
         log.debug("OTP value for {} is {}", email, otp);
         return otpEntry;
     }
@@ -38,5 +45,10 @@ public class OTPService {
             return true;
         }
         return false;
+    }
+
+    private String buildOtpMessage(String otp) {
+        return "O seu codigo de verificacao ZEEMSV e: " + otp
+            + "\n\nEste codigo expira em " + otpExpirationTime + " minuto(s).";
     }
 }

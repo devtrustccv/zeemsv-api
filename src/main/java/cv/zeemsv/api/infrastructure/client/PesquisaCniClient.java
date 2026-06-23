@@ -72,9 +72,9 @@ public class PesquisaCniClient {
         pessoa.setGenero(text(entry, "SEXO"));
         pessoa.setEmail(text(entry, "EMAIL"));
         pessoa.setResidencia(text(entry, "MORADA"));
-        pessoa.setNomeMae(firstText(entry, "NOME_MAE", "NOME_MAE_PROPRIO"));
-        pessoa.setNomePai(firstText(entry, "NOME_PAI", "NOME_PAI_PROPRIO"));
-        pessoa.setEmissor(text(entry, "EMISSOR"));
+        pessoa.setNomeMae(firstTextOrValue(entry, "NOME_MAE", joinText(entry, "NOME_MAE_PROPRIO", "NOME_MAE_APELIDO")));
+        pessoa.setNomePai(firstTextOrValue(entry, "NOME_PAI", joinText(entry, "NOME_PAI_PROPRIO", "NOME_PAI_APELIDO")));
+        pessoa.setEmissor(firstText(entry, "EMISSOR", "EMISSOR_DOC", "EMISSOR_DESCRICAO"));
         pessoa.setOrigem("CNI");
         return pessoa;
     }
@@ -89,8 +89,33 @@ public class PesquisaCniClient {
         return null;
     }
 
+    private String firstTextOrValue(JsonNode node, String firstField, String fallbackValue) {
+        String value = text(node, firstField);
+        return StringUtils.hasText(value) ? value : fallbackValue;
+    }
+
+    private String joinText(JsonNode node, String... fields) {
+        List<String> values = new ArrayList<>();
+        for (String field : fields) {
+            String value = text(node, field);
+            if (StringUtils.hasText(value)) {
+                values.add(value);
+            }
+        }
+        return values.isEmpty() ? null : String.join(" ", values);
+    }
+
     private String text(JsonNode node, String field) {
         JsonNode value = node.path(field);
-        return value.isMissingNode() || value.isNull() || !StringUtils.hasText(value.asText()) ? null : value.asText();
+        if (value.isMissingNode() || value.isNull() || isNilNode(value)) {
+            return null;
+        }
+
+        String text = value.asText();
+        return StringUtils.hasText(text) ? text : null;
+    }
+
+    private boolean isNilNode(JsonNode value) {
+        return value.isObject() && "true".equalsIgnoreCase(value.path("@nil").asText());
     }
 }
