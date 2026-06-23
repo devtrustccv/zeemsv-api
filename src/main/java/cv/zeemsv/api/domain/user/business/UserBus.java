@@ -40,6 +40,7 @@ public class UserBus {
         entity.setId(userModel.getId());
         entity.setNome(userModel.getName());
         entity.setEmail(userModel.getEmail() != null ? userModel.getEmail() : userModel.getSubCmdcv());
+        entity.setPasswordHash(userModel.getPasswordHash());
         entity.setDmEstado(userModel.getStatus() != null ? userModel.getStatus().name() : UserStatus.PENDENTE.name());
         entity.setOrigem(userModel.getProvider());
         entity.setPessoaId(userModel.getPessoaId());
@@ -68,6 +69,7 @@ public class UserBus {
             .pessoaId(entity.getPessoaId())
             .name(entity.getNome())
             .email(entity.getEmail())
+            .passwordHash(entity.getPasswordHash())
             .status(parseStatus(entity.getDmEstado()))
             .subCmdcv(entity.getSubCmdcv())
             .provider(entity.getOrigem())

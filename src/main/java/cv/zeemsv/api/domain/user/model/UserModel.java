@@ -19,6 +19,7 @@ public class UserModel {
     private Integer pessoaId;
     private String name;
     private String email;
+    private String passwordHash;
     @Enumerated(EnumType.STRING)
     private UserStatus status;
     private String subCmdcv;

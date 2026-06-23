@@ -46,4 +46,7 @@ public class ZeeTUserEntity {
     @Column(name = "sub_cmdcv")
     private String subCmdcv;
 
+    @Column(name = "password_hash")
+    private String passwordHash;
+
 }
