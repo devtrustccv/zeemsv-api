@@ -20,7 +20,7 @@ public class ZeeTSocioRepresEntity {
     @Column(name = "id", nullable = false)
     private Integer id;
 
-    @Column(name = "id_investidor", nullable = false)
+    @Column(name = "id_investidor")
     private Integer idInvestidor;
 
     @Column(name = "nome", nullable = false, length = 100)
