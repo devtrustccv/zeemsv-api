@@ -9,11 +9,10 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -26,18 +25,21 @@ public class PesquisaCniClient {
             return List.of();
         }
 
-        String url = UriComponentsBuilder.fromHttpUrl(properties.getUrl())
-            .queryParamIfPresent("P_NIC", StringUtils.hasText(nrDocumento) ? Optional.of(nrDocumento) : Optional.empty())
-            .queryParamIfPresent("P_NOME_COMPLETO", StringUtils.hasText(nomeCompleto) ? Optional.of(nomeCompleto) : Optional.empty())
-            .toUriString();
+        Map<String, Object> body = Map.of(
+            "PesquisaDocumentoSNIAC", Map.of(
+                "P_NOME_COMPLETO", StringUtils.hasText(nomeCompleto) ? nomeCompleto : "",
+                "P_DATA_NASC", "",
+                "P_NIC", StringUtils.hasText(nrDocumento) ? nrDocumento : ""
+            )
+        );
 
         RestClient.RequestHeadersSpec<?> request = restClientBuilder.build()
             .post()
-            .uri(url)
+            .uri(properties.getUrl())
             .accept(MediaType.APPLICATION_JSON)
             .contentType(MediaType.APPLICATION_JSON)
             .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-            .body("{}");
+            .body(body);
 
         request = request.header(properties.getAuthorizationHeader(), authorizationValue());
 
