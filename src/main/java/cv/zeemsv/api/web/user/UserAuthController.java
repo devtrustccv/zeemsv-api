@@ -1,10 +1,14 @@
 package cv.zeemsv.api.web.user;
 
 import cv.zeemsv.api.application.user.dto.CredentialsLoginRequestDTO;
+import cv.zeemsv.api.application.generic.dto.OtpResponseDto;
+import cv.zeemsv.api.application.user.dto.ForgotPasswordRequestDTO;
 import cv.zeemsv.api.application.user.dto.LoginResponseDTO;
+import cv.zeemsv.api.application.user.dto.ResetPasswordRequestDTO;
 import cv.zeemsv.api.application.user.dto.UserRegistrationRequestDTO;
 import cv.zeemsv.api.application.user.dto.UserRegistrationResponseDTO;
 import cv.zeemsv.api.application.user.service.CredentialsLoginService;
+import cv.zeemsv.api.application.user.service.PasswordRecoveryService;
 import cv.zeemsv.api.application.user.service.UserRegistrationService;
 import cv.zeemsv.api.interfaces.dto.ApiResponse;
 import jakarta.validation.Valid;
@@ -22,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserAuthController {
     private final UserRegistrationService userRegistrationService;
     private final CredentialsLoginService credentialsLoginService;
+    private final PasswordRecoveryService passwordRecoveryService;
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<UserRegistrationResponseDTO>> register(
@@ -38,5 +43,21 @@ public class UserAuthController {
     ) {
         LoginResponseDTO response = credentialsLoginService.login(request, fingerprint);
         return ResponseEntity.ok(ApiResponse.ok("Login efetuado com sucesso", response));
+    }
+
+    @PostMapping("/password/forgot")
+    public ResponseEntity<ApiResponse<OtpResponseDto>> forgotPassword(
+        @Valid @RequestBody ForgotPasswordRequestDTO request
+    ) {
+        OtpResponseDto response = passwordRecoveryService.forgotPassword(request);
+        return ResponseEntity.ok(ApiResponse.ok("Se o email estiver registado, sera enviado um OTP de recuperacao.", response));
+    }
+
+    @PostMapping("/password/reset")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+        @Valid @RequestBody ResetPasswordRequestDTO request
+    ) {
+        passwordRecoveryService.resetPassword(request);
+        return ResponseEntity.ok(ApiResponse.ok("Password atualizada com sucesso", null));
     }
 }
