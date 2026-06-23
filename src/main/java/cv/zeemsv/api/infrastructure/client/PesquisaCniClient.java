@@ -65,6 +65,7 @@ public class PesquisaCniClient {
     private PessoaPesquisaResponseDTO toPessoa(JsonNode entry) {
         PessoaPesquisaResponseDTO pessoa = new PessoaPesquisaResponseDTO();
         pessoa.setNome(firstText(entry, "NOME", "NOME_COMPLETO"));
+        pessoa.setNif(text(entry, "NIF"));
         pessoa.setNrDocumento(text(entry, "NUM_DOCUMENTO"));
         pessoa.setTipoDocumento(text(entry, "id_tp_doc"));
         pessoa.setTpDoc(StringUtils.hasText(pessoa.getTipoDocumento()) ? pessoa.getTipoDocumento() : "BI");

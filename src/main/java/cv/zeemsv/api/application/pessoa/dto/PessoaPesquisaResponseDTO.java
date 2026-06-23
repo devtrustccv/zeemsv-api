@@ -6,6 +6,7 @@ import lombok.Setter;
 @Getter @Setter
 public class PessoaPesquisaResponseDTO {
     private String nome;
+    private String nif;
     private String nrDocumento;
     private String tipoDocumento;
     private String tpDoc;

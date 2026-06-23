@@ -2,9 +2,13 @@ package cv.zeemsv.api.application.investidor.service;
 
 import cv.zeemsv.api.application.investidor.dto.SocioRepresentanteRequestDTO;
 import cv.zeemsv.api.application.investidor.dto.SocioRepresentanteResponseDTO;
+import cv.zeemsv.api.domain.user.business.UserBus;
+import cv.zeemsv.api.domain.user.model.UserModel;
 import cv.zeemsv.api.exceptions.BusinessException;
 import cv.zeemsv.api.infrastructure.entity.ZeeTSocioRepresEntity;
 import cv.zeemsv.api.infrastructure.repository.ZeeTSocioRepresRepository;
+import cv.zeemsv.api.utils.Messages;
+import cv.zeemsv.api.utils.enums.UserStatus;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,11 +19,13 @@ import org.springframework.util.StringUtils;
 @RequiredArgsConstructor
 public class SocioRepresentanteServiceImpl implements SocioRepresentanteService {
     private final ZeeTSocioRepresRepository repository;
+    private final UserBus userBus;
 
     @Override
     @Transactional
     public SocioRepresentanteResponseDTO create(SocioRepresentanteRequestDTO dto) {
         validateUniqueFields(dto);
+        UserModel user = activateUserByEmail(dto.getEmail());
 
         ZeeTSocioRepresEntity entity = new ZeeTSocioRepresEntity();
         entity.setNome(trim(dto.getNome()));
@@ -33,8 +39,16 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
         entity.setEstado("A");
         entity.setDateCreate(LocalDate.now());
         entity.setIndicativoPais(trim(dto.getIndicativoPais()));
+        entity.setIdUser(user.getId());
 
         return toResponse(repository.save(entity));
+    }
+
+    private UserModel activateUserByEmail(String email) {
+        UserModel user = userBus.findByEmail(trim(email))
+            .orElseThrow(() -> new BusinessException(Messages.USER_NOT_FOUND, new RuntimeException(Messages.USER_NOT_FOUND)));
+        user.setStatus(UserStatus.ATIVO);
+        return userBus.save(user);
     }
 
     private void validateUniqueFields(SocioRepresentanteRequestDTO dto) {
@@ -73,6 +87,7 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
         dto.setDateCreate(entity.getDateCreate());
         dto.setUserCreate(entity.getUserCreate());
         dto.setIndicativoPais(entity.getIndicativoPais());
+        dto.setIdUser(entity.getIdUser());
         return dto;
     }
 }

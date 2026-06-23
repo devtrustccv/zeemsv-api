@@ -71,4 +71,7 @@ public class ZeeTSocioRepresEntity {
     @Column(name = "indicativo_pais")
     private String indicativoPais;
 
+    @Column(name = "id_user")
+    private Integer idUser;
+
 }

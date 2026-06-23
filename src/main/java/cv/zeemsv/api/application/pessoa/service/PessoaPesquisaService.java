@@ -76,6 +76,7 @@ public class PessoaPesquisaService {
     private PessoaPesquisaResponseDTO toPessoaSocioRepresLocal(ZeeTSocioRepresEntity entity) {
         PessoaPesquisaResponseDTO pessoa = new PessoaPesquisaResponseDTO();
         pessoa.setNome(entity.getNome());
+        pessoa.setNif(entity.getNif());
         pessoa.setNrDocumento(entity.getNrDoc());
         pessoa.setTipoDocumento(entity.getTipoDoc());
         pessoa.setTpDoc(entity.getTipoDoc());
@@ -89,6 +90,7 @@ public class PessoaPesquisaService {
     private PessoaPesquisaResponseDTO toPessoaInvestidorLocal(ZeeTInvestidorEntity entity) {
         PessoaPesquisaResponseDTO pessoa = new PessoaPesquisaResponseDTO();
         pessoa.setNome(entity.getDenominacao());
+        pessoa.setNif(entity.getNif());
         pessoa.setNrDocumento(entity.getNrDocumento());
         pessoa.setDataNascimento(entity.getDataNascimento() != null ? entity.getDataNascimento().format(DATE_FORMATTER) : null);
         pessoa.setNacionalidade(entity.getPaisOrigem());
