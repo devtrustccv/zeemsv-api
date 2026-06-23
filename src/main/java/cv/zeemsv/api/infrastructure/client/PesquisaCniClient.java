@@ -39,7 +39,7 @@ public class PesquisaCniClient {
             .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
             .body("{}");
 
-        request = request.header(HttpHeaders.AUTHORIZATION, properties.getAuthorization());
+        request = request.header(properties.getAuthorizationHeader(), authorizationValue());
 
         JsonNode response = request.retrieve().body(JsonNode.class);
         if (response == null) {
@@ -120,5 +120,17 @@ public class PesquisaCniClient {
 
     private boolean isNilNode(JsonNode value) {
         return value.isObject() && "true".equalsIgnoreCase(value.path("@nil").asText());
+    }
+
+    private String authorizationValue() {
+        String authorization = properties.getAuthorization().trim();
+        if (authorization.regionMatches(true, 0, "Bearer ", 0, "Bearer ".length())
+            || authorization.regionMatches(true, 0, "Basic ", 0, "Basic ".length())) {
+            return authorization;
+        }
+        if ("apikey".equalsIgnoreCase(properties.getAuthorizationHeader())) {
+            return authorization;
+        }
+        return properties.getAuthorizationScheme() + " " + authorization;
     }
 }

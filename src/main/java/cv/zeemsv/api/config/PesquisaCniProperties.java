@@ -12,4 +12,6 @@ public class PesquisaCniProperties {
     private boolean enabled = true;
     private String url;
     private String authorization;
+    private String authorizationHeader = "Authorization";
+    private String authorizationScheme = "Bearer";
 }
