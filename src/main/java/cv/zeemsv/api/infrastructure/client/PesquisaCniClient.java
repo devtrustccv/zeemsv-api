@@ -13,6 +13,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -26,15 +27,17 @@ public class PesquisaCniClient {
         }
 
         String url = UriComponentsBuilder.fromHttpUrl(properties.getUrl())
-            .queryParamIfPresent("P_NIC", StringUtils.hasText(nrDocumento) ? java.util.Optional.of(nrDocumento) : java.util.Optional.empty())
-            .queryParamIfPresent("P_NOME_COMPLETO", StringUtils.hasText(nomeCompleto) ? java.util.Optional.of(nomeCompleto) : java.util.Optional.empty())
+            .queryParamIfPresent("P_NIC", StringUtils.hasText(nrDocumento) ? Optional.of(nrDocumento) : Optional.empty())
+            .queryParamIfPresent("P_NOME_COMPLETO", StringUtils.hasText(nomeCompleto) ? Optional.of(nomeCompleto) : Optional.empty())
             .toUriString();
 
         RestClient.RequestHeadersSpec<?> request = restClientBuilder.build()
-            .get()
+            .post()
             .uri(url)
             .accept(MediaType.APPLICATION_JSON)
-            .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+            .contentType(MediaType.APPLICATION_JSON)
+            .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+            .body("{}");
 
         request = request.header(HttpHeaders.AUTHORIZATION, properties.getAuthorization());
 
