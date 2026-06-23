@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 public interface ZeeTSocioRepresRepository extends JpaRepository<ZeeTSocioRepresEntity, Integer>, JpaSpecificationExecutor<ZeeTSocioRepresEntity> {
     List<ZeeTSocioRepresEntity> findByNomeContainingIgnoreCase(String nome);
 
+    List<ZeeTSocioRepresEntity> findByNif(String nif);
+
     List<ZeeTSocioRepresEntity> findByNrDoc(String nrDoc);
 
     List<ZeeTSocioRepresEntity> findByNomeContainingIgnoreCaseAndNrDoc(String nome, String nrDoc);

@@ -5,6 +5,7 @@ import cv.zeemsv.api.application.generic.dto.OtpResponseDto;
 import cv.zeemsv.api.application.user.dto.ForgotPasswordRequestDTO;
 import cv.zeemsv.api.application.user.dto.LoginResponseDTO;
 import cv.zeemsv.api.application.user.dto.ResetPasswordRequestDTO;
+import cv.zeemsv.api.application.user.dto.UserRegistrationOtpRequestDTO;
 import cv.zeemsv.api.application.user.dto.UserRegistrationRequestDTO;
 import cv.zeemsv.api.application.user.dto.UserRegistrationResponseDTO;
 import cv.zeemsv.api.application.user.service.CredentialsLoginService;
@@ -34,6 +35,14 @@ public class UserAuthController {
     ) {
         UserRegistrationResponseDTO response = userRegistrationService.register(request);
         return ResponseEntity.ok(ApiResponse.ok("Utilizador registado com sucesso", response));
+    }
+
+    @PostMapping("/register/otp/send")
+    public ResponseEntity<ApiResponse<OtpResponseDto>> sendRegistrationOtp(
+        @Valid @RequestBody UserRegistrationOtpRequestDTO request
+    ) {
+        OtpResponseDto response = userRegistrationService.sendRegistrationOtp(request);
+        return ResponseEntity.ok(ApiResponse.ok("OTP de registo enviado com sucesso", response));
     }
 
     @PostMapping("/login")

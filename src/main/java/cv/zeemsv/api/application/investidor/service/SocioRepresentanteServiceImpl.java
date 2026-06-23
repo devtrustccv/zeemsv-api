@@ -2,6 +2,7 @@ package cv.zeemsv.api.application.investidor.service;
 
 import cv.zeemsv.api.application.investidor.dto.SocioRepresentanteRequestDTO;
 import cv.zeemsv.api.application.investidor.dto.SocioRepresentanteResponseDTO;
+import cv.zeemsv.api.exceptions.BusinessException;
 import cv.zeemsv.api.infrastructure.entity.ZeeTSocioRepresEntity;
 import cv.zeemsv.api.infrastructure.repository.ZeeTSocioRepresRepository;
 import java.time.LocalDate;
@@ -18,20 +19,38 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
     @Override
     @Transactional
     public SocioRepresentanteResponseDTO create(SocioRepresentanteRequestDTO dto) {
+        validateUniqueFields(dto);
+
         ZeeTSocioRepresEntity entity = new ZeeTSocioRepresEntity();
-        entity.setNome(dto.getNome());
-        entity.setNacionalidade(dto.getNacionalidade());
-        entity.setNif(dto.getNif());
-        entity.setTipoDoc(dto.getTipoDoc());
-        entity.setNrDoc(dto.getNrDoc());
+        entity.setNome(trim(dto.getNome()));
+        entity.setNacionalidade(trim(dto.getNacionalidade()));
+        entity.setNif(trim(dto.getNif()));
+        entity.setTipoDoc(trim(dto.getTipoDoc()));
+        entity.setNrDoc(trim(dto.getNrDoc()));
         entity.setTelefone(dto.getTelefone());
         entity.setTelemovel(dto.getTelemovel());
-        entity.setEmail(dto.getEmail());
-        entity.setEstado(StringUtils.hasText(dto.getEstado()) ? dto.getEstado() : "A");
+        entity.setEmail(trim(dto.getEmail()));
+        entity.setEstado("A");
         entity.setDateCreate(LocalDate.now());
-        entity.setIndicativoPais(dto.getIndicativoPais());
+        entity.setIndicativoPais(trim(dto.getIndicativoPais()));
 
         return toResponse(repository.save(entity));
+    }
+
+    private void validateUniqueFields(SocioRepresentanteRequestDTO dto) {
+        if (StringUtils.hasText(dto.getNif()) && !repository.findByNif(trim(dto.getNif())).isEmpty()) {
+            throw new BusinessException("Ja existe socio/representante com este NIF.",
+                new RuntimeException("Ja existe socio/representante com este NIF."));
+        }
+
+        if (StringUtils.hasText(dto.getNrDoc()) && !repository.findByNrDoc(trim(dto.getNrDoc())).isEmpty()) {
+            throw new BusinessException("Ja existe socio/representante com este numero de documento.",
+                new RuntimeException("Ja existe socio/representante com este numero de documento."));
+        }
+    }
+
+    private String trim(String value) {
+        return value != null ? value.trim() : null;
     }
 
     private SocioRepresentanteResponseDTO toResponse(ZeeTSocioRepresEntity entity) {

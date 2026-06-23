@@ -1,5 +1,8 @@
 package cv.zeemsv.api.application.user.service;
 
+import cv.zeemsv.api.application.generic.dto.OtpResponseDto;
+import cv.zeemsv.api.application.generic.service.OTPService;
+import cv.zeemsv.api.application.user.dto.UserRegistrationOtpRequestDTO;
 import cv.zeemsv.api.application.user.dto.UserRegistrationRequestDTO;
 import cv.zeemsv.api.application.user.dto.UserRegistrationResponseDTO;
 import cv.zeemsv.api.domain.user.business.UserBus;
@@ -17,10 +20,26 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserRegistrationService {
     private final UserBus userBus;
     private final PasswordEncoder passwordEncoder;
+    private final OTPService otpService;
+
+    public OtpResponseDto sendRegistrationOtp(UserRegistrationOtpRequestDTO request) {
+        String email = normalizeEmail(request.getEmail());
+        if (userBus.findByEmail(email).isPresent()) {
+            throw new BusinessException("Ja existe um utilizador registado com este email.",
+                new RuntimeException("Ja existe um utilizador registado com este email."));
+        }
+
+        var otp = otpService.sendOTP(email);
+        return OtpResponseDto.builder()
+            .otpLength(otp.getOtpLength())
+            .expirationMinutes(otp.getExpirationMinutes())
+            .expiresAt(otp.getExpiresAt())
+            .build();
+    }
 
     @Transactional
     public UserRegistrationResponseDTO register(UserRegistrationRequestDTO request) {
-        String email = request.getEmail().trim().toLowerCase();
+        String email = normalizeEmail(request.getEmail());
         if (!request.getPassword().equals(request.getConfirmPassword())) {
             throw new BusinessException("Password e confirmacao de password nao coincidem.",
                 new RuntimeException("Password e confirmacao de password nao coincidem."));
@@ -29,6 +48,10 @@ public class UserRegistrationService {
         if (userBus.findByEmail(email).isPresent()) {
             throw new BusinessException("Ja existe um utilizador registado com este email.",
                 new RuntimeException("Ja existe um utilizador registado com este email."));
+        }
+
+        if (!otpService.validateOtp(email, request.getOtp())) {
+            throw new BusinessException("OTP invalido ou expirado.", new RuntimeException("OTP invalido ou expirado."));
         }
 
         UserModel user = UserModel.builder()
@@ -46,5 +69,9 @@ public class UserRegistrationService {
             .name(saved.getName())
             .status(saved.getStatus())
             .build();
+    }
+
+    private String normalizeEmail(String email) {
+        return email.trim().toLowerCase();
     }
 }

@@ -1,5 +1,7 @@
 package cv.zeemsv.api.application.investidor.dto;
 
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import jakarta.validation.constraints.NotBlank;
 import java.math.BigDecimal;
 import lombok.Getter;
@@ -7,6 +9,7 @@ import lombok.Setter;
 
 @Getter
 @Setter
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class SocioRepresentanteRequestDTO {
     @NotBlank(message = "O campo nome e obrigatorio")
     private String nome;
@@ -18,6 +21,5 @@ public class SocioRepresentanteRequestDTO {
     private BigDecimal telefone;
     private BigDecimal telemovel;
     private String email;
-    private String estado;
     private String indicativoPais;
 }
