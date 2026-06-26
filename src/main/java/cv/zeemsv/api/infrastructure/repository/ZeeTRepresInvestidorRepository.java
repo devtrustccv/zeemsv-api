@@ -3,6 +3,7 @@ package cv.zeemsv.api.infrastructure.repository;
 import cv.zeemsv.api.infrastructure.entity.ZeeTRepresInvestidorEntity;
 import cv.zeemsv.api.infrastructure.repository.projection.RepresentanteInvestidorProjection;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -40,4 +41,49 @@ public interface ZeeTRepresInvestidorRepository extends JpaRepository<ZeeTRepres
         order by r.dataRegisto desc, r.id desc
         """)
     List<RepresentanteInvestidorProjection> findByInvestidorId(@Param("idInvestidor") Integer idInvestidor);
+
+    @Query("""
+        select
+            r.id as id,
+            r.idInvestidor as idInvestidor,
+            r.idSocioRepres as idSocioRepres,
+            r.idOrdem as idOrdem,
+            r.dmTpRepresentante as dmTpRepresentante,
+            r.flagRepresentante as flagRepresentante,
+            r.flagSocio as flagSocio,
+            r.dmPrincipal as dmPrincipal,
+            r.dmEstado as dmEstado,
+            r.dataRegisto as dataRegisto,
+            r.userRegisto as userRegisto,
+            r.idUser as idUser,
+            s.nome as nome,
+            s.nacionalidade as nacionalidade,
+            s.nif as nif,
+            s.tipoDoc as tipoDoc,
+            s.nrDoc as nrDoc,
+            s.telefone as telefone,
+            s.telemovel as telemovel,
+            s.email as email,
+            s.indicativoPais as indicativoPais
+        from ZeeTRepresInvestidorEntity r
+        join ZeeTSocioRepresEntity s on s.id = r.idSocioRepres
+        where r.idInvestidor = :idInvestidor
+            and r.dmTpRepresentante = 'SOCIO'
+            and (r.flagRepresentante is null or r.flagRepresentante = false)
+            and r.dmEstado = 'A'
+        order by s.nome asc, r.id desc
+        """)
+    List<RepresentanteInvestidorProjection> findSociosByInvestidorId(@Param("idInvestidor") Integer idInvestidor);
+
+    @Query("""
+        select r from ZeeTRepresInvestidorEntity r
+        where r.idInvestidor = :idInvestidor
+          and ((:idSocioRepres is null and r.idSocioRepres is null) or r.idSocioRepres = :idSocioRepres)
+          and ((:idOrdem is null and r.idOrdem is null) or r.idOrdem = :idOrdem)
+        """)
+    Optional<ZeeTRepresInvestidorEntity> findAssociation(
+        @Param("idInvestidor") Integer idInvestidor,
+        @Param("idSocioRepres") Integer idSocioRepres,
+        @Param("idOrdem") Integer idOrdem
+    );
 }

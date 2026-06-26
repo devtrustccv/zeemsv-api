@@ -1,8 +1,11 @@
 package cv.zeemsv.api.application.geografia.service;
 
+import cv.zeemsv.api.application.geografia.dto.NacionalidadeResponseDTO;
 import cv.zeemsv.api.infrastructure.entity.ZeeTGeografiaEntity;
 import cv.zeemsv.api.infrastructure.repository.ZeeTGeografiaRepository;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,18 +31,22 @@ public class GeografiaServiceImpl implements GeografiaService {
 
     @Override
     @Transactional(readOnly = true)
-    public Map<String, String> getNacionalidades() {
-        Map<String, String> nacionalidades = new LinkedHashMap<>();
-        nacionalidades.put("", "---Nacionalidade---");
+    public List<NacionalidadeResponseDTO> getNacionalidades() {
+        return repository.findByPaisIsNullOrderByNomeAsc().stream()
+            .filter(geografia -> !"0".equals(geografia.getId()))
+            .sorted(Comparator.comparing(ZeeTGeografiaEntity::getNome, String.CASE_INSENSITIVE_ORDER))
+            .map(geografia -> new NacionalidadeResponseDTO(
+                geografia.getId(),
+                geografia.getNome(),
+                nacionalidadeDescricao(geografia)
+            ))
+            .toList();
+    }
 
-        for (ZeeTGeografiaEntity geografia : repository.findByPaisIsNullOrderByNomeAsc()) {
-            String value = geografia.getNacionalidade() != null
-                ? geografia.getNacionalidade()
-                : geografia.getNome();
-            nacionalidades.put(geografia.getId(), value);
-        }
-
-        return nacionalidades;
+    private String nacionalidadeDescricao(ZeeTGeografiaEntity geografia) {
+        return geografia.getNacionalidade() != null
+            ? geografia.getNacionalidade()
+            : geografia.getNome();
     }
 
     @Override

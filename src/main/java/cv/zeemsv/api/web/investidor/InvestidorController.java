@@ -1,11 +1,14 @@
 package cv.zeemsv.api.web.investidor;
 
+import cv.zeemsv.api.application.investidor.dto.AssociarRepresentanteRequestDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorRequestDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorResponseDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorUserResponseDTO;
 import cv.zeemsv.api.application.investidor.dto.RepresentanteInvestidorResponseDTO;
 import cv.zeemsv.api.application.investidor.service.InvestidorService;
+import cv.zeemsv.api.application.investidor.service.AssociarRepresentanteService;
 import cv.zeemsv.api.application.investidor.service.RepresentanteInvestidorService;
+import cv.zeemsv.api.application.investidor.service.SocioRepresentanteService;
 import cv.zeemsv.api.interfaces.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +24,8 @@ import java.util.List;
 public class InvestidorController {
     private final InvestidorService service;
     private final RepresentanteInvestidorService representanteInvestidorService;
+    private final AssociarRepresentanteService associarRepresentanteService;
+    private final SocioRepresentanteService socioRepresentanteService;
 
     @PostMapping
     public ResponseEntity<ApiResponse<InvestidorResponseDTO>> create(@Valid @RequestBody InvestidorRequestDTO dto) {
@@ -52,6 +57,22 @@ public class InvestidorController {
         @PathVariable Integer idInvestidor
     ) {
         return ResponseEntity.ok(ApiResponse.ok("Representantes do investidor encontrados", representanteInvestidorService.findByInvestidorId(idInvestidor)));
+    }
+
+    @GetMapping("/{idInvestidor}/socios")
+    public ResponseEntity<ApiResponse<List<RepresentanteInvestidorResponseDTO>>> findSociosByInvestidor(
+        @PathVariable Integer idInvestidor
+    ) {
+        return ResponseEntity.ok(ApiResponse.ok("Socios do investidor encontrados", socioRepresentanteService.findSociosByInvestidorId(idInvestidor)));
+    }
+
+    @PostMapping("/{idInvestidor}/representantes")
+    public ResponseEntity<ApiResponse<RepresentanteInvestidorResponseDTO>> associarRepresentante(
+        @PathVariable Integer idInvestidor,
+        @Valid @RequestBody AssociarRepresentanteRequestDTO dto
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(ApiResponse.ok("Representante associado com sucesso", associarRepresentanteService.associar(idInvestidor, dto)));
     }
 
     @DeleteMapping("/{id}")

@@ -40,20 +40,19 @@ src/main/java/cv/zeemsv/api
 ## Executar localmente
 
 ```bash
-cp .env.example .env
-docker compose up --build
+java -jar target/zeemsv-api-0.0.1-SNAPSHOT.jar
 ```
 
 Swagger:
 
 ```text
-http://localhost:8080/zeemsv-api/swagger-ui.html
+http://localhost:8086/zeemsv-api/swagger-ui.html
 ```
 
 Healthcheck:
 
 ```text
-http://localhost:8080/zeemsv-api/actuator/health
+http://localhost:8086/zeemsv-api/actuator/health
 ```
 
 ## Nota técnica importante

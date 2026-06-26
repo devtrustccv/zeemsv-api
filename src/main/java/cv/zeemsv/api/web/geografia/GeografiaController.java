@@ -1,7 +1,9 @@
 package cv.zeemsv.api.web.geografia;
 
+import cv.zeemsv.api.application.geografia.dto.NacionalidadeResponseDTO;
 import cv.zeemsv.api.application.geografia.service.GeografiaService;
 import cv.zeemsv.api.interfaces.dto.ApiResponse;
+import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -21,7 +23,7 @@ public class GeografiaController {
     }
 
     @GetMapping("/nacionalidades")
-    public ResponseEntity<ApiResponse<Map<String, String>>> getNacionalidades() {
+    public ResponseEntity<ApiResponse<List<NacionalidadeResponseDTO>>> getNacionalidades() {
         return ResponseEntity.ok(ApiResponse.ok("Nacionalidades encontradas", service.getNacionalidades()));
     }
 
