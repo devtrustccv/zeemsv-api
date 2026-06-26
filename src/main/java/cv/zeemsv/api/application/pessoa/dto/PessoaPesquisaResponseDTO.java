@@ -14,6 +14,7 @@ public class PessoaPesquisaResponseDTO {
     private String dataEmissao;
     private String dataValidade;
     private String nacionalidade;
+    private String nacionalidadeId;
     private String telemovel;
     private String estadoCivil;
     private String genero;

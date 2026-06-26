@@ -1,6 +1,7 @@
 package cv.zeemsv.api.infrastructure.client;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import cv.zeemsv.api.application.geografia.service.NacionalidadeResolver;
 import cv.zeemsv.api.application.pessoa.dto.PessoaPesquisaResponseDTO;
 import cv.zeemsv.api.config.PesquisaCniProperties;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ import java.util.Map;
 public class PesquisaCniClient {
     private final RestClient.Builder restClientBuilder;
     private final PesquisaCniProperties properties;
+    private final NacionalidadeResolver nacionalidadeResolver;
 
     public List<PessoaPesquisaResponseDTO> pesquisar(String nrDocumento, String nomeCompleto) {
         if (!properties.isEnabled() || !StringUtils.hasText(properties.getUrl()) || !StringUtils.hasText(properties.getAuthorization())) {
@@ -73,6 +75,7 @@ public class PesquisaCniClient {
         pessoa.setDataEmissao(text(entry, "DT_EMISSAO"));
         pessoa.setDataValidade(text(entry, "DT_VALIDADE"));
         pessoa.setNacionalidade(firstText(entry, "NACIONALIDADE_ID", "NATURALIDADE_ID"));
+        pessoa.setNacionalidadeId(nacionalidadeResolver.resolveId(pessoa.getNacionalidade()));
         pessoa.setTelemovel(text(entry, "TELEMOVEL"));
         pessoa.setEstadoCivil(text(entry, "ESTADO_CIVIL"));
         pessoa.setGenero(text(entry, "SEXO"));

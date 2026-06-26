@@ -15,6 +15,7 @@ public class SocioRepresentanteResponseDTO {
     private Integer idInvestidor;
     private String nome;
     private String nacionalidade;
+    private String nacionalidadeId;
     private String nif;
     private String tipoDoc;
     private String nrDoc;

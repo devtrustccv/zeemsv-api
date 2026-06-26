@@ -1,6 +1,7 @@
 package cv.zeemsv.api.application.ordem.service;
 
 import cv.zeemsv.api.application.domain.DomainDescriptionHelper;
+import cv.zeemsv.api.application.geografia.service.NacionalidadeResolver;
 import cv.zeemsv.api.application.ordem.dto.OrdemResponseDTO;
 import cv.zeemsv.api.infrastructure.entity.ZeeTOrdemEntity;
 import cv.zeemsv.api.infrastructure.repository.ZeeTOrdemRepository;
@@ -15,6 +16,7 @@ import java.util.List;
 public class OrdemServiceImpl implements OrdemService {
     private final ZeeTOrdemRepository repository;
     private final DomainDescriptionHelper domainHelper;
+    private final NacionalidadeResolver nacionalidadeResolver;
 
     @Override
     @Transactional(readOnly = true)
@@ -40,6 +42,7 @@ public class OrdemServiceImpl implements OrdemService {
         dto.setNif(entity.getNif());
         dto.setNrDocumento(entity.getNrDocumento());
         dto.setNacionalidade(entity.getNacionalidade());
+        dto.setNacionalidadeId(nacionalidadeResolver.resolveId(entity.getNacionalidade()));
         dto.setNumeroInscricao(entity.getNumeroInscricao());
         dto.setEspecialidade(entity.getEspecialidade());
         dto.setDmEstado(entity.getDmEstado());

@@ -1,5 +1,6 @@
 package cv.zeemsv.api.application.pessoa.service;
 
+import cv.zeemsv.api.application.geografia.service.NacionalidadeResolver;
 import cv.zeemsv.api.application.pessoa.dto.PessoaPesquisaResponseDTO;
 import cv.zeemsv.api.infrastructure.client.PesquisaCniClient;
 import cv.zeemsv.api.infrastructure.entity.ZeeTInvestidorEntity;
@@ -22,6 +23,7 @@ public class PessoaPesquisaService {
     private final ZeeTSocioRepresRepository socioRepresRepository;
     private final ZeeTInvestidorRepository investidorRepository;
     private final PesquisaCniClient pesquisaCniClient;
+    private final NacionalidadeResolver nacionalidadeResolver;
 
     @Transactional(readOnly = true)
     public List<PessoaPesquisaResponseDTO> pesquisar(String nomeCompleto, String nrDocumento) {
@@ -81,6 +83,7 @@ public class PessoaPesquisaService {
         pessoa.setTipoDocumento(entity.getTipoDoc());
         pessoa.setTpDoc(entity.getTipoDoc());
         pessoa.setNacionalidade(entity.getNacionalidade());
+        pessoa.setNacionalidadeId(nacionalidadeResolver.resolveId(entity.getNacionalidade()));
         pessoa.setTelemovel(entity.getTelemovel() != null ? entity.getTelemovel().toPlainString() : null);
         pessoa.setEmail(entity.getEmail());
         pessoa.setOrigem("LOCAL_SOCIO_REPRES");
@@ -94,6 +97,7 @@ public class PessoaPesquisaService {
         pessoa.setNrDocumento(entity.getNrDocumento());
         pessoa.setDataNascimento(entity.getDataNascimento() != null ? entity.getDataNascimento().format(DATE_FORMATTER) : null);
         pessoa.setNacionalidade(entity.getPaisOrigem());
+        pessoa.setNacionalidadeId(nacionalidadeResolver.resolveId(entity.getPaisOrigem()));
         pessoa.setTelemovel(entity.getTelemovel() != null ? entity.getTelemovel().toPlainString() : null);
         pessoa.setEstadoCivil(entity.getDmEstadoCivil());
         pessoa.setGenero(entity.getDmGenero());

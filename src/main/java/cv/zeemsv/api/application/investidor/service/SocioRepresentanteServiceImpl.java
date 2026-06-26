@@ -1,6 +1,7 @@
 package cv.zeemsv.api.application.investidor.service;
 
 import cv.zeemsv.api.application.domain.DomainDescriptionHelper;
+import cv.zeemsv.api.application.geografia.service.NacionalidadeResolver;
 import cv.zeemsv.api.application.investidor.dto.RepresentanteInvestidorResponseDTO;
 import cv.zeemsv.api.application.investidor.dto.SocioRepresentanteRequestDTO;
 import cv.zeemsv.api.application.investidor.dto.SocioRepresentanteResponseDTO;
@@ -27,6 +28,7 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
     private final ZeeTRepresInvestidorRepository represInvestidorRepository;
     private final DomainDescriptionHelper domainHelper;
     private final UserBus userBus;
+    private final NacionalidadeResolver nacionalidadeResolver;
 
     @Override
     @Transactional
@@ -80,6 +82,11 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
             throw new BusinessException("Ja existe socio/representante com este numero de documento.",
                 new RuntimeException("Ja existe socio/representante com este numero de documento."));
         }
+
+        if (StringUtils.hasText(dto.getEmail()) && !repository.findByEmailIgnoreCase(trim(dto.getEmail())).isEmpty()) {
+            throw new BusinessException("Ja existe socio/representante com este email.",
+                new RuntimeException("Ja existe socio/representante com este email."));
+        }
     }
 
     private String trim(String value) {
@@ -92,6 +99,7 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
         dto.setIdInvestidor(entity.getIdInvestidor());
         dto.setNome(entity.getNome());
         dto.setNacionalidade(entity.getNacionalidade());
+        dto.setNacionalidadeId(nacionalidadeResolver.resolveId(entity.getNacionalidade()));
         dto.setNif(entity.getNif());
         dto.setTipoDoc(entity.getTipoDoc());
         dto.setNrDoc(entity.getNrDoc());
@@ -129,6 +137,7 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
         dto.setIdUser(projection.getIdUser());
         dto.setNome(projection.getNome());
         dto.setNacionalidade(projection.getNacionalidade());
+        dto.setNacionalidadeId(nacionalidadeResolver.resolveId(projection.getNacionalidade()));
         dto.setNif(projection.getNif());
         dto.setTipoDoc(projection.getTipoDoc());
         dto.setTipoDocDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_DOCUMENTO, projection.getTipoDoc()));

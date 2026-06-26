@@ -86,4 +86,17 @@ public interface ZeeTRepresInvestidorRepository extends JpaRepository<ZeeTRepres
         @Param("idSocioRepres") Integer idSocioRepres,
         @Param("idOrdem") Integer idOrdem
     );
+
+    @Query("""
+        select count(r)
+        from ZeeTRepresInvestidorEntity r
+        where r.idInvestidor = :idInvestidor
+            and r.dmEstado = 'A'
+            and upper(r.dmPrincipal) in ('S', 'SIM')
+            and (:id is null or r.id <> :id)
+        """)
+    long countOutrosPrincipaisAtivos(
+        @Param("idInvestidor") Integer idInvestidor,
+        @Param("id") Integer id
+    );
 }

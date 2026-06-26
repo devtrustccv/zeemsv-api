@@ -24,6 +24,7 @@ public class RepresentanteInvestidorResponseDTO {
     private Integer idUser;
     private String nome;
     private String nacionalidade;
+    private String nacionalidadeId;
     private String nif;
     private String tipoDoc;
     private String tipoDocDesc;

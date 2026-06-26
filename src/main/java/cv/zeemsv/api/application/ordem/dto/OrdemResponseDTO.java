@@ -19,6 +19,7 @@ public class OrdemResponseDTO {
     private BigDecimal nif;
     private String nrDocumento;
     private String nacionalidade;
+    private String nacionalidadeId;
     private BigDecimal numeroInscricao;
     private String especialidade;
     private String dmEstado;

@@ -1,6 +1,7 @@
 package cv.zeemsv.api.application.investidor.service;
 
 import cv.zeemsv.api.application.domain.DomainDescriptionHelper;
+import cv.zeemsv.api.application.geografia.service.NacionalidadeResolver;
 import cv.zeemsv.api.application.investidor.dto.RepresentanteInvestidorResponseDTO;
 import cv.zeemsv.api.infrastructure.repository.ZeeTRepresInvestidorRepository;
 import cv.zeemsv.api.infrastructure.repository.projection.RepresentanteInvestidorProjection;
@@ -15,6 +16,7 @@ import java.util.List;
 public class RepresentanteInvestidorServiceImpl implements RepresentanteInvestidorService {
     private final ZeeTRepresInvestidorRepository repository;
     private final DomainDescriptionHelper domainHelper;
+    private final NacionalidadeResolver nacionalidadeResolver;
 
     @Override
     @Transactional(readOnly = true)
@@ -44,6 +46,7 @@ public class RepresentanteInvestidorServiceImpl implements RepresentanteInvestid
         dto.setIdUser(projection.getIdUser());
         dto.setNome(projection.getNome());
         dto.setNacionalidade(projection.getNacionalidade());
+        dto.setNacionalidadeId(nacionalidadeResolver.resolveId(projection.getNacionalidade()));
         dto.setNif(projection.getNif());
         dto.setTipoDoc(projection.getTipoDoc());
         dto.setTipoDocDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_DOCUMENTO, projection.getTipoDoc()));
