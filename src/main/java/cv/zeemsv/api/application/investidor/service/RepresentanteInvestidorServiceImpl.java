@@ -45,8 +45,9 @@ public class RepresentanteInvestidorServiceImpl implements RepresentanteInvestid
         dto.setUserRegisto(projection.getUserRegisto());
         dto.setIdUser(projection.getIdUser());
         dto.setNome(projection.getNome());
-        dto.setNacionalidade(projection.getNacionalidade());
-        dto.setNacionalidadeId(nacionalidadeResolver.resolveId(projection.getNacionalidade()));
+        String nacionalidade = projection.getNacionalidade();
+        dto.setNacionalidade(nacionalidadeResolver.resolveDescricao(nacionalidade));
+        dto.setNacionalidadeId(nacionalidadeResolver.resolveId(nacionalidade));
         dto.setNif(projection.getNif());
         dto.setTipoDoc(projection.getTipoDoc());
         dto.setTipoDocDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_DOCUMENTO, projection.getTipoDoc()));

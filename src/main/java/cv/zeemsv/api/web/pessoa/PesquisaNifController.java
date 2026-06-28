@@ -20,4 +20,5 @@ public class PesquisaNifController {
     public ResponseEntity<ApiResponse<PesquisaNifResponseDTO>> pesquisar(@RequestParam String nif) {
         return ResponseEntity.ok(ApiResponse.ok("Pesquisa realizada com sucesso", service.pesquisar(nif).orElse(null)));
     }
+
 }

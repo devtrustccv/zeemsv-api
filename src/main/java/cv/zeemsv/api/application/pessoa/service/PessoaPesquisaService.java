@@ -82,8 +82,9 @@ public class PessoaPesquisaService {
         pessoa.setNrDocumento(entity.getNrDoc());
         pessoa.setTipoDocumento(entity.getTipoDoc());
         pessoa.setTpDoc(entity.getTipoDoc());
-        pessoa.setNacionalidade(entity.getNacionalidade());
-        pessoa.setNacionalidadeId(nacionalidadeResolver.resolveId(entity.getNacionalidade()));
+        String nacionalidade = entity.getNacionalidade();
+        pessoa.setNacionalidade(nacionalidadeResolver.resolveDescricao(nacionalidade));
+        pessoa.setNacionalidadeId(nacionalidadeResolver.resolveId(nacionalidade));
         pessoa.setTelemovel(entity.getTelemovel() != null ? entity.getTelemovel().toPlainString() : null);
         pessoa.setEmail(entity.getEmail());
         pessoa.setOrigem("LOCAL_SOCIO_REPRES");
@@ -96,8 +97,9 @@ public class PessoaPesquisaService {
         pessoa.setNif(entity.getNif());
         pessoa.setNrDocumento(entity.getNrDocumento());
         pessoa.setDataNascimento(entity.getDataNascimento() != null ? entity.getDataNascimento().format(DATE_FORMATTER) : null);
-        pessoa.setNacionalidade(entity.getPaisOrigem());
-        pessoa.setNacionalidadeId(nacionalidadeResolver.resolveId(entity.getPaisOrigem()));
+        String nacionalidade = entity.getPaisOrigem();
+        pessoa.setNacionalidade(nacionalidadeResolver.resolveDescricao(nacionalidade));
+        pessoa.setNacionalidadeId(nacionalidadeResolver.resolveId(nacionalidade));
         pessoa.setTelemovel(entity.getTelemovel() != null ? entity.getTelemovel().toPlainString() : null);
         pessoa.setEstadoCivil(entity.getDmEstadoCivil());
         pessoa.setGenero(entity.getDmGenero());

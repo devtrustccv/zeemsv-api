@@ -33,4 +33,13 @@ public class PesquisaNifService {
         return pesquisaSircClient.pesquisar(nifNormalizado)
             .or(() -> pesquisaNifClient.pesquisar(nifNormalizado));
     }
+
+    public Optional<PesquisaNifResponseDTO> pesquisarLocal(String nif) {
+        if (!StringUtils.hasText(nif)) {
+            return Optional.empty();
+        }
+        return investidorRepository.findByNif(nif.trim()).stream()
+            .findFirst()
+            .map(pesquisaInvestidorHelper::fromInvestidorLocal);
+    }
 }

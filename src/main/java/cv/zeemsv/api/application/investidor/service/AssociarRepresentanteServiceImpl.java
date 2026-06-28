@@ -236,8 +236,9 @@ public class AssociarRepresentanteServiceImpl implements AssociarRepresentanteSe
 
         if (socioRepres != null) {
             dto.setNome(socioRepres.getNome());
-            dto.setNacionalidade(socioRepres.getNacionalidade());
-            dto.setNacionalidadeId(nacionalidadeResolver.resolveId(socioRepres.getNacionalidade()));
+            String nacionalidade = socioRepres.getNacionalidade();
+            dto.setNacionalidade(nacionalidadeResolver.resolveDescricao(nacionalidade));
+            dto.setNacionalidadeId(nacionalidadeResolver.resolveId(nacionalidade));
             dto.setNif(socioRepres.getNif());
             dto.setTipoDoc(socioRepres.getTipoDoc());
             dto.setNrDoc(socioRepres.getNrDoc());
@@ -247,8 +248,9 @@ public class AssociarRepresentanteServiceImpl implements AssociarRepresentanteSe
             dto.setIndicativoPais(socioRepres.getIndicativoPais());
         } else if (ordem != null) {
             dto.setNome(ordem.getNome());
-            dto.setNacionalidade(ordem.getNacionalidade());
-            dto.setNacionalidadeId(nacionalidadeResolver.resolveId(ordem.getNacionalidade()));
+            String nacionalidade = ordem.getNacionalidade();
+            dto.setNacionalidade(nacionalidadeResolver.resolveDescricao(nacionalidade));
+            dto.setNacionalidadeId(nacionalidadeResolver.resolveId(nacionalidade));
             dto.setNif(ordem.getNif() != null ? ordem.getNif().toPlainString() : null);
             dto.setTipoDoc(ordem.getDmTpDoc());
             dto.setNrDoc(ordem.getNrDocumento());

@@ -41,8 +41,9 @@ public class OrdemServiceImpl implements OrdemService {
         dto.setTelemovel(entity.getTelemovel());
         dto.setNif(entity.getNif());
         dto.setNrDocumento(entity.getNrDocumento());
-        dto.setNacionalidade(entity.getNacionalidade());
-        dto.setNacionalidadeId(nacionalidadeResolver.resolveId(entity.getNacionalidade()));
+        String nacionalidade = entity.getNacionalidade();
+        dto.setNacionalidade(nacionalidadeResolver.resolveDescricao(nacionalidade));
+        dto.setNacionalidadeId(nacionalidadeResolver.resolveId(nacionalidade));
         dto.setNumeroInscricao(entity.getNumeroInscricao());
         dto.setEspecialidade(entity.getEspecialidade());
         dto.setDmEstado(entity.getDmEstado());

@@ -74,8 +74,9 @@ public class PesquisaCniClient {
         pessoa.setDataNascimento(firstText(entry, "DT_NASC", "DATA_NASC"));
         pessoa.setDataEmissao(text(entry, "DT_EMISSAO"));
         pessoa.setDataValidade(text(entry, "DT_VALIDADE"));
-        pessoa.setNacionalidade(firstText(entry, "NACIONALIDADE_ID", "NATURALIDADE_ID"));
-        pessoa.setNacionalidadeId(nacionalidadeResolver.resolveId(pessoa.getNacionalidade()));
+        String nacionalidade = firstText(entry, "NACIONALIDADE_ID", "NATURALIDADE_ID");
+        pessoa.setNacionalidade(nacionalidadeResolver.resolveDescricao(nacionalidade));
+        pessoa.setNacionalidadeId(nacionalidadeResolver.resolveId(nacionalidade));
         pessoa.setTelemovel(text(entry, "TELEMOVEL"));
         pessoa.setEstadoCivil(text(entry, "ESTADO_CIVIL"));
         pessoa.setGenero(text(entry, "SEXO"));

@@ -98,8 +98,9 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
         dto.setId(entity.getId());
         dto.setIdInvestidor(entity.getIdInvestidor());
         dto.setNome(entity.getNome());
-        dto.setNacionalidade(entity.getNacionalidade());
-        dto.setNacionalidadeId(nacionalidadeResolver.resolveId(entity.getNacionalidade()));
+        String nacionalidade = entity.getNacionalidade();
+        dto.setNacionalidade(nacionalidadeResolver.resolveDescricao(nacionalidade));
+        dto.setNacionalidadeId(nacionalidadeResolver.resolveId(nacionalidade));
         dto.setNif(entity.getNif());
         dto.setTipoDoc(entity.getTipoDoc());
         dto.setNrDoc(entity.getNrDoc());
@@ -136,8 +137,9 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
         dto.setUserRegisto(projection.getUserRegisto());
         dto.setIdUser(projection.getIdUser());
         dto.setNome(projection.getNome());
-        dto.setNacionalidade(projection.getNacionalidade());
-        dto.setNacionalidadeId(nacionalidadeResolver.resolveId(projection.getNacionalidade()));
+        String nacionalidade = projection.getNacionalidade();
+        dto.setNacionalidade(nacionalidadeResolver.resolveDescricao(nacionalidade));
+        dto.setNacionalidadeId(nacionalidadeResolver.resolveId(nacionalidade));
         dto.setNif(projection.getNif());
         dto.setTipoDoc(projection.getTipoDoc());
         dto.setTipoDocDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_DOCUMENTO, projection.getTipoDoc()));

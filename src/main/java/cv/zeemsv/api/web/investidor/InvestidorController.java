@@ -9,6 +9,8 @@ import cv.zeemsv.api.application.investidor.service.InvestidorService;
 import cv.zeemsv.api.application.investidor.service.AssociarRepresentanteService;
 import cv.zeemsv.api.application.investidor.service.RepresentanteInvestidorService;
 import cv.zeemsv.api.application.investidor.service.SocioRepresentanteService;
+import cv.zeemsv.api.application.pessoa.dto.PesquisaNifResponseDTO;
+import cv.zeemsv.api.application.pessoa.service.PesquisaNifService;
 import cv.zeemsv.api.interfaces.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,7 @@ public class InvestidorController {
     private final RepresentanteInvestidorService representanteInvestidorService;
     private final AssociarRepresentanteService associarRepresentanteService;
     private final SocioRepresentanteService socioRepresentanteService;
+    private final PesquisaNifService pesquisaNifService;
 
     @PostMapping
     public ResponseEntity<ApiResponse<InvestidorResponseDTO>> create(@Valid @RequestBody InvestidorRequestDTO dto) {
@@ -50,6 +53,11 @@ public class InvestidorController {
     @GetMapping("/user/email/{email}")
     public ResponseEntity<ApiResponse<List<InvestidorUserResponseDTO>>> findByUserEmail(@PathVariable String email) {
         return ResponseEntity.ok(ApiResponse.ok("Investidores associados ao utilizador encontrados", service.findByUserEmail(email)));
+    }
+
+    @GetMapping("/pesquisa-nif-local")
+    public ResponseEntity<ApiResponse<PesquisaNifResponseDTO>> pesquisarLocalPorNif(@RequestParam String nif) {
+        return ResponseEntity.ok(ApiResponse.ok("Pesquisa local realizada com sucesso", pesquisaNifService.pesquisarLocal(nif).orElse(null)));
     }
 
     @GetMapping("/{idInvestidor}/representantes")

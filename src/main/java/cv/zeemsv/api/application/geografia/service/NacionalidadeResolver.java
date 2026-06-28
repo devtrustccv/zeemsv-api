@@ -13,9 +13,19 @@ import org.springframework.util.StringUtils;
 @RequiredArgsConstructor
 public class NacionalidadeResolver {
     private final ZeeTGeografiaRepository repository;
-    private volatile Map<String, String> index;
+    private volatile Map<String, NacionalidadeInfo> index;
 
     public String resolveId(String nacionalidade) {
+        NacionalidadeInfo info = resolve(nacionalidade);
+        return info != null ? info.id() : null;
+    }
+
+    public String resolveDescricao(String nacionalidade) {
+        NacionalidadeInfo info = resolve(nacionalidade);
+        return info != null ? info.descricao() : nacionalidade;
+    }
+
+    private NacionalidadeInfo resolve(String nacionalidade) {
         if (!StringUtils.hasText(nacionalidade)) {
             return null;
         }
@@ -23,8 +33,8 @@ public class NacionalidadeResolver {
         return getIndex().get(normalize(nacionalidade));
     }
 
-    private Map<String, String> getIndex() {
-        Map<String, String> currentIndex = index;
+    private Map<String, NacionalidadeInfo> getIndex() {
+        Map<String, NacionalidadeInfo> currentIndex = index;
         if (currentIndex == null) {
             synchronized (this) {
                 currentIndex = index;
@@ -38,20 +48,27 @@ public class NacionalidadeResolver {
         return currentIndex;
     }
 
-    private Map<String, String> buildIndex() {
-        Map<String, String> values = new HashMap<>();
+    private Map<String, NacionalidadeInfo> buildIndex() {
+        Map<String, NacionalidadeInfo> values = new HashMap<>();
         for (ZeeTGeografiaEntity geografia : repository.findByPaisIsNullOrderByNomeAsc()) {
-            add(values, geografia.getId(), geografia.getId());
-            add(values, geografia.getNome(), geografia.getId());
-            add(values, geografia.getNacionalidade(), geografia.getId());
+            NacionalidadeInfo info = new NacionalidadeInfo(geografia.getId(), descricao(geografia));
+            add(values, geografia.getId(), info);
+            add(values, geografia.getNome(), info);
+            add(values, geografia.getNacionalidade(), info);
         }
         return Map.copyOf(values);
     }
 
-    private void add(Map<String, String> values, String key, String id) {
-        if (StringUtils.hasText(key) && StringUtils.hasText(id)) {
-            values.putIfAbsent(normalize(key), id);
+    private void add(Map<String, NacionalidadeInfo> values, String key, NacionalidadeInfo info) {
+        if (StringUtils.hasText(key) && StringUtils.hasText(info.id())) {
+            values.putIfAbsent(normalize(key), info);
         }
+    }
+
+    private String descricao(ZeeTGeografiaEntity geografia) {
+        return StringUtils.hasText(geografia.getNacionalidade())
+            ? geografia.getNacionalidade()
+            : geografia.getNome();
     }
 
     private String normalize(String value) {
@@ -61,5 +78,8 @@ public class NacionalidadeResolver {
 
         String normalized = Normalizer.normalize(value.trim(), Normalizer.Form.NFD);
         return normalized.replaceAll("\\p{M}", "").toUpperCase();
+    }
+
+    private record NacionalidadeInfo(String id, String descricao) {
     }
 }
