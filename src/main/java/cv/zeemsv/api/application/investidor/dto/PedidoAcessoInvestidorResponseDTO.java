@@ -15,6 +15,7 @@ public class PedidoAcessoInvestidorResponseDTO {
     private Integer idInvestidor;
     private String dmTpRepresentante;
     private String ficheiroCompravativo;
+    private byte[] ficheiroCompravativoBytes;
     private String dmEstado;
     private String obs;
     private LocalDate dataRegisto;

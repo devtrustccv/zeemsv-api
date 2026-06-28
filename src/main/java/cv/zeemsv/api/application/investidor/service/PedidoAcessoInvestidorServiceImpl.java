@@ -78,7 +78,7 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
 
         return repository.findByIdUtilizadorOrderByDataRegistoDescIdDesc(idUser)
             .stream()
-            .map(this::toResponse)
+            .map(this::toResponseWithFileContent)
             .toList();
     }
 
@@ -110,6 +110,12 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         dto.setDataRegisto(entity.getDataRegisto());
         dto.setDataResposta(entity.getDataResposta());
         dto.setUserResposta(entity.getUserResposta());
+        return dto;
+    }
+
+    private PedidoAcessoInvestidorResponseDTO toResponseWithFileContent(ZeeTPedidoAcessoInvestidorEntity entity) {
+        PedidoAcessoInvestidorResponseDTO dto = toResponse(entity);
+        dto.setFicheiroCompravativoBytes(documentoBus.getDocContentByPath(entity.getFicheiroCompravativo()));
         return dto;
     }
 }
