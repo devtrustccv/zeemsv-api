@@ -17,6 +17,5 @@ public class PedidoAcessoInvestidorRequestDTO {
     private Integer idInvestidor;
 
     private String dmTpRepresentante;
-    private String dmEstado;
     private String obs;
 }

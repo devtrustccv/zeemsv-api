@@ -12,6 +12,7 @@ import cv.zeemsv.api.infrastructure.repository.ZeeTPedidoAcessoInvestidorReposit
 import cv.zeemsv.api.infrastructure.repository.ZeeTUserRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidorService {
     private static final String TIPO_RELACAO_PEDIDO_ACESSO = "PEDIDO_ACESSO";
     private static final String NOME_FICHEIRO_COMPRAVATIVO = "ficheiro_compravativo";
+    private static final String ESTADO_PENDENTE = "PENDENTE";
 
     private final ZeeTPedidoAcessoInvestidorRepository repository;
     private final ZeeTUserRepository userRepository;
@@ -44,9 +46,7 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
             throw new BusinessException("Investidor nao encontrado.");
         }
 
-        String dmEstado = trim(dto.getDmEstado());
-        if (isNaoRejeitado(dmEstado)
-            && repository.existsNaoRejeitadoByIdUtilizadorAndIdInvestidor(dto.getIdUser(), dto.getIdInvestidor())) {
+        if (repository.existsNaoRejeitadoByIdUtilizadorAndIdInvestidor(dto.getIdUser(), dto.getIdInvestidor())) {
             throw new BusinessException("Ja existe pedido de acesso para este utilizador e investidor.");
         }
 
@@ -54,7 +54,7 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         entity.setIdUtilizador(dto.getIdUser());
         entity.setIdInvestidor(dto.getIdInvestidor());
         entity.setDmTpRepresentante(trim(dto.getDmTpRepresentante()));
-        entity.setDmEstado(dmEstado);
+        entity.setDmEstado(ESTADO_PENDENTE);
         entity.setObs(trim(dto.getObs()));
         entity.setDataRegisto(LocalDate.now());
 
@@ -69,12 +69,21 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         }
     }
 
-    private String trim(String value) {
-        return value != null ? value.trim() : null;
+    @Override
+    @Transactional(readOnly = true)
+    public List<PedidoAcessoInvestidorResponseDTO> findByUserId(Integer idUser) {
+        if (!userRepository.existsById(idUser)) {
+            throw new BusinessException("Utilizador nao encontrado.");
+        }
+
+        return repository.findByIdUtilizadorOrderByDataRegistoDescIdDesc(idUser)
+            .stream()
+            .map(this::toResponse)
+            .toList();
     }
 
-    private boolean isNaoRejeitado(String dmEstado) {
-        return dmEstado == null || !"REJEITADO".equalsIgnoreCase(dmEstado);
+    private String trim(String value) {
+        return value != null ? value.trim() : null;
     }
 
     private UploadDTO buildUpload(ZeeTPedidoAcessoInvestidorEntity pedidoAcesso, MultipartFile ficheiroCompravativo) {

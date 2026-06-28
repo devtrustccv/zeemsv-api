@@ -3,6 +3,7 @@ package cv.zeemsv.api.interfaces.error;
 import cv.zeemsv.api.exceptions.BusinessException;
 import cv.zeemsv.api.interfaces.dto.ApiResponse;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -29,5 +30,12 @@ public class ApiExceptionHandler {
         Map<String, String> errors = new HashMap<>();
         ex.getBindingResult().getFieldErrors().forEach(e -> errors.put(e.getField(), e.getDefaultMessage()));
         return ResponseEntity.badRequest().body(ApiResponse.fail("Dados inválidos", errors));
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiResponse<Map<String, String>>> constraintViolation(ConstraintViolationException ex) {
+        Map<String, String> errors = new HashMap<>();
+        ex.getConstraintViolations().forEach(e -> errors.put(e.getPropertyPath().toString(), e.getMessage()));
+        return ResponseEntity.badRequest().body(ApiResponse.fail("Dados invalidos", errors));
     }
 }

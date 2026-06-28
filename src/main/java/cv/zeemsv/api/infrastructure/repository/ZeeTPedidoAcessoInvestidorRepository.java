@@ -1,12 +1,15 @@
 package cv.zeemsv.api.infrastructure.repository;
 
 import cv.zeemsv.api.infrastructure.entity.ZeeTPedidoAcessoInvestidorEntity;
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface ZeeTPedidoAcessoInvestidorRepository extends JpaRepository<ZeeTPedidoAcessoInvestidorEntity, Integer>, JpaSpecificationExecutor<ZeeTPedidoAcessoInvestidorEntity> {
+    List<ZeeTPedidoAcessoInvestidorEntity> findByIdUtilizadorOrderByDataRegistoDescIdDesc(Integer idUtilizador);
+
     @Query(value = """
         select exists (
             select 1
