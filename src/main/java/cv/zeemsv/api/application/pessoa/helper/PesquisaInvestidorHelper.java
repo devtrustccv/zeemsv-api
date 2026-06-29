@@ -14,6 +14,7 @@ public class PesquisaInvestidorHelper {
 
     public PesquisaNifResponseDTO fromInvestidorLocal(ZeeTInvestidorEntity entity) {
         PesquisaNifResponseDTO dto = new PesquisaNifResponseDTO();
+        dto.setIdInvestidor(entity.getId());
         dto.setNif(entity.getNif());
         dto.setNome(entity.getDenominacao());
         dto.setMatricula(entity.getMatricula());

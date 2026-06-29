@@ -6,6 +6,7 @@ import lombok.Setter;
 
 @Getter @Setter
 public class PesquisaNifResponseDTO {
+    private Integer idInvestidor;
     private String nif;
     private String nome;
     private String matricula;
