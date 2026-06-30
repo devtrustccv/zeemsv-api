@@ -16,6 +16,7 @@ import cv.zeemsv.api.infrastructure.entity.ZeeTEmailsEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTInvestidorEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTPedidoAcessoInvestidorEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTParamReportEntity;
+import cv.zeemsv.api.infrastructure.entity.ZeeTRepresInvestidorEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTSocioRepresEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTUserEntity;
 import cv.zeemsv.api.infrastructure.repository.TNotificacaoRelacaoRepository;
@@ -54,6 +55,7 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
     private static final String TEMPLATE_PEDIDO_ACESSO = "PEDIDO_ACESSO";
     private static final String TIPO_NOTIFICACAO_EMAIL = "EMAIL";
     private static final String RELACAO_UTILIZADOR = "UTILIZADOR";
+    private static final String TIPO_SOCIO = "SOCIO";
 
     private final ZeeTPedidoAcessoInvestidorRepository repository;
     private final ZeeTUserRepository userRepository;
@@ -90,6 +92,7 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         Integer idSocioRepres = dto.getIdSocioRepres();
         if (isPedidoRepresentanteInvestidor(dto)) {
             idSocioRepres = resolveSocioRepres(dto);
+            createRepresInvestidorPendente(dto, idSocioRepres);
         }
 
         ZeeTPedidoAcessoInvestidorEntity entity = new ZeeTPedidoAcessoInvestidorEntity();
@@ -163,7 +166,7 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
     }
 
     private Integer resolveSocioRepres(PedidoAcessoInvestidorRequestDTO dto) {
-        ZeeTSocioRepresEntity existing = findSocioRepresByNif(dto.getNif());
+        ZeeTSocioRepresEntity existing = findSocioRepres(dto);
         if (existing != null) {
             if (represInvestidorRepository.findAssociation(dto.getIdInvestidor(), existing.getId(), null).isPresent()) {
                 throw new BusinessException("Socio/representante ja associado ao investidor.");
@@ -176,6 +179,14 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         return socioRepresentante.getId();
     }
 
+    private ZeeTSocioRepresEntity findSocioRepres(PedidoAcessoInvestidorRequestDTO dto) {
+        if (dto.getIdSocioRepres() != null) {
+            return socioRepresRepository.findById(dto.getIdSocioRepres())
+                .orElseThrow(() -> new BusinessException("Socio/representante nao encontrado."));
+        }
+        return findSocioRepresByNif(dto.getNif());
+    }
+
     private ZeeTSocioRepresEntity findSocioRepresByNif(String nif) {
         if (!StringUtils.hasText(nif)) {
             return null;
@@ -183,6 +194,23 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         return socioRepresRepository.findByNif(trim(nif)).stream()
             .findFirst()
             .orElse(null);
+    }
+
+    private void createRepresInvestidorPendente(PedidoAcessoInvestidorRequestDTO dto, Integer idSocioRepres) {
+        ZeeTSocioRepresEntity socioRepres = socioRepresRepository.findById(idSocioRepres)
+            .orElseThrow(() -> new BusinessException("Socio/representante nao encontrado."));
+
+        ZeeTRepresInvestidorEntity represInvestidor = new ZeeTRepresInvestidorEntity();
+        represInvestidor.setIdInvestidor(dto.getIdInvestidor());
+        represInvestidor.setIdSocioRepres(idSocioRepres);
+        represInvestidor.setDmTpRepresentante(firstText(dto.getDmTpRepresentante(), TIPO_SOCIO));
+        represInvestidor.setFlagRepresentante(true);
+        represInvestidor.setFlagSocio(TIPO_SOCIO.equalsIgnoreCase(firstText(dto.getDmTpRepresentante(), TIPO_SOCIO)));
+        represInvestidor.setDmEstado(ESTADO_PENDENTE);
+        represInvestidor.setDataRegisto(LocalDate.now());
+        represInvestidor.setUserRegisto(BigDecimal.valueOf(dto.getIdUser()));
+        represInvestidor.setIdUser(socioRepres.getIdUser());
+        represInvestidorRepository.save(represInvestidor);
     }
 
     private void notifyTecnicos(ZeeTPedidoAcessoInvestidorEntity pedido, ZeeTInvestidorEntity investidor) {

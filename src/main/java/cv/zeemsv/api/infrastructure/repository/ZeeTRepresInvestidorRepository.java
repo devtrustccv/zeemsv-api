@@ -39,7 +39,7 @@ public interface ZeeTRepresInvestidorRepository extends JpaRepository<ZeeTRepres
         left join ZeeTSocioRepresEntity s on s.id = r.idSocioRepres
         left join ZeeTOrdemEntity o on o.id = r.idOrdem
         where r.idInvestidor = :idInvestidor
-            and r.dmEstado = 'A'
+            and r.dmEstado in ('A', 'PENDENTE')
         order by r.dataRegisto desc, r.id desc
         """)
     List<RepresentanteInvestidorProjection> findByInvestidorId(@Param("idInvestidor") Integer idInvestidor);
@@ -70,9 +70,7 @@ public interface ZeeTRepresInvestidorRepository extends JpaRepository<ZeeTRepres
         from ZeeTRepresInvestidorEntity r
         join ZeeTSocioRepresEntity s on s.id = r.idSocioRepres
         where r.idInvestidor = :idInvestidor
-            and r.dmTpRepresentante = 'SOCIO'
-            and (r.flagRepresentante is null or r.flagRepresentante = false)
-            and r.dmEstado = 'A'
+            and r.dmEstado in ('A', 'PENDENTE')
         order by s.nome asc, r.id desc
         """)
     List<RepresentanteInvestidorProjection> findSociosByInvestidorId(@Param("idInvestidor") Integer idInvestidor);
