@@ -220,7 +220,7 @@ public class SessionService {
             .name(user.getName())
             .status(user.getStatus())
             .subCmdcv(user.getSubCmdcv())
-            .role(representanteInvestidorRepository.existsByIdUser(user.getId()) ? "INVESTIDOR" : "PROMOTOR")
+            .role(representanteInvestidorRepository.existsByIdUser(user.getId()) ? "INVESTIDOR" : "none_investidor")
             .build();
 
         Optional<PessoaModel> pessoaOpt;
