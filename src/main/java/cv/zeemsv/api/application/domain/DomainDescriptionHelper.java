@@ -16,10 +16,16 @@ public class DomainDescriptionHelper {
     public static final String ESTADO = "ESTADO";
     public static final String ESTADO_ATIVIDADE = "ESTADO_ATIVIDADE";
     public static final String ESTADO_INSTALACAO = "ESTADO_INSTALACAO";
+    public static final String ESTADO_PEDIDO = "ESTADO_PEDIDO";
     public static final String ESTADO_PROC_SOLICIT = "ESTADO_PROC_SOLICIT";
     public static final String ESTADO_PROCESO = "ESTADO_PROCESO";
     public static final String ESTADO_PROJETO = "ESTADO_PROJETO";
+    public static final String ESTADO_CIVIL = "ESTADO_CIVIL";
     public static final String FORMA_COMERCIALIZACAO = "FORMA_COMERCIALIZACAO";
+    public static final String GENERO = "GENERO";
+    public static final String IDIOMA = "IDIOMA";
+    public static final String MOEDA = "MOEDA";
+    public static final String NATUREZA_JURIDICA = "NATUREZA_JURIDICA";
     public static final String ORIGEM = "ORIGEM";
     public static final String PRIORIDADE_TAREFA = "PRIORIDADE_TAREFA";
     public static final String PRODUTO_SERVICO = "PRODUTO_SERVICO";
@@ -33,9 +39,11 @@ public class DomainDescriptionHelper {
     public static final String TIPO_DOCUMENTO = "TIPO_DOCUMENTO";
     public static final String TIPO_ENTIDADE = "TIPO_ENTIDADE";
     public static final String TIPO_ORDEM = "TIPO_ORDEM";
+    public static final String TIPO_PEDIDO_ACESSO = "TIPO_PEDIDO_ACESSO";
     public static final String TIPO_REPRESENTANTE = "TIPO_REPRESENTANTE";
     public static final String TIPO_SOLICITACAO = "TIPO_SOLICITACAO";
     public static final String TIPO_INVESTIDOR = "TIPO_INVESTIDOR";
+    public static final String CLASSIFICACAO = "CLASSIFICACAO";
     public static final String RESULTADO_CHAMADA = "RESULTADO_CHAMADA";
 
     private static final String SQL = """

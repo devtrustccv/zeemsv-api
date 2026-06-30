@@ -13,6 +13,7 @@ import cv.zeemsv.api.infrastructure.repository.ZeeTRepresInvestidorRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTSocioRepresRepository;
 import cv.zeemsv.api.infrastructure.repository.projection.RepresentanteInvestidorProjection;
 import cv.zeemsv.api.utils.Messages;
+import cv.zeemsv.api.utils.enums.LoginProvider;
 import cv.zeemsv.api.utils.enums.UserStatus;
 import java.time.LocalDate;
 import java.util.List;
@@ -24,6 +25,9 @@ import org.springframework.util.StringUtils;
 @Service
 @RequiredArgsConstructor
 public class SocioRepresentanteServiceImpl implements SocioRepresentanteService {
+    private static final String ESTADO_ATIVO = "A";
+    private static final String ESTADO_PENDENTE = "PENDENTE";
+
     private final ZeeTSocioRepresRepository repository;
     private final ZeeTRepresInvestidorRepository represInvestidorRepository;
     private final DomainDescriptionHelper domainHelper;
@@ -34,23 +38,18 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
     @Transactional
     public SocioRepresentanteResponseDTO create(SocioRepresentanteRequestDTO dto) {
         validateUniqueFields(dto);
-        UserModel user = activateUserByEmail(dto.getEmail(), dto.getNome());
+        UserModel user = resolveUserByEmail(dto.getEmail(), dto.getNome(), UserStatus.ATIVO, true);
 
-        ZeeTSocioRepresEntity entity = new ZeeTSocioRepresEntity();
-        entity.setNome(trim(dto.getNome()));
-        entity.setNacionalidade(trim(dto.getNacionalidade()));
-        entity.setNif(trim(dto.getNif()));
-        entity.setTipoDoc(trim(dto.getTipoDoc()));
-        entity.setNrDoc(trim(dto.getNrDoc()));
-        entity.setTelefone(dto.getTelefone());
-        entity.setTelemovel(dto.getTelemovel());
-        entity.setEmail(trim(dto.getEmail()));
-        entity.setEstado("A");
-        entity.setDateCreate(LocalDate.now());
-        entity.setIndicativoPais(trim(dto.getIndicativoPais()));
-        entity.setIdUser(user.getId());
+        return toResponse(repository.save(toEntity(dto, user, ESTADO_ATIVO)));
+    }
 
-        return toResponse(repository.save(entity));
+    @Override
+    @Transactional
+    public SocioRepresentanteResponseDTO createPendente(SocioRepresentanteRequestDTO dto) {
+        validateUniqueFields(dto);
+        UserModel user = resolveUserByEmail(dto.getEmail(), dto.getNome(), UserStatus.PENDENTE, false);
+
+        return toResponse(repository.save(toEntity(dto, user, ESTADO_PENDENTE)));
     }
 
     @Override
@@ -62,14 +61,42 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
             .toList();
     }
 
-    private UserModel activateUserByEmail(String email, String nome) {
-        UserModel user = userBus.findByEmail(trim(email))
-            .orElseThrow(() -> new BusinessException(Messages.USER_NOT_FOUND, new RuntimeException(Messages.USER_NOT_FOUND)));
+    private UserModel resolveUserByEmail(String email, String nome, UserStatus status, boolean mustExist) {
+        String normalizedEmail = trim(email).toLowerCase();
+        UserModel user = userBus.findByEmail(normalizedEmail).orElse(null);
+        if (user == null) {
+            if (mustExist) {
+                throw new BusinessException(Messages.USER_NOT_FOUND, new RuntimeException(Messages.USER_NOT_FOUND));
+            }
+            user = UserModel.builder()
+                .email(normalizedEmail)
+                .name(trim(nome))
+                .provider(LoginProvider.LOCAL.name())
+                .build();
+        }
         if (!StringUtils.hasText(user.getName())) {
             user.setName(trim(nome));
         }
-        user.setStatus(UserStatus.ATIVO);
+        user.setStatus(status);
+        user.setProvider(StringUtils.hasText(user.getProvider()) ? user.getProvider() : LoginProvider.LOCAL.name());
         return userBus.save(user);
+    }
+
+    private ZeeTSocioRepresEntity toEntity(SocioRepresentanteRequestDTO dto, UserModel user, String estado) {
+        ZeeTSocioRepresEntity entity = new ZeeTSocioRepresEntity();
+        entity.setNome(trim(dto.getNome()));
+        entity.setNacionalidade(trim(dto.getNacionalidade()));
+        entity.setNif(trim(dto.getNif()));
+        entity.setTipoDoc(trim(dto.getTipoDoc()));
+        entity.setNrDoc(trim(dto.getNrDoc()));
+        entity.setTelefone(dto.getTelefone());
+        entity.setTelemovel(dto.getTelemovel());
+        entity.setEmail(trim(dto.getEmail()));
+        entity.setEstado(estado);
+        entity.setDateCreate(LocalDate.now());
+        entity.setIndicativoPais(trim(dto.getIndicativoPais()));
+        entity.setIdUser(user.getId());
+        return entity;
     }
 
     private void validateUniqueFields(SocioRepresentanteRequestDTO dto) {

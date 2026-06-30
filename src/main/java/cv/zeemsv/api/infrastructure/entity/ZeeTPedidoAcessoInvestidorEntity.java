@@ -26,6 +26,18 @@ public class ZeeTPedidoAcessoInvestidorEntity {
     @Column(name = "id_investidor", nullable = false)
     private Integer idInvestidor;
 
+    @Column(name = "dm_tipo_pedido", nullable = false, length = 50)
+    private String dmTipoPedido;
+
+    @Column(name = "id_socio_repres")
+    private Integer idSocioRepres;
+
+    @Column(name = "nif_investidor", length = 20)
+    private String nifInvestidor;
+
+    @Column(name = "denominacao_entidade", length = 255)
+    private String denominacaoEntidade;
+
     @Column(name = "dm_tp_representante", length = 50)
     private String dmTpRepresentante;
 

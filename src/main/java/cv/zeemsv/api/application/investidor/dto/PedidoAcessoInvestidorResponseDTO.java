@@ -13,10 +13,16 @@ public class PedidoAcessoInvestidorResponseDTO {
     private Integer id;
     private Integer idUser;
     private Integer idInvestidor;
+    private String tipoPedido;
+    private Integer idSocioRepres;
+    private String nifInvestidor;
+    private String denominacaoEntidade;
     private String dmTpRepresentante;
+    private String dmTpRepresentanteDesc;
     private String ficheiroCompravativo;
     private byte[] ficheiroCompravativoBytes;
     private String dmEstado;
+    private String dmEstadoDesc;
     private String obs;
     private LocalDate dataRegisto;
     private LocalDate dataResposta;

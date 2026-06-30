@@ -1,16 +1,21 @@
 package cv.zeemsv.api.application.pessoa.helper;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import cv.zeemsv.api.application.domain.DomainDescriptionHelper;
 import cv.zeemsv.api.application.pessoa.dto.PesquisaNifResponseDTO;
 import cv.zeemsv.api.infrastructure.entity.ZeeTInvestidorEntity;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import java.time.format.DateTimeFormatter;
 
 @Component
+@RequiredArgsConstructor
 public class PesquisaInvestidorHelper {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+    private final DomainDescriptionHelper domainHelper;
 
     public PesquisaNifResponseDTO fromInvestidorLocal(ZeeTInvestidorEntity entity) {
         PesquisaNifResponseDTO dto = new PesquisaNifResponseDTO();
@@ -19,9 +24,11 @@ public class PesquisaInvestidorHelper {
         dto.setNome(entity.getDenominacao());
         dto.setMatricula(entity.getMatricula());
         dto.setNaturezaJuridica(entity.getDmNaturezaJuridica());
+        dto.setNaturezaJuridicaDesc(domainHelper.describe(DomainDescriptionHelper.NATUREZA_JURIDICA, entity.getDmNaturezaJuridica()));
         dto.setSetor(entity.getSetor());
         dto.setSede(entity.getSede());
         dto.setClassificacao(entity.getDmClassificacao());
+        dto.setClassificacaoDesc(domainHelper.describe(DomainDescriptionHelper.CLASSIFICACAO, entity.getDmClassificacao()));
         dto.setDataConstituicao(entity.getDataConstituicao() != null ? entity.getDataConstituicao().format(DATE_FORMATTER) : null);
         dto.setTelefone(entity.getPhone());
         dto.setIndicativoPais(entity.getIndicativoPais());
@@ -29,20 +36,27 @@ public class PesquisaInvestidorHelper {
         dto.setEmail(entity.getEmail());
         dto.setSite(entity.getSite());
         dto.setEstado(entity.getDmEstado());
+        dto.setEstadoDesc(domainHelper.describe(DomainDescriptionHelper.ESTADO, entity.getDmEstado()));
         dto.setLinkRegComercial(entity.getLinkRegComercial());
         dto.setFormaObrigar(entity.getFormaObrigar());
         dto.setCapitalSocial(entity.getCapitalSocial());
         dto.setPaisOrigem(entity.getPaisOrigem());
         dto.setEndereco(entity.getEndereco());
         dto.setFlagServico(entity.getFlagServico());
+        dto.setFlagServicoDesc(domainHelper.describe(DomainDescriptionHelper.SIM_NAO, entity.getFlagServico()));
         dto.setIdioma(entity.getDmIdoma());
+        dto.setIdiomaDesc(domainHelper.describe(DomainDescriptionHelper.IDIOMA, entity.getDmIdoma()));
         dto.setTipoInvestidor(entity.getDmTipoInvestidor());
+        dto.setTipoInvestidorDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_INVESTIDOR, entity.getDmTipoInvestidor()));
         dto.setGenero(entity.getDmGenero());
+        dto.setGeneroDesc(domainHelper.describe(DomainDescriptionHelper.GENERO, entity.getDmGenero()));
         dto.setDataNascimento(entity.getDataNascimento() != null ? entity.getDataNascimento().format(DATE_FORMATTER) : null);
         dto.setEstadoCivil(entity.getDmEstadoCivil());
+        dto.setEstadoCivilDesc(domainHelper.describe(DomainDescriptionHelper.ESTADO_CIVIL, entity.getDmEstadoCivil()));
         dto.setProfissao(entity.getProfissao());
         dto.setNrDocumento(entity.getNrDocumento());
         dto.setMoeda(entity.getMoeda());
+        dto.setMoedaDesc(domainHelper.describe(DomainDescriptionHelper.MOEDA, entity.getMoeda()));
         dto.setOrigem("LOCAL_INVESTIDOR");
         return dto;
     }

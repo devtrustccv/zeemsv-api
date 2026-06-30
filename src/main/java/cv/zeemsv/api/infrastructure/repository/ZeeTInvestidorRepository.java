@@ -24,6 +24,8 @@ public interface ZeeTInvestidorRepository extends JpaRepository<ZeeTInvestidorEn
         join ZeeTRepresInvestidorEntity r on r.idInvestidor = i.id
         join ZeeTUserEntity u on u.id = r.idUser
         where lower(u.email) = lower(:email)
+            and i.dmEstado = 'A'
+            and r.dmEstado = 'A'
         """)
     List<InvestidorUserProjection> findByUserEmail(@Param("email") String email);
 

@@ -7,5 +7,6 @@ import java.util.List;
 
 public interface AtividadeService {
     List<NotificacaoInvestidorResponseDTO> findNotificacoesByInvestidorId(Integer idInvestidor);
+    List<NotificacaoInvestidorResponseDTO> findNotificacoesByUserId(Integer idUser);
     List<AtividadeResponseDTO> findAgendadasByInvestidorId(Integer idInvestidor);
 }

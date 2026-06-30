@@ -36,6 +36,15 @@ public class AtividadeServiceImpl implements AtividadeService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<NotificacaoInvestidorResponseDTO> findNotificacoesByUserId(Integer idUser) {
+        return notificacaoRelacaoRepository.findByUserId(idUser)
+            .stream()
+            .map(this::toNotificacaoResponse)
+            .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<AtividadeResponseDTO> findAgendadasByInvestidorId(Integer idInvestidor) {
         return repository.findByIdInvestidorAndAgendamentoTrueOrderByDataCreateDescIdDesc(toBigDecimal(idInvestidor))
             .stream()

@@ -7,5 +7,6 @@ import java.util.List;
 
 public interface SocioRepresentanteService {
     SocioRepresentanteResponseDTO create(SocioRepresentanteRequestDTO dto);
+    SocioRepresentanteResponseDTO createPendente(SocioRepresentanteRequestDTO dto);
     List<RepresentanteInvestidorResponseDTO> findSociosByInvestidorId(Integer idInvestidor);
 }

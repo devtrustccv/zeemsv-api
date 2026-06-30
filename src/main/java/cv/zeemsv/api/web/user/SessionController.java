@@ -1,6 +1,8 @@
 package cv.zeemsv.api.web.user;
 
 import cv.zeemsv.api.application.generic.dto.OtpResponseDto;
+import cv.zeemsv.api.application.atividade.dto.NotificacaoInvestidorResponseDTO;
+import cv.zeemsv.api.application.atividade.service.AtividadeService;
 import cv.zeemsv.api.application.user.dto.LoginRequestDTO;
 import cv.zeemsv.api.application.user.dto.LoginResponseDTO;
 import cv.zeemsv.api.application.user.dto.SessionValidationResponseDTO;
@@ -12,17 +14,20 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/session")
 @RequiredArgsConstructor
 public class SessionController {
     private final SessionService sessionService;
+    private final AtividadeService atividadeService;
 
     @PostMapping("/create")
     public ResponseEntity<ApiResponse<LoginResponseDTO>> login(
@@ -72,16 +77,21 @@ public class SessionController {
     public ResponseEntity<ApiResponse<UserAccountDetailResponseDTO>> userAccountDetail(
         @RequestHeader(name = "X-SESSION-TOKEN") String accessToken,
         @RequestHeader(name = "X-FINGERPRINT") String fingerprint,
-        @RequestParam(required = false, name = "load_contacts", defaultValue = "false") boolean loadContacts,
-        @RequestParam(required = false, name = "load_info_school", defaultValue = "false") boolean loadInfoSchool
+        @RequestParam(required = false, name = "load_contacts", defaultValue = "false") boolean loadContacts
     ) {
         UserAccountDetailResponseDTO response = sessionService.userAccountDetailByAccessToken(
             accessToken,
             fingerprint,
-            loadContacts,
-            loadInfoSchool
+            loadContacts
         );
         return ResponseEntity.ok(ApiResponse.ok("Detalhes da conta encontrados", response));
+    }
+
+    @GetMapping("/user/{idUser}/notificacoes")
+    public ResponseEntity<ApiResponse<List<NotificacaoInvestidorResponseDTO>>> findNotificacoesByUserId(
+        @PathVariable Integer idUser
+    ) {
+        return ResponseEntity.ok(ApiResponse.ok("Notificacoes do utilizador encontradas", atividadeService.findNotificacoesByUserId(idUser)));
     }
 
     @GetMapping("/otp/send")

@@ -1,8 +1,6 @@
 package cv.zeemsv.api.application.user.dto;
 
 import cv.zeemsv.api.application.pessoa.dto.ContatoResponseDTO;
-import cv.zeemsv.api.application.pessoa.dto.InfoAcademicaResponseDTO;
-import cv.zeemsv.api.application.pessoa.dto.PessoaResponseDTO;
 import cv.zeemsv.api.utils.enums.UserStatus;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -26,7 +24,6 @@ public class UserAccountDetailResponseDTO {
     private String email;
     private String subCmdcv;
     private String name;
-    private PessoaResponseDTO pessoaInfo;
+    private String role;
     private List<ContatoResponseDTO> contacts;
-    private List<InfoAcademicaResponseDTO> infoSchool;
 }

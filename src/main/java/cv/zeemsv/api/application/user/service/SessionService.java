@@ -4,7 +4,6 @@ import cv.zeemsv.api.application.generic.dto.OtpResponseDto;
 import cv.zeemsv.api.application.generic.service.OTPService;
 import cv.zeemsv.api.application.pessoa.mapper.PessoaModelDTOMapper;
 import cv.zeemsv.api.application.pessoa.service.ContatoService;
-import cv.zeemsv.api.application.pessoa.service.InfoAcademicaService;
 import cv.zeemsv.api.application.user.dto.LoginRequestDTO;
 import cv.zeemsv.api.application.user.dto.LoginResponseDTO;
 import cv.zeemsv.api.application.user.dto.SessionValidationResponseDTO;
@@ -20,6 +19,7 @@ import cv.zeemsv.api.domain.user.model.SessionModel;
 import cv.zeemsv.api.domain.user.model.UserModel;
 import cv.zeemsv.api.exceptions.BusinessException;
 import cv.zeemsv.api.exceptions.ExternalApiException;
+import cv.zeemsv.api.infrastructure.repository.ZeeTRepresInvestidorRepository;
 import cv.zeemsv.api.utils.Constants;
 import cv.zeemsv.api.utils.Helpers;
 import cv.zeemsv.api.utils.JwtUtil;
@@ -45,8 +45,8 @@ public class SessionService {
     private final PessoaBus pessoaBus;
     private final OTPService otpService;
     private final ContatoService contatoService;
-    private final InfoAcademicaService infoAcademicaService;
     private final PessoaModelDTOMapper pessoaDTOMapper;
+    private final ZeeTRepresInvestidorRepository representanteInvestidorRepository;
 
     @Value("${application.session.jwt-secret:01234567890123456789012345678901}")
     private String jwtSecret;
@@ -194,7 +194,7 @@ public class SessionService {
 
     @Transactional
     public UserAccountDetailResponseDTO userAccountDetailByAccessToken(String accessToken, String fingerprint,
-            boolean loadContacts, boolean loadInfoSchool) {
+            boolean loadContacts) {
         Optional<SessionModel> optSession = sessionBus.findBySessionToken(accessToken);
         if (optSession.isEmpty()) {
             throw new BusinessException(Messages.SESSION_NOT_FOUND, new RuntimeException(Messages.SESSION_NOT_FOUND));
@@ -220,6 +220,7 @@ public class SessionService {
             .name(user.getName())
             .status(user.getStatus())
             .subCmdcv(user.getSubCmdcv())
+            .role(representanteInvestidorRepository.existsByIdUser(user.getId()) ? "INVESTIDOR" : "PROMOTOR")
             .build();
 
         Optional<PessoaModel> pessoaOpt;
@@ -232,12 +233,8 @@ public class SessionService {
 
         if (pessoaOpt.isPresent()) {
             var pessoaDto = pessoaDTOMapper.toResponseDTO(pessoaOpt.get());
-            response.setPessoaInfo(pessoaDto);
             if (loadContacts) {
                 response.setContacts(contatoService.findContactsByPessoaId(pessoaDto.getId()));
-            }
-            if (loadInfoSchool) {
-                response.setInfoSchool(infoAcademicaService.findInfoAcademicasByPessoaId(pessoaDto.getId()));
             }
         }
 
