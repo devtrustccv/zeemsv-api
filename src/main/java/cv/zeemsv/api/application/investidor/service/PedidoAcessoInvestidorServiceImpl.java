@@ -52,6 +52,7 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
     private static final String ESTADO_PENDENTE = "PENDENTE";
     private static final String ESTADO_ATIVO = "A";
     private static final String TIPO_PEDIDO_REPRES_INVESTIDOR = "REPRES_INVESTIDOR";
+    private static final String TIPO_PEDIDO_REGISTO = "REGISTO";
     private static final String TEMPLATE_PEDIDO_ACESSO = "PEDIDO_ACESSO";
     private static final String TIPO_NOTIFICACAO_EMAIL = "EMAIL";
     private static final String RELACAO_UTILIZADOR = "UTILIZADOR";
@@ -82,15 +83,22 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         ZeeTUserEntity user = userRepository.findById(dto.getIdUser())
             .orElseThrow(() -> new BusinessException("Utilizador nao encontrado."));
 
-        ZeeTInvestidorEntity investidor = investidorRepository.findById(dto.getIdInvestidor())
-            .orElseThrow(() -> new BusinessException("Investidor nao encontrado."));
+        String tipoPedido = resolveTipoPedido(dto);
+        ZeeTInvestidorEntity investidor = null;
+        if (dto.getIdInvestidor() != null) {
+            investidor = investidorRepository.findById(dto.getIdInvestidor())
+                .orElseThrow(() -> new BusinessException("Investidor nao encontrado."));
+        }
 
-        if (repository.existsNaoRejeitadoByIdUtilizadorAndIdInvestidor(dto.getIdUser(), dto.getIdInvestidor())) {
+        if (dto.getIdInvestidor() != null && repository.existsNaoRejeitadoByIdUtilizadorAndIdInvestidor(dto.getIdUser(), dto.getIdInvestidor())) {
             throw new BusinessException("Ja existe pedido de acesso para este utilizador e investidor.");
         }
 
         Integer idSocioRepres = dto.getIdSocioRepres();
-        if (isPedidoRepresentanteInvestidor(dto)) {
+        if (TIPO_PEDIDO_REPRES_INVESTIDOR.equals(tipoPedido)) {
+            if (dto.getIdInvestidor() == null) {
+                throw new BusinessException("O campo id_investidor e obrigatorio para pedido REPRES_INVESTIDOR.");
+            }
             idSocioRepres = resolveSocioRepres(dto);
             createRepresInvestidorPendente(dto, idSocioRepres);
         }
@@ -98,9 +106,10 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         ZeeTPedidoAcessoInvestidorEntity entity = new ZeeTPedidoAcessoInvestidorEntity();
         entity.setIdUtilizador(dto.getIdUser());
         entity.setIdInvestidor(dto.getIdInvestidor());
-        entity.setDmTipoPedido(trim(dto.getTipoPedido()));
+        entity.setDmTipoPedido(tipoPedido);
         entity.setIdSocioRepres(idSocioRepres);
         entity.setNifInvestidor(trim(dto.getNifInvestidor()));
+        entity.setNifEntidade(trim(dto.getNifEntidade()));
         entity.setDenominacaoEntidade(trim(dto.getDenominacaoEntidade()));
         entity.setDmTpRepresentante(trim(dto.getDmTpRepresentante()));
         entity.setDmEstado(ESTADO_PENDENTE);
@@ -138,8 +147,18 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         return value != null ? value.trim() : null;
     }
 
-    private boolean isPedidoRepresentanteInvestidor(PedidoAcessoInvestidorRequestDTO dto) {
-        return TIPO_PEDIDO_REPRES_INVESTIDOR.equalsIgnoreCase(trim(dto.getTipoPedido()));
+    private String resolveTipoPedido(PedidoAcessoInvestidorRequestDTO dto) {
+        if (dto.getIdSocioRepres() != null && dto.getIdInvestidor() != null) {
+            return TIPO_PEDIDO_REPRES_INVESTIDOR;
+        }
+        if (dto.getIdSocioRepres() != null && dto.getIdInvestidor() == null
+            && (StringUtils.hasText(dto.getNifEntidade()) || StringUtils.hasText(dto.getDenominacaoEntidade()))) {
+            return TIPO_PEDIDO_REGISTO;
+        }
+        if (StringUtils.hasText(dto.getTipoPedido())) {
+            return trim(dto.getTipoPedido());
+        }
+        throw new BusinessException("Nao foi possivel determinar o tipo de pedido de acesso.");
     }
 
     private void validateSocioRepresentante(PedidoAcessoInvestidorRequestDTO dto) {
@@ -396,6 +415,7 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         dto.setTipoPedido(entity.getDmTipoPedido());
         dto.setIdSocioRepres(entity.getIdSocioRepres());
         dto.setNifInvestidor(entity.getNifInvestidor());
+        dto.setNifEntidade(entity.getNifEntidade());
         dto.setDenominacaoEntidade(entity.getDenominacaoEntidade());
         dto.setDmTpRepresentante(entity.getDmTpRepresentante());
         dto.setDmTpRepresentanteDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_REPRESENTANTE, entity.getDmTpRepresentante()));

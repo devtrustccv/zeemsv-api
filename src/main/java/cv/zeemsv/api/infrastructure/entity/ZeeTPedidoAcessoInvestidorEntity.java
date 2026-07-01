@@ -23,7 +23,7 @@ public class ZeeTPedidoAcessoInvestidorEntity {
     @Column(name = "id_utilizador", nullable = false)
     private Integer idUtilizador;
 
-    @Column(name = "id_investidor", nullable = false)
+    @Column(name = "id_investidor")
     private Integer idInvestidor;
 
     @Column(name = "dm_tipo_pedido", nullable = false, length = 50)
@@ -34,6 +34,9 @@ public class ZeeTPedidoAcessoInvestidorEntity {
 
     @Column(name = "nif_investidor", length = 20)
     private String nifInvestidor;
+
+    @Column(name = "nif_entidade", length = 20)
+    private String nifEntidade;
 
     @Column(name = "denominacao_entidade", length = 255)
     private String denominacaoEntidade;
