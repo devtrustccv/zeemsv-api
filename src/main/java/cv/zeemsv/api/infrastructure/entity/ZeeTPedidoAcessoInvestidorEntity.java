@@ -33,9 +33,6 @@ public class ZeeTPedidoAcessoInvestidorEntity {
     @Column(name = "id_socio_repres")
     private Integer idSocioRepres;
 
-    @Column(name = "nif_investidor", length = 20)
-    private String nifInvestidor;
-
     @Column(name = "nif_entidade", length = 20)
     private String nifEntidade;
 

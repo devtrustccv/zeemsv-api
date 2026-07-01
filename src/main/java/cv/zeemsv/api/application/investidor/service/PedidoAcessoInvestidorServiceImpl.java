@@ -110,7 +110,6 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         entity.setIdInvestidor(dto.getIdInvestidor());
         entity.setDmTipoPedido(tipoPedido);
         entity.setIdSocioRepres(idSocioRepres);
-        entity.setNifInvestidor(trim(dto.getNifInvestidor()));
         entity.setNifEntidade(trim(dto.getNifEntidade()));
         entity.setDenominacaoEntidade(trim(dto.getDenominacaoEntidade()));
         entity.setEmailContactoEntidade(trim(dto.getEmailContactoEntidade()));
@@ -257,7 +256,7 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         String entidade = firstText(
             pedido.getDenominacaoEntidade(),
             investidor != null ? investidor.getDenominacao() : null,
-            pedido.getNifInvestidor(),
+            pedido.getNifEntidade(),
             "entidade nao identificada"
         );
         String subject = "Nova submissao de pedido de acesso - Pedido no " + pedido.getId();
@@ -429,7 +428,6 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         dto.setIdInvestidor(entity.getIdInvestidor());
         dto.setTipoPedido(entity.getDmTipoPedido());
         dto.setIdSocioRepres(entity.getIdSocioRepres());
-        dto.setNifInvestidor(entity.getNifInvestidor());
         dto.setNifEntidade(entity.getNifEntidade());
         dto.setDenominacaoEntidade(entity.getDenominacaoEntidade());
         dto.setEmailContactoEntidade(entity.getEmailContactoEntidade());
