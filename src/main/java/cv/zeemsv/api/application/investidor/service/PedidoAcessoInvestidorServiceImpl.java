@@ -113,6 +113,8 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         entity.setNifInvestidor(trim(dto.getNifInvestidor()));
         entity.setNifEntidade(trim(dto.getNifEntidade()));
         entity.setDenominacaoEntidade(trim(dto.getDenominacaoEntidade()));
+        entity.setEmailContactoEntidade(trim(dto.getEmailContactoEntidade()));
+        entity.setTelemovelContactoEntidade(dto.getTelemovelContactoEntidade());
         entity.setDmTpRepresentante(trim(dto.getDmTpRepresentante()));
         entity.setDmEstado(ESTADO_PENDENTE);
         entity.setObs(trim(dto.getObs()));
@@ -125,7 +127,7 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
             saved.setFicheiroCompravativo(upload.getFullPath());
             ZeeTPedidoAcessoInvestidorEntity savedWithFile = repository.save(saved);
             notifyTecnicos(savedWithFile, investidor);
-            notifyUtilizador(savedWithFile, user, dto.getEmail());
+            notifyUtilizador(savedWithFile, user, dto.getEmail(), dto.getEmailContactoEntidade());
             return toResponse(savedWithFile);
         } catch (DataIntegrityViolationException ex) {
             throw new BusinessException("Ja existe pedido de acesso para este utilizador e investidor.", ex);
@@ -274,9 +276,9 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         }
     }
 
-    private void notifyUtilizador(ZeeTPedidoAcessoInvestidorEntity pedido, ZeeTUserEntity user, String payloadEmail) {
-        if (user == null || !StringUtils.hasText(user.getEmail())) {
-            log.info("Utilizador sem email para notificacao de pedido de acesso {}.", pedido.getId());
+    private void notifyUtilizador(ZeeTPedidoAcessoInvestidorEntity pedido, ZeeTUserEntity user, String... payloadEmails) {
+        if (user == null) {
+            log.info("Utilizador nao informado para notificacao de pedido de acesso {}.", pedido.getId());
             return;
         }
 
@@ -285,7 +287,11 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
             pedido.getDmTipoPedido()
         );
         TemplateContent content = resolvePedidoAcessoTemplate(tipoPedido, pedido.getId());
-        Set<String> recipients = resolveUtilizadorEmails(user.getEmail(), payloadEmail);
+        Set<String> recipients = resolveUtilizadorEmails(user.getEmail(), payloadEmails);
+        if (recipients.isEmpty()) {
+            log.info("Nenhum email de utilizador/contacto para notificacao de pedido de acesso {}.", pedido.getId());
+            return;
+        }
         boolean sent = true;
         for (String recipient : recipients) {
             sent = sendEmailSafely(recipient, content.subject(), content.body(), pedido.getId()) && sent;
@@ -301,7 +307,7 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
             notificacao.setAssunto(content.subject());
             notificacao.setDataEnvio(LocalDateTime.now());
             notificacao.setMensagem(content.body());
-            notificacao.setEmail(user.getEmail());
+            notificacao.setEmail(recipients.iterator().next());
             notificacao.setEstado(ESTADO_PENDENTE);
             notificacao.setFlagAutomatico("S");
             notificacao.setFlagSucesso(sent ? "S" : "N");
@@ -319,13 +325,17 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         }
     }
 
-    private Set<String> resolveUtilizadorEmails(String userEmail, String payloadEmail) {
+    private Set<String> resolveUtilizadorEmails(String userEmail, String... payloadEmails) {
         Set<String> emails = new LinkedHashSet<>();
         if (StringUtils.hasText(userEmail)) {
             emails.add(userEmail.trim());
         }
-        if (StringUtils.hasText(payloadEmail) && emails.stream().noneMatch(email -> email.equalsIgnoreCase(payloadEmail.trim()))) {
-            emails.add(payloadEmail.trim());
+        if (payloadEmails != null) {
+            for (String payloadEmail : payloadEmails) {
+                if (StringUtils.hasText(payloadEmail) && emails.stream().noneMatch(email -> email.equalsIgnoreCase(payloadEmail.trim()))) {
+                    emails.add(payloadEmail.trim());
+                }
+            }
         }
         return emails;
     }
@@ -422,6 +432,8 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         dto.setNifInvestidor(entity.getNifInvestidor());
         dto.setNifEntidade(entity.getNifEntidade());
         dto.setDenominacaoEntidade(entity.getDenominacaoEntidade());
+        dto.setEmailContactoEntidade(entity.getEmailContactoEntidade());
+        dto.setTelemovelContactoEntidade(entity.getTelemovelContactoEntidade());
         dto.setDmTpRepresentante(entity.getDmTpRepresentante());
         dto.setDmTpRepresentanteDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_REPRESENTANTE, entity.getDmTpRepresentante()));
         dto.setFicheiroCompravativo(entity.getFicheiroCompravativo());
@@ -431,6 +443,7 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         dto.setDataRegisto(entity.getDataRegisto());
         dto.setDataResposta(entity.getDataResposta());
         dto.setUserResposta(entity.getUserResposta());
+        dto.setUserTask(entity.getUserTask());
         return dto;
     }
 

@@ -2,6 +2,7 @@ package cv.zeemsv.api.application.investidor.dto;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import lombok.Getter;
 import lombok.Setter;
@@ -18,6 +19,8 @@ public class PedidoAcessoInvestidorResponseDTO {
     private String nifInvestidor;
     private String nifEntidade;
     private String denominacaoEntidade;
+    private String emailContactoEntidade;
+    private BigDecimal telemovelContactoEntidade;
     private String dmTpRepresentante;
     private String dmTpRepresentanteDesc;
     private String ficheiroCompravativo;
@@ -28,4 +31,5 @@ public class PedidoAcessoInvestidorResponseDTO {
     private LocalDate dataRegisto;
     private LocalDate dataResposta;
     private String userResposta;
+    private String userTask;
 }

@@ -26,6 +26,9 @@ public class PedidoAcessoInvestidorRequestDTO {
     @JsonAlias("nif_entidsade")
     private String nifEntidade;
     private String denominacaoEntidade;
+    @Email(message = "Email de contacto da entidade invalido")
+    private String emailContactoEntidade;
+    private BigDecimal telemovelContactoEntidade;
     private String dmTpRepresentante;
     private String nome;
     private String nacionalidade;

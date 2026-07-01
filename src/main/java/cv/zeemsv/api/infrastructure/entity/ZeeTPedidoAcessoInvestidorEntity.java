@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import lombok.Getter;
 import lombok.Setter;
@@ -41,6 +42,12 @@ public class ZeeTPedidoAcessoInvestidorEntity {
     @Column(name = "denominacao_entidade", length = 255)
     private String denominacaoEntidade;
 
+    @Column(name = "email_contacto_entidade", length = 255)
+    private String emailContactoEntidade;
+
+    @Column(name = "telemovel_contacto_entidade")
+    private BigDecimal telemovelContactoEntidade;
+
     @Column(name = "dm_tp_representante", length = 50)
     private String dmTpRepresentante;
 
@@ -61,4 +68,7 @@ public class ZeeTPedidoAcessoInvestidorEntity {
 
     @Column(name = "user_resposta", length = 100)
     private String userResposta;
+
+    @Column(name = "user_task", length = 100)
+    private String userTask;
 }
