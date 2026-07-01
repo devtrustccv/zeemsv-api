@@ -1,12 +1,21 @@
 package cv.zeemsv.api.application.solicitacao.service;
 
 import cv.zeemsv.api.application.domain.DomainDescriptionHelper;
+import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDocResponseDTO;
+import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDocumentosRequisitosResponseDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoRequestDTO;
+import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoRequisitoResponseDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoResponseDTO;
 import cv.zeemsv.api.application.solicitacao.mapper.SolicitacaoDtoMapper;
 import cv.zeemsv.api.domain.solicitacao.business.SolicitacaoBus;
+import cv.zeemsv.api.exceptions.BusinessException;
 import cv.zeemsv.api.infrastructure.repository.ZeeTSolicitacaoRepository;
+import cv.zeemsv.api.infrastructure.repository.ZeeTTpSolicitacaoRepository;
+import cv.zeemsv.api.infrastructure.repository.ZeeTTpSolicTpDocRepository;
+import cv.zeemsv.api.infrastructure.repository.projection.SolicitacaoDocProjection;
+import cv.zeemsv.api.infrastructure.repository.projection.SolicitacaoDocumentoConfiguradoProjection;
 import cv.zeemsv.api.infrastructure.repository.projection.SolicitacaoInvestidorProjection;
+import cv.zeemsv.api.infrastructure.repository.projection.SolicitacaoRequisitoProjection;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +29,8 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     private final SolicitacaoDtoMapper mapper;
     private final DomainDescriptionHelper domainHelper;
     private final ZeeTSolicitacaoRepository solicitacaoRepository;
+    private final ZeeTTpSolicitacaoRepository tpSolicitacaoRepository;
+    private final ZeeTTpSolicTpDocRepository tpSolicTpDocRepository;
 
     @Override @Transactional
     public SolicitacaoResponseDTO create(SolicitacaoRequestDTO dto) { return enrich(mapper.toResponse(bus.create(mapper.toModel(dto)))); }
@@ -40,11 +51,68 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
             .toList();
     }
 
+    @Override @Transactional(readOnly = true)
+    public SolicitacaoDocumentosRequisitosResponseDTO findDocumentosByTipoSolicitacaoId(Integer idTpSolicitacao) {
+        if (!tpSolicitacaoRepository.existsById(idTpSolicitacao)) {
+            throw new BusinessException("Tipo de solicitacao nao encontrado.");
+        }
+        SolicitacaoDocumentosRequisitosResponseDTO response = new SolicitacaoDocumentosRequisitosResponseDTO();
+        response.setDocumentos(tpSolicTpDocRepository.findDocumentosByIdTpSolicitacao(idTpSolicitacao).stream()
+            .map(this::toDocumentoResponse)
+            .toList());
+        response.setRequisitos(tpSolicTpDocRepository.findRequisitosByIdTpSolicitacao(idTpSolicitacao).stream()
+            .map(this::toRequisitoResponse)
+            .toList());
+        return response;
+    }
+
     @Override @Transactional
     public void delete(Integer id) { bus.delete(id); }
 
     private SolicitacaoResponseDTO enrich(SolicitacaoResponseDTO dto) {
         dto.setDmEstadoProcDesc(domainHelper.describe(DomainDescriptionHelper.ESTADO_PROC_SOLICIT, dto.getDmEstadoProc()));
+        return dto;
+    }
+
+    private SolicitacaoDocResponseDTO toDocumentoResponse(SolicitacaoDocProjection p) {
+        SolicitacaoDocResponseDTO dto = new SolicitacaoDocResponseDTO();
+        dto.setId(p.getId());
+        dto.setIdSolicitacao(p.getIdSolicitacao());
+        dto.setIdTpSolicTpDoc(p.getIdTpSolicTpDoc());
+        dto.setIdTpDoc(p.getIdTpDoc());
+        dto.setTpDocNome(p.getTpDocNome());
+        dto.setTpDocCodigo(p.getTpDocCodigo());
+        dto.setRequisito(p.getRequisito());
+        dto.setFlagObrigatorio(p.getFlagObrigatorio());
+        dto.setPedResp(p.getPedResp());
+        dto.setIdProcesso(p.getIdProcesso());
+        dto.setIdEtapa(p.getIdEtapa());
+        dto.setDataRegisto(p.getDataRegisto());
+        dto.setUserRegisto(p.getUserRegisto());
+        dto.setPath(p.getPath());
+        return dto;
+    }
+
+    private SolicitacaoDocResponseDTO toDocumentoResponse(SolicitacaoDocumentoConfiguradoProjection p) {
+        SolicitacaoDocResponseDTO dto = new SolicitacaoDocResponseDTO();
+        dto.setIdTpSolicTpDoc(p.getIdTpSolicTpDoc());
+        dto.setIdTpDoc(p.getIdTpDoc());
+        dto.setTpDocNome(p.getTpDocNome());
+        dto.setTpDocCodigo(p.getTpDocCodigo());
+        dto.setRequisito(p.getRequisito());
+        dto.setFlagObrigatorio(p.getFlagObrigatorio());
+        dto.setPedResp(p.getPedResp());
+        return dto;
+    }
+
+    private SolicitacaoRequisitoResponseDTO toRequisitoResponse(SolicitacaoRequisitoProjection p) {
+        SolicitacaoRequisitoResponseDTO dto = new SolicitacaoRequisitoResponseDTO();
+        dto.setIdTpSolicTpDoc(p.getIdTpSolicTpDoc());
+        dto.setRequisito(p.getRequisito());
+        dto.setFlagObrigatorio(p.getFlagObrigatorio());
+        dto.setFlagObrigatorioDesc("SIM".equalsIgnoreCase(p.getFlagObrigatorio()) ? "Sim" : "Nao");
+        dto.setCumpre("1");
+        dto.setCumpreCheck("0");
         return dto;
     }
 
