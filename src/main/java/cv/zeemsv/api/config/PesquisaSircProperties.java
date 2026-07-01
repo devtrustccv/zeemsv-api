@@ -12,5 +12,5 @@ public class PesquisaSircProperties {
     private boolean enabled = true;
     private String url;
     private String authorization;
-    private String nifParam = "NUM_NIF";
+    private String nifParam = "P_NIF";
 }

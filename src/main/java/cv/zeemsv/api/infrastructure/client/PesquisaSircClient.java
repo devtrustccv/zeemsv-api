@@ -6,12 +6,11 @@ import cv.zeemsv.api.application.pessoa.helper.PesquisaInvestidorHelper;
 import cv.zeemsv.api.config.PesquisaSircProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.util.UriComponentsBuilder;
 
-import java.util.Map;
 import java.util.Optional;
 
 @Component
@@ -32,11 +31,11 @@ public class PesquisaSircClient {
 
         JsonNode response = restClientBuilder.build()
             .post()
-            .uri(properties.getUrl())
-            .contentType(MediaType.APPLICATION_JSON)
-            .accept(MediaType.APPLICATION_JSON)
+            .uri(UriComponentsBuilder.fromUriString(properties.getUrl())
+                .queryParam(properties.getNifParam(), nif)
+                .build(true)
+                .toUri())
             .header(HttpHeaders.AUTHORIZATION, properties.getAuthorization())
-            .body(Map.of(properties.getNifParam(), nif))
             .retrieve()
             .body(JsonNode.class);
 
