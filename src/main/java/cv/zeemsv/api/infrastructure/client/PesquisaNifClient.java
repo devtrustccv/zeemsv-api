@@ -42,7 +42,7 @@ public class PesquisaNifClient {
                 .uri(url)
                 .accept(MediaType.APPLICATION_JSON)
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .header(HttpHeaders.AUTHORIZATION, properties.getAuthorization())
+                .header(HttpHeaders.AUTHORIZATION, authorizationHeader(properties.getAuthorization()))
                 .retrieve()
                 .body(JsonNode.class);
         } catch (HttpStatusCodeException ex) {
@@ -56,6 +56,11 @@ public class PesquisaNifClient {
         }
 
         return Optional.of(pesquisaInvestidorHelper.fromNif(entry));
+    }
+
+    private String authorizationHeader(String authorization) {
+        String value = authorization.trim();
+        return value.regionMatches(true, 0, "Bearer ", 0, "Bearer ".length()) ? value : "Bearer " + value;
     }
 
     private JsonNode extractEntry(JsonNode response) {

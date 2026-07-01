@@ -39,7 +39,7 @@ public class PesquisaSircClient {
                     .queryParam(properties.getNifParam(), nif)
                     .build(true)
                     .toUri())
-                .header(HttpHeaders.AUTHORIZATION, properties.getAuthorization())
+                .header(HttpHeaders.AUTHORIZATION, authorizationHeader(properties.getAuthorization()))
                 .retrieve()
                 .body(JsonNode.class);
         } catch (HttpStatusCodeException ex) {
@@ -54,6 +54,11 @@ public class PesquisaSircClient {
 
         PesquisaNifResponseDTO dto = pesquisaInvestidorHelper.fromSirc(entry);
         return StringUtils.hasText(dto.getNif()) || StringUtils.hasText(dto.getNome()) ? Optional.of(dto) : Optional.empty();
+    }
+
+    private String authorizationHeader(String authorization) {
+        String value = authorization.trim();
+        return value.regionMatches(true, 0, "Bearer ", 0, "Bearer ".length()) ? value : "Bearer " + value;
     }
 
     private JsonNode extractEntry(JsonNode response) {
