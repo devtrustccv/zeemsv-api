@@ -4,17 +4,19 @@ import com.fasterxml.jackson.databind.JsonNode;
 import cv.zeemsv.api.application.pessoa.dto.PesquisaNifResponseDTO;
 import cv.zeemsv.api.application.pessoa.helper.PesquisaInvestidorHelper;
 import cv.zeemsv.api.config.PesquisaSircProperties;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.util.Optional;
-
 @Component
 @RequiredArgsConstructor
+@Log4j2
 public class PesquisaSircClient {
     private final RestClient.Builder restClientBuilder;
     private final PesquisaSircProperties properties;
@@ -29,15 +31,21 @@ public class PesquisaSircClient {
             return Optional.empty();
         }
 
-        JsonNode response = restClientBuilder.build()
-            .post()
-            .uri(UriComponentsBuilder.fromUriString(properties.getUrl())
-                .queryParam(properties.getNifParam(), nif)
-                .build(true)
-                .toUri())
-            .header(HttpHeaders.AUTHORIZATION, properties.getAuthorization())
-            .retrieve()
-            .body(JsonNode.class);
+        JsonNode response;
+        try {
+            response = restClientBuilder.build()
+                .post()
+                .uri(UriComponentsBuilder.fromUriString(properties.getUrl())
+                    .queryParam(properties.getNifParam(), nif)
+                    .build(true)
+                    .toUri())
+                .header(HttpHeaders.AUTHORIZATION, properties.getAuthorization())
+                .retrieve()
+                .body(JsonNode.class);
+        } catch (HttpStatusCodeException ex) {
+            log.warn("Pesquisa SIRC falhou com status {} para NIF {}: {}", ex.getStatusCode(), nif, ex.getResponseBodyAsString());
+            return Optional.empty();
+        }
 
         JsonNode entry = extractEntry(response);
         if (entry == null || entry.isMissingNode() || entry.isNull()) {
