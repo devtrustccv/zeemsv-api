@@ -10,8 +10,8 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.util.UriComponentsBuilder;
 
+import java.util.Map;
 import java.util.Optional;
 
 @Component
@@ -30,16 +30,13 @@ public class PesquisaSircClient {
             return Optional.empty();
         }
 
-        String url = UriComponentsBuilder.fromHttpUrl(properties.getUrl())
-            .queryParam(properties.getNifParam(), nif)
-            .toUriString();
-
         JsonNode response = restClientBuilder.build()
-            .get()
-            .uri(url)
+            .post()
+            .uri(properties.getUrl())
+            .contentType(MediaType.APPLICATION_JSON)
             .accept(MediaType.APPLICATION_JSON)
-            .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
             .header(HttpHeaders.AUTHORIZATION, properties.getAuthorization())
+            .body(Map.of(properties.getNifParam(), nif))
             .retrieve()
             .body(JsonNode.class);
 
