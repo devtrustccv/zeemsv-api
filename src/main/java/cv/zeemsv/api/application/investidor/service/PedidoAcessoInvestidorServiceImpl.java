@@ -90,17 +90,19 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
                 .orElseThrow(() -> new BusinessException("Investidor nao encontrado."));
         }
 
-        if (dto.getIdInvestidor() != null && repository.existsNaoRejeitadoByIdUtilizadorAndIdInvestidor(dto.getIdUser(), dto.getIdInvestidor())) {
-            throw new BusinessException("Ja existe pedido de acesso para este utilizador e investidor.");
-        }
-
         Integer idSocioRepres = dto.getIdSocioRepres();
         if (TIPO_PEDIDO_REPRES_INVESTIDOR.equals(tipoPedido)) {
             if (dto.getIdInvestidor() == null) {
                 throw new BusinessException("O campo id_investidor e obrigatorio para pedido REPRES_INVESTIDOR.");
             }
             idSocioRepres = resolveSocioRepres(dto);
+            if (repository.existsNaoRejeitadoByIdSocioRepresAndIdInvestidor(idSocioRepres, dto.getIdInvestidor())) {
+                throw new BusinessException("Ja existe pedido de acesso para este socio/representante e investidor.");
+            }
+            validateSocioRepresNotAssociated(dto.getIdInvestidor(), idSocioRepres);
             createRepresInvestidorPendente(dto, idSocioRepres);
+        } else if (dto.getIdInvestidor() != null && repository.existsNaoRejeitadoByIdUtilizadorAndIdInvestidor(dto.getIdUser(), dto.getIdInvestidor())) {
+            throw new BusinessException("Ja existe pedido de acesso para este utilizador e investidor.");
         }
 
         ZeeTPedidoAcessoInvestidorEntity entity = new ZeeTPedidoAcessoInvestidorEntity();
@@ -187,15 +189,18 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
     private Integer resolveSocioRepres(PedidoAcessoInvestidorRequestDTO dto) {
         ZeeTSocioRepresEntity existing = findSocioRepres(dto);
         if (existing != null) {
-            if (represInvestidorRepository.findAssociation(dto.getIdInvestidor(), existing.getId(), null).isPresent()) {
-                throw new BusinessException("Socio/representante ja associado ao investidor.");
-            }
             return existing.getId();
         }
 
         validateSocioRepresentante(dto);
         SocioRepresentanteResponseDTO socioRepresentante = socioRepresentanteService.createPendente(toSocioRepresentanteRequest(dto));
         return socioRepresentante.getId();
+    }
+
+    private void validateSocioRepresNotAssociated(Integer idInvestidor, Integer idSocioRepres) {
+        if (represInvestidorRepository.findAssociation(idInvestidor, idSocioRepres, null).isPresent()) {
+            throw new BusinessException("Socio/representante ja associado ao investidor.");
+        }
     }
 
     private ZeeTSocioRepresEntity findSocioRepres(PedidoAcessoInvestidorRequestDTO dto) {

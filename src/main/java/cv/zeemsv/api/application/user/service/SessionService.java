@@ -213,6 +213,8 @@ public class SessionService {
         UserModel user = userBus.findByEmailOrSubCmdcv(token.getEmail(), token.getSub())
             .orElseThrow(() -> new BusinessException(Messages.USER_NOT_FOUND, new RuntimeException(Messages.USER_NOT_FOUND)));
 
+        var representante = representanteInvestidorRepository.findFirstByIdUserOrderByDataRegistoDescIdDesc(user.getId()).orElse(null);
+
         UserAccountDetailResponseDTO response = UserAccountDetailResponseDTO.builder()
             .userId(user.getId())
             .sessionToken(accessToken)
@@ -220,7 +222,8 @@ public class SessionService {
             .name(user.getName())
             .status(user.getStatus())
             .subCmdcv(user.getSubCmdcv())
-            .role(representanteInvestidorRepository.existsByIdUser(user.getId()) ? "INVESTIDOR" : "none_investidor")
+            .role(representante != null ? "INVESTIDOR" : "none_investidor")
+            .idSocioRepres(representante != null ? representante.getIdSocioRepres() : null)
             .build();
 
         Optional<PessoaModel> pessoaOpt;

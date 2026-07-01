@@ -23,4 +23,18 @@ public interface ZeeTPedidoAcessoInvestidorRepository extends JpaRepository<ZeeT
         @Param("idUtilizador") Integer idUtilizador,
         @Param("idInvestidor") Integer idInvestidor
     );
+
+    @Query(value = """
+        select exists (
+            select 1
+            from public.zee_t_pedido_acesso_investidor p
+            where p.id_socio_repres = :idSocioRepres
+                and p.id_investidor = :idInvestidor
+                and coalesce(p.dm_estado, '') <> 'REJEITADO'
+        )
+        """, nativeQuery = true)
+    boolean existsNaoRejeitadoByIdSocioRepresAndIdInvestidor(
+        @Param("idSocioRepres") Integer idSocioRepres,
+        @Param("idInvestidor") Integer idInvestidor
+    );
 }

@@ -12,6 +12,8 @@ import org.springframework.data.repository.query.Param;
 public interface ZeeTRepresInvestidorRepository extends JpaRepository<ZeeTRepresInvestidorEntity, Integer>, JpaSpecificationExecutor<ZeeTRepresInvestidorEntity> {
     boolean existsByIdUser(Integer idUser);
 
+    Optional<ZeeTRepresInvestidorEntity> findFirstByIdUserOrderByDataRegistoDescIdDesc(Integer idUser);
+
     @Query("""
         select
             r.id as id,
