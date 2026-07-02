@@ -67,7 +67,9 @@ public class InvestidorBusImpl implements InvestidorBus {
         model.setDmEstado(entity.getDmEstado());
         model.setDmTipoInvestidor(entity.getDmTipoInvestidor());
         model.setPaisOrigem(entity.getPaisOrigem());
+        model.setEndereco(entity.getEndereco());
         model.setDmTpRepresentante(entity.getDmTpRepresentante());
+        model.setDmPrincipal(entity.getDmPrincipal());
         return model;
     }
 }

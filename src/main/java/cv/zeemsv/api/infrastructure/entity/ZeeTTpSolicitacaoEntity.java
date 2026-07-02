@@ -49,4 +49,7 @@ public class ZeeTTpSolicitacaoEntity {
     @Column(name = "possui_taxa")
     private String possuiTaxa;
 
+    @Column(name = "possui_onboarding")
+    private Boolean possuiOnboarding;
+
 }

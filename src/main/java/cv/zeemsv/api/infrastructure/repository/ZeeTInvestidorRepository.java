@@ -19,7 +19,9 @@ public interface ZeeTInvestidorRepository extends JpaRepository<ZeeTInvestidorEn
             i.dmEstado as dmEstado,
             i.dmTipoInvestidor as dmTipoInvestidor,
             i.paisOrigem as paisOrigem,
-            r.dmTpRepresentante as dmTpRepresentante
+            i.endereco as endereco,
+            r.dmTpRepresentante as dmTpRepresentante,
+            r.dmPrincipal as dmPrincipal
         from ZeeTInvestidorEntity i
         join ZeeTRepresInvestidorEntity r on r.idInvestidor = i.id
         join ZeeTUserEntity u on u.id = r.idUser

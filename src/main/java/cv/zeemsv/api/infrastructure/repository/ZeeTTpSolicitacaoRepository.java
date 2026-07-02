@@ -24,6 +24,7 @@ public interface ZeeTTpSolicitacaoRepository extends JpaRepository<ZeeTTpSolicit
             s.dmEstado as dmEstado,
             s.idEntExterna as idEntExterna,
             s.possuiTaxa as possuiTaxa,
+            s.possuiOnboarding as possuiOnboarding,
             e.denominacao as entidadeDenominacao,
             e.sigla as entidadeSigla,
             e.dmTipoEnt as entidadeDmTipoEnt
@@ -55,6 +56,7 @@ public interface ZeeTTpSolicitacaoRepository extends JpaRepository<ZeeTTpSolicit
             s.dmEstado as dmEstado,
             s.idEntExterna as idEntExterna,
             s.possuiTaxa as possuiTaxa,
+            s.possuiOnboarding as possuiOnboarding,
             e.denominacao as entidadeDenominacao,
             e.sigla as entidadeSigla,
             e.dmTipoEnt as entidadeDmTipoEnt

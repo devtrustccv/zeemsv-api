@@ -44,6 +44,7 @@ public class InvestidorServiceImpl implements InvestidorService {
         dto.setDmEstadoDesc(domainHelper.describe(DomainDescriptionHelper.ESTADO, dto.getDmEstado()));
         dto.setDmTipoInvestidorDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_INVESTIDOR, dto.getDmTipoInvestidor()));
         dto.setDmTpRepresentanteDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_REPRESENTANTE, dto.getDmTpRepresentante()));
+        dto.setDmPrincipalDesc(domainHelper.describe(DomainDescriptionHelper.SIM_NAO, dto.getDmPrincipal()));
         return dto;
     }
 }

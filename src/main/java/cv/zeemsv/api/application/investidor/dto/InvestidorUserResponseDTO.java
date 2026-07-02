@@ -16,6 +16,9 @@ public class InvestidorUserResponseDTO {
     private String dmTipoInvestidor;
     private String dmTipoInvestidorDesc;
     private String paisOrigem;
+    private String endereco;
     private String dmTpRepresentante;
     private String dmTpRepresentanteDesc;
+    private String dmPrincipal;
+    private String dmPrincipalDesc;
 }

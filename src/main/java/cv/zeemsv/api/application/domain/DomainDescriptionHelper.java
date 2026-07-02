@@ -27,6 +27,7 @@ public class DomainDescriptionHelper {
     public static final String MOEDA = "MOEDA";
     public static final String NATUREZA_JURIDICA = "NATUREZA_JURIDICA";
     public static final String ORIGEM = "ORIGEM";
+    public static final String OBJECTO = "OBJECTO";
     public static final String PRIORIDADE_TAREFA = "PRIORIDADE_TAREFA";
     public static final String PRODUTO_SERVICO = "PRODUTO_SERVICO";
     public static final String REGIME = "REGIME";
@@ -38,6 +39,7 @@ public class DomainDescriptionHelper {
     public static final String TIPO_CHAMADA = "TIPO_CHAMADA";
     public static final String TIPO_DOCUMENTO = "TIPO_DOCUMENTO";
     public static final String TIPO_ENTIDADE = "TIPO_ENTIDADE";
+    public static final String TIPO_ONBOARDING = "TIPO_ONBOARDING";
     public static final String TIPO_ORDEM = "TIPO_ORDEM";
     public static final String TIPO_PEDIDO_ACESSO = "TIPO_PEDIDO_ACESSO";
     public static final String TIPO_REPRESENTANTE = "TIPO_REPRESENTANTE";

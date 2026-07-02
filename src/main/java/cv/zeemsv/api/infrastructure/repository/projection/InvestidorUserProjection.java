@@ -11,5 +11,7 @@ public interface InvestidorUserProjection {
     String getDmEstado();
     String getDmTipoInvestidor();
     String getPaisOrigem();
+    String getEndereco();
     String getDmTpRepresentante();
+    String getDmPrincipal();
 }
