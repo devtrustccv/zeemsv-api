@@ -42,6 +42,7 @@ public class DomainDescriptionHelper {
     public static final String TIPO_PEDIDO_ACESSO = "TIPO_PEDIDO_ACESSO";
     public static final String TIPO_REPRESENTANTE = "TIPO_REPRESENTANTE";
     public static final String TIPO_SOLICITACAO = "TIPO_SOLICITACAO";
+    public static final String TIPO_TAXA = "TIPO_TAXA";
     public static final String TIPO_INVESTIDOR = "TIPO_INVESTIDOR";
     public static final String CLASSIFICACAO = "CLASSIFICACAO";
     public static final String RESULTADO_CHAMADA = "RESULTADO_CHAMADA";

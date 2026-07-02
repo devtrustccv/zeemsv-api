@@ -6,11 +6,14 @@ import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDocumentosRequisitos
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoRequestDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoRequisitoResponseDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoResponseDTO;
+import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoTaxaResponseDTO;
 import cv.zeemsv.api.application.solicitacao.mapper.SolicitacaoDtoMapper;
 import cv.zeemsv.api.domain.solicitacao.business.SolicitacaoBus;
 import cv.zeemsv.api.exceptions.BusinessException;
+import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicTaxaEntity;
 import cv.zeemsv.api.infrastructure.repository.ZeeTSolicitacaoRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTTpSolicitacaoRepository;
+import cv.zeemsv.api.infrastructure.repository.ZeeTTpSolicTaxaRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTTpSolicTpDocRepository;
 import cv.zeemsv.api.infrastructure.repository.projection.SolicitacaoDocProjection;
 import cv.zeemsv.api.infrastructure.repository.projection.SolicitacaoDocumentoConfiguradoProjection;
@@ -30,6 +33,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     private final DomainDescriptionHelper domainHelper;
     private final ZeeTSolicitacaoRepository solicitacaoRepository;
     private final ZeeTTpSolicitacaoRepository tpSolicitacaoRepository;
+    private final ZeeTTpSolicTaxaRepository tpSolicTaxaRepository;
     private final ZeeTTpSolicTpDocRepository tpSolicTpDocRepository;
 
     @Override @Transactional
@@ -62,6 +66,9 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
             .toList());
         response.setRequisitos(tpSolicTpDocRepository.findRequisitosByIdTpSolicitacao(idTpSolicitacao).stream()
             .map(this::toRequisitoResponse)
+            .toList());
+        response.setTaxas(tpSolicTaxaRepository.findByIdTpSolic(idTpSolicitacao).stream()
+            .map(this::toTaxaResponse)
             .toList());
         return response;
     }
@@ -113,6 +120,16 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         dto.setFlagObrigatorioDesc("SIM".equalsIgnoreCase(p.getFlagObrigatorio()) ? "Sim" : "Nao");
         dto.setCumpre("1");
         dto.setCumpreCheck("0");
+        return dto;
+    }
+
+    private SolicitacaoTaxaResponseDTO toTaxaResponse(ZeeTTpSolicTaxaEntity entity) {
+        SolicitacaoTaxaResponseDTO dto = new SolicitacaoTaxaResponseDTO();
+        dto.setTaxa(entity.getDescricao());
+        dto.setTipoTaxa(domainHelper.describe(DomainDescriptionHelper.TIPO_TAXA, entity.getTipoTaxa()));
+        if (entity.getValor() != null) {
+            dto.setValor(entity.getValor().intValue());
+        }
         return dto;
     }
 
