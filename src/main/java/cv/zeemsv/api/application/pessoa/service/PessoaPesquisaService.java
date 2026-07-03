@@ -87,6 +87,8 @@ public class PessoaPesquisaService {
         pessoa.setNacionalidadeId(nacionalidadeResolver.resolveId(nacionalidade));
         pessoa.setTelemovel(entity.getTelemovel() != null ? entity.getTelemovel().toPlainString() : null);
         pessoa.setEmail(entity.getEmail());
+        pessoa.setFotoUrl(StringUtils.hasText(entity.getFotoUrl()) ? entity.getFotoUrl() : entity.getFotoPath());
+        pessoa.setFotoPath(entity.getFotoPath());
         pessoa.setOrigem("LOCAL_SOCIO_REPRES");
         return pessoa;
     }

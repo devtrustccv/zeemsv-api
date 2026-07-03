@@ -40,6 +40,7 @@ public class PedidoAcessoInvestidorRequestDTO {
     @Email(message = "Email invalido")
     private String email;
 
+    private String fotoUrl;
     private String indicativoPais;
     private String obs;
 }

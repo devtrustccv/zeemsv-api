@@ -36,6 +36,8 @@ public interface ZeeTRepresInvestidorRepository extends JpaRepository<ZeeTRepres
             s.telefone as telefone,
             coalesce(s.telemovel, o.telemovel) as telemovel,
             coalesce(s.email, o.email) as email,
+            s.fotoUrl as fotoUrl,
+            s.fotoPath as fotoPath,
             coalesce(s.indicativoPais, o.indicativoPais) as indicativoPais
         from ZeeTRepresInvestidorEntity r
         left join ZeeTSocioRepresEntity s on s.id = r.idSocioRepres
@@ -68,6 +70,8 @@ public interface ZeeTRepresInvestidorRepository extends JpaRepository<ZeeTRepres
             s.telefone as telefone,
             s.telemovel as telemovel,
             s.email as email,
+            s.fotoUrl as fotoUrl,
+            s.fotoPath as fotoPath,
             s.indicativoPais as indicativoPais
         from ZeeTRepresInvestidorEntity r
         join ZeeTSocioRepresEntity s on s.id = r.idSocioRepres

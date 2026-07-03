@@ -103,6 +103,7 @@ public class AssociarRepresentanteServiceImpl implements AssociarRepresentanteSe
         socioRepres.setEmail(StringUtils.hasText(dto.getEmail()) ? trim(dto.getEmail()) : "");
         socioRepres.setIndicativoPais(trim(dto.getIndicativoPais()));
         socioRepres.setTelemovel(dto.getTelemovel());
+        socioRepres.setFotoUrl(trim(dto.getFotoUrl()));
         socioRepres.setEstado(ESTADO_ATIVO);
         if (socioRepres.getDateCreate() == null) {
             socioRepres.setDateCreate(LocalDate.now());
@@ -245,6 +246,8 @@ public class AssociarRepresentanteServiceImpl implements AssociarRepresentanteSe
             dto.setTelefone(socioRepres.getTelefone());
             dto.setTelemovel(socioRepres.getTelemovel());
             dto.setEmail(socioRepres.getEmail());
+            dto.setFotoUrl(StringUtils.hasText(socioRepres.getFotoUrl()) ? socioRepres.getFotoUrl() : socioRepres.getFotoPath());
+            dto.setFotoPath(socioRepres.getFotoPath());
             dto.setIndicativoPais(socioRepres.getIndicativoPais());
         } else if (ordem != null) {
             dto.setNome(ordem.getNome());

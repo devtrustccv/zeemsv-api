@@ -19,7 +19,7 @@ import cv.zeemsv.api.domain.user.model.SessionModel;
 import cv.zeemsv.api.domain.user.model.UserModel;
 import cv.zeemsv.api.exceptions.BusinessException;
 import cv.zeemsv.api.exceptions.ExternalApiException;
-import cv.zeemsv.api.infrastructure.repository.ZeeTRepresInvestidorRepository;
+import cv.zeemsv.api.infrastructure.repository.ZeeTSocioRepresRepository;
 import cv.zeemsv.api.utils.Constants;
 import cv.zeemsv.api.utils.Helpers;
 import cv.zeemsv.api.utils.JwtUtil;
@@ -46,7 +46,7 @@ public class SessionService {
     private final OTPService otpService;
     private final ContatoService contatoService;
     private final PessoaModelDTOMapper pessoaDTOMapper;
-    private final ZeeTRepresInvestidorRepository representanteInvestidorRepository;
+    private final ZeeTSocioRepresRepository socioRepresRepository;
 
     @Value("${application.session.jwt-secret:01234567890123456789012345678901}")
     private String jwtSecret;
@@ -213,7 +213,7 @@ public class SessionService {
         UserModel user = userBus.findByEmailOrSubCmdcv(token.getEmail(), token.getSub())
             .orElseThrow(() -> new BusinessException(Messages.USER_NOT_FOUND, new RuntimeException(Messages.USER_NOT_FOUND)));
 
-        var representante = representanteInvestidorRepository.findFirstByIdUserOrderByDataRegistoDescIdDesc(user.getId()).orElse(null);
+        var socioRepres = socioRepresRepository.findFirstByIdUserOrderByIdDesc(user.getId()).orElse(null);
 
         UserAccountDetailResponseDTO response = UserAccountDetailResponseDTO.builder()
             .userId(user.getId())
@@ -222,8 +222,8 @@ public class SessionService {
             .name(user.getName())
             .status(user.getStatus())
             .subCmdcv(user.getSubCmdcv())
-            .role(representante != null ? "INVESTIDOR" : "none_investidor")
-            .idSocioRepres(representante != null ? representante.getIdSocioRepres() : null)
+            .role(socioRepres != null ? "INVESTIDOR" : "none_investidor")
+            .idSocioRepres(socioRepres != null ? socioRepres.getId() : null)
             .build();
 
         Optional<PessoaModel> pessoaOpt;

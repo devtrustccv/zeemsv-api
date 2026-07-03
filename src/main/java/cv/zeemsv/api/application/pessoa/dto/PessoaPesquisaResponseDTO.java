@@ -19,6 +19,8 @@ public class PessoaPesquisaResponseDTO {
     private String estadoCivil;
     private String genero;
     private String email;
+    private String fotoUrl;
+    private String fotoPath;
     private String residencia;
     private String nomeMae;
     private String nomePai;

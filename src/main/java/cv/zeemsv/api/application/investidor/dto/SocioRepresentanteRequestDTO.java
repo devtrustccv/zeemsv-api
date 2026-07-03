@@ -26,5 +26,6 @@ public class SocioRepresentanteRequestDTO {
     @Email(message = "Email invalido")
     private String email;
 
+    private String fotoUrl;
     private String indicativoPais;
 }

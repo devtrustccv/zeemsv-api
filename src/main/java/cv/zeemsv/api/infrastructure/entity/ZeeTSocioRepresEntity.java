@@ -50,6 +50,12 @@ public class ZeeTSocioRepresEntity {
     @Column(name = "email")
     private String email;
 
+    @Column(name = "foto_url", length = 500)
+    private String fotoUrl;
+
+    @Column(name = "foto_path", length = 1000)
+    private String fotoPath;
+
     @Column(name = "flag_socio")
     private Boolean flagSocio;
 

@@ -24,5 +24,7 @@ public interface RepresentanteInvestidorProjection {
     BigDecimal getTelefone();
     BigDecimal getTelemovel();
     String getEmail();
+    String getFotoUrl();
+    String getFotoPath();
     String getIndicativoPais();
 }

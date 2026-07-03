@@ -32,8 +32,10 @@ import cv.zeemsv.api.infrastructure.repository.ZeeTUserRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -183,6 +185,7 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         request.setTelefone(dto.getTelefone());
         request.setTelemovel(dto.getTelemovel());
         request.setEmail(dto.getEmail());
+        request.setFotoUrl(dto.getFotoUrl());
         request.setIndicativoPais(dto.getIndicativoPais());
         return request;
     }
@@ -209,16 +212,39 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
             return socioRepresRepository.findById(dto.getIdSocioRepres())
                 .orElseThrow(() -> new BusinessException("Socio/representante nao encontrado."));
         }
-        return findSocioRepresByNif(dto.getNif());
-    }
+        List<ZeeTSocioRepresEntity> matches = new ArrayList<>();
+        matches.addAll(findSocioRepresByNif(dto.getNif()));
+        matches.addAll(findSocioRepresByNrDoc(dto.getNrDoc()));
+        matches.addAll(findSocioRepresByEmail(dto.getEmail()));
 
-    private ZeeTSocioRepresEntity findSocioRepresByNif(String nif) {
-        if (!StringUtils.hasText(nif)) {
+        if (matches.isEmpty()) {
             return null;
         }
-        return socioRepresRepository.findByNif(trim(nif)).stream()
-            .findFirst()
-            .orElse(null);
+        if (matches.stream().map(ZeeTSocioRepresEntity::getId).filter(Objects::nonNull).distinct().count() > 1) {
+            throw new BusinessException("Os dados informados pertencem a socios/representantes diferentes.");
+        }
+        return matches.iterator().next();
+    }
+
+    private List<ZeeTSocioRepresEntity> findSocioRepresByNif(String nif) {
+        if (!StringUtils.hasText(nif)) {
+            return List.of();
+        }
+        return socioRepresRepository.findByNif(trim(nif));
+    }
+
+    private List<ZeeTSocioRepresEntity> findSocioRepresByNrDoc(String nrDoc) {
+        if (!StringUtils.hasText(nrDoc)) {
+            return List.of();
+        }
+        return socioRepresRepository.findByNrDoc(trim(nrDoc));
+    }
+
+    private List<ZeeTSocioRepresEntity> findSocioRepresByEmail(String email) {
+        if (!StringUtils.hasText(email)) {
+            return List.of();
+        }
+        return socioRepresRepository.findByEmailIgnoreCase(trim(email));
     }
 
     private void createRepresInvestidorPendente(PedidoAcessoInvestidorRequestDTO dto, Integer idSocioRepres) {

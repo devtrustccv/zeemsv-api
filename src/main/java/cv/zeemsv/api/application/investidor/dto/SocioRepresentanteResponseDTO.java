@@ -23,6 +23,8 @@ public class SocioRepresentanteResponseDTO {
     private BigDecimal telefone;
     private BigDecimal telemovel;
     private String email;
+    private String fotoUrl;
+    private String fotoPath;
     private Boolean flagSocio;
     private Boolean flagRepresentante;
     private String dmPrincipal;

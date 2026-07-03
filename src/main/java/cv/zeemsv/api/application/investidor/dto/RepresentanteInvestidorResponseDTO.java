@@ -32,5 +32,7 @@ public class RepresentanteInvestidorResponseDTO {
     private BigDecimal telefone;
     private BigDecimal telemovel;
     private String email;
+    private String fotoUrl;
+    private String fotoPath;
     private String indicativoPais;
 }
