@@ -2,6 +2,7 @@ package cv.zeemsv.api.application.pessoa.service;
 
 import cv.zeemsv.api.application.geografia.service.NacionalidadeResolver;
 import cv.zeemsv.api.application.pessoa.dto.PessoaPesquisaResponseDTO;
+import cv.zeemsv.api.domain.documento.business.DocumentViewerUrlService;
 import cv.zeemsv.api.infrastructure.client.PesquisaCniClient;
 import cv.zeemsv.api.infrastructure.entity.ZeeTInvestidorEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTSocioRepresEntity;
@@ -24,6 +25,7 @@ public class PessoaPesquisaService {
     private final ZeeTInvestidorRepository investidorRepository;
     private final PesquisaCniClient pesquisaCniClient;
     private final NacionalidadeResolver nacionalidadeResolver;
+    private final DocumentViewerUrlService documentViewerUrlService;
 
     @Transactional(readOnly = true)
     public List<PessoaPesquisaResponseDTO> pesquisar(String nomeCompleto, String nrDocumento) {
@@ -87,8 +89,8 @@ public class PessoaPesquisaService {
         pessoa.setNacionalidadeId(nacionalidadeResolver.resolveId(nacionalidade));
         pessoa.setTelemovel(entity.getTelemovel() != null ? entity.getTelemovel().toPlainString() : null);
         pessoa.setEmail(entity.getEmail());
-        pessoa.setFotoUrl(StringUtils.hasText(entity.getFotoUrl()) ? entity.getFotoUrl() : entity.getFotoPath());
-        pessoa.setFotoPath(entity.getFotoPath());
+        pessoa.setFotoUrl(StringUtils.hasText(entity.getFotoUrl()) ? entity.getFotoUrl() : documentViewerUrlService.toViewerUrl(entity.getFotoPath()));
+        pessoa.setFotoPath(null);
         pessoa.setOrigem("LOCAL_SOCIO_REPRES");
         return pessoa;
     }

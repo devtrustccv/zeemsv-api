@@ -6,6 +6,7 @@ import cv.zeemsv.api.application.investidor.dto.PedidoAcessoInvestidorRequestDTO
 import cv.zeemsv.api.application.investidor.dto.PedidoAcessoInvestidorResponseDTO;
 import cv.zeemsv.api.application.investidor.dto.SocioRepresentanteRequestDTO;
 import cv.zeemsv.api.application.investidor.dto.SocioRepresentanteResponseDTO;
+import cv.zeemsv.api.domain.documento.business.DocumentViewerUrlService;
 import cv.zeemsv.api.domain.documento.business.DocumentoBus;
 import cv.zeemsv.api.domain.documento.dto.UploadDTO;
 import cv.zeemsv.api.exceptions.BusinessException;
@@ -71,6 +72,7 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
     private final TNotificacaoRepository notificacaoRepository;
     private final TNotificacaoRelacaoRepository notificacaoRelacaoRepository;
     private final DocumentoBus documentoBus;
+    private final DocumentViewerUrlService documentViewerUrlService;
     private final EmailService emailService;
     private final DomainDescriptionHelper domainHelper;
     private final SocioRepresentanteService socioRepresentanteService;
@@ -125,7 +127,7 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
             ZeeTPedidoAcessoInvestidorEntity saved = repository.save(entity);
             UploadDTO upload = buildUpload(saved, ficheiroCompravativo);
             documentoBus.saveOrUpdate(upload, String.valueOf(dto.getIdUser()));
-            saved.setFicheiroCompravativo(upload.getFullPath());
+            saved.setFicheiroCompravativo(upload.getZeeTDocRelacao().getPath());
             ZeeTPedidoAcessoInvestidorEntity savedWithFile = repository.save(saved);
             notifyTecnicos(savedWithFile, investidor);
             notifyUtilizador(savedWithFile, user, dto.getEmail(), dto.getEmailContactoEntidade());
@@ -460,7 +462,7 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         dto.setTelemovelContactoEntidade(entity.getTelemovelContactoEntidade());
         dto.setDmTpRepresentante(entity.getDmTpRepresentante());
         dto.setDmTpRepresentanteDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_REPRESENTANTE, entity.getDmTpRepresentante()));
-        dto.setFicheiroCompravativo(entity.getFicheiroCompravativo());
+        dto.setFicheiroCompravativo(documentViewerUrlService.toViewerUrl(entity.getFicheiroCompravativo()));
         dto.setDmEstado(entity.getDmEstado());
         dto.setDmEstadoDesc(domainHelper.describe(DomainDescriptionHelper.ESTADO, entity.getDmEstado()));
         dto.setObs(entity.getObs());
@@ -473,7 +475,6 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
 
     private PedidoAcessoInvestidorResponseDTO toResponseWithFileContent(ZeeTPedidoAcessoInvestidorEntity entity) {
         PedidoAcessoInvestidorResponseDTO dto = toResponse(entity);
-        dto.setFicheiroCompravativoBytes(documentoBus.getDocContentByPath(entity.getFicheiroCompravativo()));
         return dto;
     }
 }

@@ -11,4 +11,6 @@ public interface ZeeTDocRelacaoRepository extends JpaRepository<ZeeTDocRelacaoEn
     List<ZeeTDocRelacaoEntity> findByTipoRelacaoAndIdRelacaoAndEstado(String tipoRelacao, BigDecimal idRelacao, String estado);
 
     Optional<ZeeTDocRelacaoEntity> findByIdTpDocAndIdRelacaoAndTipoRelacao(Integer idTpDoc, BigDecimal idRelacao, String tipoRelacao);
+
+    Optional<ZeeTDocRelacaoEntity> findFirstByPath(String path);
 }

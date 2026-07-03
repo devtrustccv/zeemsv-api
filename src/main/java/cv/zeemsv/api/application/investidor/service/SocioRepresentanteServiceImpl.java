@@ -5,6 +5,7 @@ import cv.zeemsv.api.application.geografia.service.NacionalidadeResolver;
 import cv.zeemsv.api.application.investidor.dto.RepresentanteInvestidorResponseDTO;
 import cv.zeemsv.api.application.investidor.dto.SocioRepresentanteRequestDTO;
 import cv.zeemsv.api.application.investidor.dto.SocioRepresentanteResponseDTO;
+import cv.zeemsv.api.domain.documento.business.DocumentViewerUrlService;
 import cv.zeemsv.api.domain.documento.business.DocumentoBus;
 import cv.zeemsv.api.domain.documento.dto.UploadDTO;
 import cv.zeemsv.api.domain.user.business.UserBus;
@@ -40,6 +41,7 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
     private final UserBus userBus;
     private final NacionalidadeResolver nacionalidadeResolver;
     private final DocumentoBus documentoBus;
+    private final DocumentViewerUrlService documentViewerUrlService;
 
     @Override
     @Transactional
@@ -51,7 +53,8 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
         if (foto != null && !foto.isEmpty()) {
             UploadDTO upload = buildFotoUpload(entity, foto);
             documentoBus.saveOrUpdate(upload, String.valueOf(user.getId()));
-            entity.setFotoPath(upload.getFullPath());
+            entity.setFotoUrl(null);
+            entity.setFotoPath(upload.getZeeTDocRelacao().getPath());
             entity = repository.save(entity);
         }
         return toResponse(entity);
@@ -159,7 +162,7 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
         dto.setTelemovel(entity.getTelemovel());
         dto.setEmail(entity.getEmail());
         dto.setFotoUrl(resolveFotoUrl(entity.getFotoUrl(), entity.getFotoPath()));
-        dto.setFotoPath(entity.getFotoPath());
+        dto.setFotoPath(null);
         dto.setFlagSocio(entity.getFlagSocio());
         dto.setFlagRepresentante(entity.getFlagRepresentante());
         dto.setDmPrincipal(entity.getDmPrincipal());
@@ -200,7 +203,7 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
         dto.setTelemovel(projection.getTelemovel());
         dto.setEmail(projection.getEmail());
         dto.setFotoUrl(resolveFotoUrl(projection.getFotoUrl(), projection.getFotoPath()));
-        dto.setFotoPath(projection.getFotoPath());
+        dto.setFotoPath(null);
         dto.setIndicativoPais(projection.getIndicativoPais());
         return dto;
     }
@@ -218,6 +221,6 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
     }
 
     private String resolveFotoUrl(String fotoUrl, String fotoPath) {
-        return StringUtils.hasText(fotoUrl) ? fotoUrl : fotoPath;
+        return StringUtils.hasText(fotoUrl) ? fotoUrl : documentViewerUrlService.toViewerUrl(fotoPath);
     }
 }

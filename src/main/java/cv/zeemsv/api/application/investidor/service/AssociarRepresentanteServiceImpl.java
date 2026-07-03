@@ -4,6 +4,7 @@ import cv.zeemsv.api.application.domain.DomainDescriptionHelper;
 import cv.zeemsv.api.application.geografia.service.NacionalidadeResolver;
 import cv.zeemsv.api.application.investidor.dto.AssociarRepresentanteRequestDTO;
 import cv.zeemsv.api.application.investidor.dto.RepresentanteInvestidorResponseDTO;
+import cv.zeemsv.api.domain.documento.business.DocumentViewerUrlService;
 import cv.zeemsv.api.domain.user.business.UserBus;
 import cv.zeemsv.api.domain.user.model.UserModel;
 import cv.zeemsv.api.exceptions.BusinessException;
@@ -41,6 +42,7 @@ public class AssociarRepresentanteServiceImpl implements AssociarRepresentanteSe
     private final UserBus userBus;
     private final DomainDescriptionHelper domainHelper;
     private final NacionalidadeResolver nacionalidadeResolver;
+    private final DocumentViewerUrlService documentViewerUrlService;
 
     @Override
     @Transactional
@@ -246,8 +248,8 @@ public class AssociarRepresentanteServiceImpl implements AssociarRepresentanteSe
             dto.setTelefone(socioRepres.getTelefone());
             dto.setTelemovel(socioRepres.getTelemovel());
             dto.setEmail(socioRepres.getEmail());
-            dto.setFotoUrl(StringUtils.hasText(socioRepres.getFotoUrl()) ? socioRepres.getFotoUrl() : socioRepres.getFotoPath());
-            dto.setFotoPath(socioRepres.getFotoPath());
+            dto.setFotoUrl(StringUtils.hasText(socioRepres.getFotoUrl()) ? socioRepres.getFotoUrl() : documentViewerUrlService.toViewerUrl(socioRepres.getFotoPath()));
+            dto.setFotoPath(null);
             dto.setIndicativoPais(socioRepres.getIndicativoPais());
         } else if (ordem != null) {
             dto.setNome(ordem.getNome());

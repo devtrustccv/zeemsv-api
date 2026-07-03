@@ -8,6 +8,7 @@ import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoRequisitoResponseDTO
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoResponseDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoTaxaResponseDTO;
 import cv.zeemsv.api.application.solicitacao.mapper.SolicitacaoDtoMapper;
+import cv.zeemsv.api.domain.documento.business.DocumentViewerUrlService;
 import cv.zeemsv.api.domain.solicitacao.business.SolicitacaoBus;
 import cv.zeemsv.api.exceptions.BusinessException;
 import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicTaxaEntity;
@@ -35,6 +36,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     private final ZeeTTpSolicitacaoRepository tpSolicitacaoRepository;
     private final ZeeTTpSolicTaxaRepository tpSolicTaxaRepository;
     private final ZeeTTpSolicTpDocRepository tpSolicTpDocRepository;
+    private final DocumentViewerUrlService documentViewerUrlService;
 
     @Override @Transactional
     public SolicitacaoResponseDTO create(SolicitacaoRequestDTO dto) { return enrich(mapper.toResponse(bus.create(mapper.toModel(dto)))); }
@@ -96,7 +98,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         dto.setIdEtapa(p.getIdEtapa());
         dto.setDataRegisto(p.getDataRegisto());
         dto.setUserRegisto(p.getUserRegisto());
-        dto.setPath(p.getPath());
+        dto.setPath(documentViewerUrlService.toViewerUrl(p.getPath()));
         return dto;
     }
 
