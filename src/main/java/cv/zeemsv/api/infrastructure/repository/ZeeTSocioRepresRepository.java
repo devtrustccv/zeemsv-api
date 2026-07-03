@@ -15,6 +15,8 @@ public interface ZeeTSocioRepresRepository extends JpaRepository<ZeeTSocioRepres
 
     List<ZeeTSocioRepresEntity> findByEmailIgnoreCase(String email);
 
+    List<ZeeTSocioRepresEntity> findByIdUser(Integer idUser);
+
     Optional<ZeeTSocioRepresEntity> findFirstByIdUserOrderByIdDesc(Integer idUser);
 
     List<ZeeTSocioRepresEntity> findByNomeContainingIgnoreCaseAndNrDoc(String nome, String nrDoc);

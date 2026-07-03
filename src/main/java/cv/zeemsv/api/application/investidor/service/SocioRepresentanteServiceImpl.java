@@ -5,6 +5,8 @@ import cv.zeemsv.api.application.geografia.service.NacionalidadeResolver;
 import cv.zeemsv.api.application.investidor.dto.RepresentanteInvestidorResponseDTO;
 import cv.zeemsv.api.application.investidor.dto.SocioRepresentanteRequestDTO;
 import cv.zeemsv.api.application.investidor.dto.SocioRepresentanteResponseDTO;
+import cv.zeemsv.api.application.investidor.dto.SocioRepresentanteUpdateRequestDTO;
+import cv.zeemsv.api.application.generic.service.EmailService;
 import cv.zeemsv.api.domain.documento.business.DocumentViewerUrlService;
 import cv.zeemsv.api.domain.documento.business.DocumentoBus;
 import cv.zeemsv.api.domain.documento.dto.UploadDTO;
@@ -20,7 +22,9 @@ import cv.zeemsv.api.utils.Messages;
 import cv.zeemsv.api.utils.enums.LoginProvider;
 import cv.zeemsv.api.utils.enums.UserStatus;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +38,7 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
     private static final String ESTADO_PENDENTE = "PENDENTE";
     private static final String TIPO_RELACAO_SOCIO_REPRES = "SOCIO_REPRES";
     private static final String NOME_FICHEIRO_FOTO = "foto";
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     private final ZeeTSocioRepresRepository repository;
     private final ZeeTRepresInvestidorRepository represInvestidorRepository;
@@ -42,6 +47,7 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
     private final NacionalidadeResolver nacionalidadeResolver;
     private final DocumentoBus documentoBus;
     private final DocumentViewerUrlService documentViewerUrlService;
+    private final EmailService emailService;
 
     @Override
     @Transactional
@@ -58,6 +64,41 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
             entity = repository.save(entity);
         }
         return toResponse(entity);
+    }
+
+    @Override
+    @Transactional
+    public SocioRepresentanteResponseDTO update(Integer idSocioRepres, SocioRepresentanteUpdateRequestDTO dto, MultipartFile foto) {
+        ZeeTSocioRepresEntity entity = repository.findById(idSocioRepres)
+            .orElseThrow(() -> new BusinessException("Socio/representante nao encontrado."));
+
+        if (dto.getTelefone() != null) {
+            entity.setTelefone(dto.getTelefone());
+        }
+        if (dto.getTelemovel() != null) {
+            entity.setTelemovel(dto.getTelemovel());
+        }
+        if (StringUtils.hasText(dto.getIndicativoPais())) {
+            entity.setIndicativoPais(trim(dto.getIndicativoPais()));
+        }
+        boolean emailChanged = false;
+        if (StringUtils.hasText(dto.getEmail()) && !trim(dto.getEmail()).equalsIgnoreCase(trim(entity.getEmail()))) {
+            UserModel user = resolveUpdateUserByEmail(dto.getEmail(), entity);
+            entity.setEmail(trim(dto.getEmail()));
+            entity.setIdUser(user.getId());
+            emailChanged = true;
+        }
+        if (foto != null && !foto.isEmpty()) {
+            UploadDTO upload = buildFotoUpload(entity, foto);
+            documentoBus.saveOrUpdate(upload, entity.getIdUser() != null ? String.valueOf(entity.getIdUser()) : null);
+            entity.setFotoUrl(null);
+            entity.setFotoPath(upload.getZeeTDocRelacao().getPath());
+        }
+        ZeeTSocioRepresEntity saved = repository.save(entity);
+        if (emailChanged) {
+            notifyEmailAssociado(saved);
+        }
+        return toResponse(saved);
     }
 
     @Override
@@ -105,6 +146,34 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
         user.setStatus(status);
         user.setProvider(StringUtils.hasText(user.getProvider()) ? user.getProvider() : LoginProvider.LOCAL.name());
         return userBus.save(user);
+    }
+
+    private UserModel resolveUpdateUserByEmail(String email, ZeeTSocioRepresEntity currentSocioRepres) {
+        String normalizedEmail = trim(email).toLowerCase();
+        repository.findByEmailIgnoreCase(normalizedEmail).stream()
+            .filter(socioRepres -> !Objects.equals(socioRepres.getId(), currentSocioRepres.getId()))
+            .findFirst()
+            .ifPresent(socioRepres -> {
+                throw new BusinessException("Este email pertence a um outro socio/representante.");
+            });
+
+        UserModel user = userBus.findByEmail(normalizedEmail).orElse(null);
+        if (user != null) {
+            repository.findByIdUser(user.getId()).stream()
+                .filter(socioRepres -> !Objects.equals(socioRepres.getId(), currentSocioRepres.getId()))
+                .findFirst()
+                .ifPresent(socioRepres -> {
+                    throw new BusinessException("Este email pertence a um outro socio/representante.");
+                });
+            return user;
+        }
+
+        return userBus.save(UserModel.builder()
+            .email(normalizedEmail)
+            .name(currentSocioRepres.getNome())
+            .provider(LoginProvider.LOCAL.name())
+            .status(UserStatus.PENDENTE)
+            .build());
     }
 
     private ZeeTSocioRepresEntity toEntity(SocioRepresentanteRequestDTO dto, UserModel user, String estado) {
@@ -222,5 +291,15 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
 
     private String resolveFotoUrl(String fotoUrl, String fotoPath) {
         return StringUtils.hasText(fotoUrl) ? fotoUrl : documentViewerUrlService.toViewerUrl(fotoPath);
+    }
+
+    private void notifyEmailAssociado(ZeeTSocioRepresEntity socioRepres) {
+        String subject = "Email associado a conta ZEEMSV";
+        String body = "Informamos que este email foi associado a conta de "
+            + socioRepres.getNome()
+            + " no dia "
+            + LocalDate.now().format(DATE_FORMATTER)
+            + ".";
+        emailService.sendText(socioRepres.getEmail(), subject, body);
     }
 }
