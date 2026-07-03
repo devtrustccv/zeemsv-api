@@ -26,6 +26,9 @@ public class ZeeTSolicOnboardingEntity {
     @Column(name = "dm_tipo_onboarding")
     private String dmTipoOnboarding;
 
+    @Column(name = "ordem")
+    private Integer ordem;
+
     @Column(name = "user_registo")
     private String userRegisto;
 

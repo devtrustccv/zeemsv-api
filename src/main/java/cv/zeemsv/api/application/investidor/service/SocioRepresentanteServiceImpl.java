@@ -38,7 +38,7 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
     @Transactional
     public SocioRepresentanteResponseDTO create(SocioRepresentanteRequestDTO dto) {
         validateUniqueFields(dto);
-        UserModel user = resolveUserByEmail(dto.getEmail(), dto.getNome(), UserStatus.ATIVO, true);
+        UserModel user = resolveUserByEmail(dto.getEmail(), dto.getNome(), UserStatus.A, true);
 
         return toResponse(repository.save(toEntity(dto, user, ESTADO_ATIVO)));
     }

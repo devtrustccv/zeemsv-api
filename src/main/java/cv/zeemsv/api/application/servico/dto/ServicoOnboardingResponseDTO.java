@@ -9,4 +9,5 @@ public class ServicoOnboardingResponseDTO {
     private Integer id;
     private String dmTipoOnboarding;
     private String dmTipoOnboardingDesc;
+    private Integer ordem;
 }

@@ -57,7 +57,7 @@ public class ServicoServiceImpl implements ServicoService {
             .toList();
         Map<Integer, List<ZeeTSolicOnboardingEntity>> onboardingByTpSolic = idsComOnboarding.isEmpty()
             ? Collections.emptyMap()
-            : solicOnboardingRepository.findByIdTpSolicIn(idsComOnboarding).stream()
+            : solicOnboardingRepository.findByIdTpSolicInOrderByOrdemAscIdAsc(idsComOnboarding).stream()
                 .collect(Collectors.groupingBy(ZeeTSolicOnboardingEntity::getIdTpSolic));
 
         return servicos.stream()
@@ -114,6 +114,7 @@ public class ServicoServiceImpl implements ServicoService {
         dto.setId(entity.getId());
         dto.setDmTipoOnboarding(entity.getDmTipoOnboarding());
         dto.setDmTipoOnboardingDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_ONBOARDING, entity.getDmTipoOnboarding()));
+        dto.setOrdem(entity.getOrdem());
         return dto;
     }
 }
