@@ -14,6 +14,7 @@ public class SocioRepresentanteUpdateRequestDTO {
     private BigDecimal telefone;
     private BigDecimal telemovel;
     private String indicativoPais;
+    private String endereco;
 
     @Email(message = "Email invalido")
     private String email;

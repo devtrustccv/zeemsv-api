@@ -91,6 +91,8 @@ public class PessoaPesquisaService {
         pessoa.setEmail(entity.getEmail());
         pessoa.setFotoUrl(StringUtils.hasText(entity.getFotoUrl()) ? entity.getFotoUrl() : documentViewerUrlService.toViewerUrl(entity.getFotoPath()));
         pessoa.setFotoPath(null);
+        pessoa.setEndereco(entity.getEndereco());
+        pessoa.setResidencia(entity.getEndereco());
         pessoa.setOrigem("LOCAL_SOCIO_REPRES");
         return pessoa;
     }

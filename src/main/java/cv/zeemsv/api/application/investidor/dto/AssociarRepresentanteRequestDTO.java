@@ -26,6 +26,7 @@ public class AssociarRepresentanteRequestDTO {
     private String email;
     private String fotoUrl;
     private String indicativoPais;
+    private String endereco;
 
     @NotBlank(message = "O campo tipo e obrigatorio")
     private String tipo;

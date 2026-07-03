@@ -42,5 +42,6 @@ public class PedidoAcessoInvestidorRequestDTO {
 
     private String fotoUrl;
     private String indicativoPais;
+    private String endereco;
     private String obs;
 }

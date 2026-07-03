@@ -35,4 +35,5 @@ public class RepresentanteInvestidorResponseDTO {
     private String fotoUrl;
     private String fotoPath;
     private String indicativoPais;
+    private String endereco;
 }

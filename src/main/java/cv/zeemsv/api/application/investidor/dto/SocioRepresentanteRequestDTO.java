@@ -28,4 +28,5 @@ public class SocioRepresentanteRequestDTO {
 
     private String fotoUrl;
     private String indicativoPais;
+    private String endereco;
 }

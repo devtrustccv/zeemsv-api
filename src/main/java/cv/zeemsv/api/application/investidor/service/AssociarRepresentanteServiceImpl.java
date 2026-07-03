@@ -104,6 +104,7 @@ public class AssociarRepresentanteServiceImpl implements AssociarRepresentanteSe
         socioRepres.setTelefone(dto.getTelefone());
         socioRepres.setEmail(StringUtils.hasText(dto.getEmail()) ? trim(dto.getEmail()) : "");
         socioRepres.setIndicativoPais(trim(dto.getIndicativoPais()));
+        socioRepres.setEndereco(trim(dto.getEndereco()));
         socioRepres.setTelemovel(dto.getTelemovel());
         socioRepres.setFotoUrl(trim(dto.getFotoUrl()));
         socioRepres.setEstado(ESTADO_ATIVO);
@@ -251,6 +252,7 @@ public class AssociarRepresentanteServiceImpl implements AssociarRepresentanteSe
             dto.setFotoUrl(StringUtils.hasText(socioRepres.getFotoUrl()) ? socioRepres.getFotoUrl() : documentViewerUrlService.toViewerUrl(socioRepres.getFotoPath()));
             dto.setFotoPath(null);
             dto.setIndicativoPais(socioRepres.getIndicativoPais());
+            dto.setEndereco(socioRepres.getEndereco());
         } else if (ordem != null) {
             dto.setNome(ordem.getNome());
             String nacionalidade = ordem.getNacionalidade();
@@ -262,6 +264,7 @@ public class AssociarRepresentanteServiceImpl implements AssociarRepresentanteSe
             dto.setTelemovel(ordem.getTelemovel());
             dto.setEmail(ordem.getEmail());
             dto.setIndicativoPais(ordem.getIndicativoPais());
+            dto.setEndereco(ordem.getEndereco());
         }
         dto.setTipoDocDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_DOCUMENTO, dto.getTipoDoc()));
         return dto;

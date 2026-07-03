@@ -81,6 +81,9 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
         if (StringUtils.hasText(dto.getIndicativoPais())) {
             entity.setIndicativoPais(trim(dto.getIndicativoPais()));
         }
+        if (StringUtils.hasText(dto.getEndereco())) {
+            entity.setEndereco(trim(dto.getEndereco()));
+        }
         boolean emailChanged = false;
         if (StringUtils.hasText(dto.getEmail()) && !trim(dto.getEmail()).equalsIgnoreCase(trim(entity.getEmail()))) {
             UserModel user = resolveUpdateUserByEmail(dto.getEmail(), entity);
@@ -190,6 +193,7 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
         entity.setEstado(estado);
         entity.setDateCreate(LocalDate.now());
         entity.setIndicativoPais(trim(dto.getIndicativoPais()));
+        entity.setEndereco(trim(dto.getEndereco()));
         entity.setIdUser(user.getId());
         return entity;
     }
@@ -239,6 +243,7 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
         dto.setDateCreate(entity.getDateCreate());
         dto.setUserCreate(entity.getUserCreate());
         dto.setIndicativoPais(entity.getIndicativoPais());
+        dto.setEndereco(entity.getEndereco());
         dto.setIdUser(entity.getIdUser());
         return dto;
     }
@@ -274,6 +279,7 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
         dto.setFotoUrl(resolveFotoUrl(projection.getFotoUrl(), projection.getFotoPath()));
         dto.setFotoPath(null);
         dto.setIndicativoPais(projection.getIndicativoPais());
+        dto.setEndereco(projection.getEndereco());
         return dto;
     }
 

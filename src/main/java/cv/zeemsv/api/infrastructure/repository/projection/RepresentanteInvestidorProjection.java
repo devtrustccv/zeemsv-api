@@ -27,4 +27,5 @@ public interface RepresentanteInvestidorProjection {
     String getFotoUrl();
     String getFotoPath();
     String getIndicativoPais();
+    String getEndereco();
 }

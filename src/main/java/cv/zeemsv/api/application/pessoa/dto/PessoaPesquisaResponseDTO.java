@@ -21,6 +21,7 @@ public class PessoaPesquisaResponseDTO {
     private String email;
     private String fotoUrl;
     private String fotoPath;
+    private String endereco;
     private String residencia;
     private String nomeMae;
     private String nomePai;

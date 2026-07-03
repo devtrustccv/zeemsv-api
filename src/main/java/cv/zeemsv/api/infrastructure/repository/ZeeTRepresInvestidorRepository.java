@@ -38,7 +38,8 @@ public interface ZeeTRepresInvestidorRepository extends JpaRepository<ZeeTRepres
             coalesce(s.email, o.email) as email,
             s.fotoUrl as fotoUrl,
             s.fotoPath as fotoPath,
-            coalesce(s.indicativoPais, o.indicativoPais) as indicativoPais
+            coalesce(s.indicativoPais, o.indicativoPais) as indicativoPais,
+            coalesce(s.endereco, o.endereco) as endereco
         from ZeeTRepresInvestidorEntity r
         left join ZeeTSocioRepresEntity s on s.id = r.idSocioRepres
         left join ZeeTOrdemEntity o on o.id = r.idOrdem
@@ -72,7 +73,8 @@ public interface ZeeTRepresInvestidorRepository extends JpaRepository<ZeeTRepres
             s.email as email,
             s.fotoUrl as fotoUrl,
             s.fotoPath as fotoPath,
-            s.indicativoPais as indicativoPais
+            s.indicativoPais as indicativoPais,
+            s.endereco as endereco
         from ZeeTRepresInvestidorEntity r
         join ZeeTSocioRepresEntity s on s.id = r.idSocioRepres
         where r.idInvestidor = :idInvestidor

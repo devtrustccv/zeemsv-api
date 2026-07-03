@@ -32,5 +32,6 @@ public class SocioRepresentanteResponseDTO {
     private LocalDate dateCreate;
     private BigDecimal userCreate;
     private String indicativoPais;
+    private String endereco;
     private Integer idUser;
 }

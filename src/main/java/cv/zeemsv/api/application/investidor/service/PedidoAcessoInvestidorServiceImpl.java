@@ -189,6 +189,7 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         request.setEmail(dto.getEmail());
         request.setFotoUrl(dto.getFotoUrl());
         request.setIndicativoPais(dto.getIndicativoPais());
+        request.setEndereco(dto.getEndereco());
         return request;
     }
 
