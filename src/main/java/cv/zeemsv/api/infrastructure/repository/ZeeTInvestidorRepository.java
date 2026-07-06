@@ -24,7 +24,8 @@ public interface ZeeTInvestidorRepository extends JpaRepository<ZeeTInvestidorEn
             r.dmPrincipal as dmPrincipal
         from ZeeTInvestidorEntity i
         join ZeeTRepresInvestidorEntity r on r.idInvestidor = i.id
-        join ZeeTUserEntity u on u.id = r.idUser
+        join ZeeTSocioRepresEntity s on s.id = r.idSocioRepres
+        join ZeeTUserEntity u on u.id = s.idUser
         where lower(u.email) = lower(:email)
             and i.dmEstado = 'A'
             and r.dmEstado = 'A'

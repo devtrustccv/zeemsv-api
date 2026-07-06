@@ -176,12 +176,24 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
             return user;
         }
 
+        UserModel currentUser = currentSocioRepres.getIdUser() != null
+            ? userBus.findById(currentSocioRepres.getIdUser()).orElse(null)
+            : null;
+
         return userBus.save(UserModel.builder()
             .email(normalizedEmail)
             .name(currentSocioRepres.getNome())
             .provider(LoginProvider.LOCAL.name())
             .status(UserStatus.PENDENTE)
+            .passwordHash(resolvePasswordHashForEmailChange(currentUser))
             .build());
+    }
+
+    private String resolvePasswordHashForEmailChange(UserModel currentUser) {
+        if (currentUser == null || !LoginProvider.LOCAL.name().equalsIgnoreCase(currentUser.getProvider())) {
+            return null;
+        }
+        return currentUser.getPasswordHash();
     }
 
     private void validateUpdateEmailAvailable(String normalizedEmail, ZeeTSocioRepresEntity currentSocioRepres) {
