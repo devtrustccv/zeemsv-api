@@ -1,5 +1,6 @@
 package cv.zeemsv.api.application.user.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import cv.zeemsv.api.utils.enums.UserStatus;
@@ -17,6 +18,7 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class LoginResponseDTO {
     private Integer userId;
     private String nome;
@@ -27,5 +29,7 @@ public class LoginResponseDTO {
     @Enumerated(EnumType.STRING)
     private UserStatus status;
     private Integer pessoaId;
+    private Integer idSocioRepres;
+    private String role;
     private String sessionToken;
 }

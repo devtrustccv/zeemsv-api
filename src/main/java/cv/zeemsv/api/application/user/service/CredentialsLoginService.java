@@ -7,6 +7,8 @@ import cv.zeemsv.api.domain.user.business.UserBus;
 import cv.zeemsv.api.domain.user.model.SessionModel;
 import cv.zeemsv.api.domain.user.model.UserModel;
 import cv.zeemsv.api.exceptions.BusinessException;
+import cv.zeemsv.api.infrastructure.repository.ZeeTRepresInvestidorRepository;
+import cv.zeemsv.api.infrastructure.repository.ZeeTSocioRepresRepository;
 import cv.zeemsv.api.utils.JwtUtil;
 import cv.zeemsv.api.utils.enums.DefaultStatusApp;
 import cv.zeemsv.api.utils.enums.LoginProvider;
@@ -23,6 +25,8 @@ public class CredentialsLoginService {
     private final UserBus userBus;
     private final SessionBus sessionBus;
     private final PasswordEncoder passwordEncoder;
+    private final ZeeTSocioRepresRepository socioRepresRepository;
+    private final ZeeTRepresInvestidorRepository represInvestidorRepository;
 
     @Value("${application.session.jwt-secret:01234567890123456789012345678901}")
     private String jwtSecret;
@@ -60,10 +64,15 @@ public class CredentialsLoginService {
             .build();
         sessionBus.save(session);
 
+        var socioRepres = socioRepresRepository.findFirstByIdUserOrderByIdDesc(user.getId()).orElse(null);
+        boolean hasInvestidorRelation = socioRepres != null
+            && represInvestidorRepository.existsByIdSocioRepres(socioRepres.getId());
+
         return LoginResponseDTO.builder()
             .sessionToken(jwtToken)
             .userId(user.getId())
-            .pessoaId(user.getPessoaId())
+            .idSocioRepres(socioRepres != null ? socioRepres.getId() : null)
+            .role(hasInvestidorRelation ? "INVESTIDOR" : "none_investidor")
             .email(user.getEmail())
             .nome(user.getName())
             .status(user.getStatus())
