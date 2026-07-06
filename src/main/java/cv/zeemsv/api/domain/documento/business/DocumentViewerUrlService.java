@@ -55,11 +55,12 @@ public class DocumentViewerUrlService {
         try {
             Cipher cipher = Cipher.getInstance(ALGO);
             cipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(getSecretKey(), SECRET_KEY_SPEC));
-            return Base64.getEncoder()
-                .encodeToString(cipher.doFinal(content.getBytes(StandardCharsets.UTF_8)))
-                .replace(" ", "+");
-        } catch (Exception ex) {
-            throw new IllegalArgumentException("Falha ao encriptar path do documento.", ex);
+            return new String(
+                Base64.getUrlEncoder().encode(cipher.doFinal(content.getBytes(StandardCharsets.UTF_8))),
+                StandardCharsets.UTF_8
+            );
+        } catch (Exception ignored) {
+            return content;
         }
     }
 
