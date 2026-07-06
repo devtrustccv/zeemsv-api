@@ -26,5 +26,6 @@ public class UserAccountDetailResponseDTO {
     private String name;
     private String role;
     private Integer idSocioRepres;
+    private String fotoSocioRepres;
     private List<ContatoResponseDTO> contacts;
 }

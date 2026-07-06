@@ -18,4 +18,6 @@ public class SocioRepresentanteUpdateRequestDTO {
 
     @Email(message = "Email invalido")
     private String email;
+
+    private String otp;
 }

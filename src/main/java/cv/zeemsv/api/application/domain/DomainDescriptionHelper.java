@@ -35,6 +35,8 @@ public class DomainDescriptionHelper {
     public static final String SITUACAO_LOTE = "SITUACAO_LOTE";
     public static final String SITUACAO_PROJ = "SITUACAO_PROJ";
     public static final String TIPO_ATIVIDADE = "TIPO_ATIVIDADE";
+    public static final String TIPO_INTERACAO = "TIPO_INTERACAO";
+    public static final String ESTADO_INTERACAO = "ESTADO_INTERACAO";
     public static final String TIPO_AGENDAMENTO = "TIPO_AGENDAMENTO";
     public static final String TIPO_CHAMADA = "TIPO_CHAMADA";
     public static final String TIPO_DOCUMENTO = "TIPO_DOCUMENTO";

@@ -45,4 +45,17 @@ public class AtividadeResponseDTO {
     private String tpAgendamentoDesc;
     private String horaInicio;
     private String horaFim;
+    private String tipoInteracao;
+    private String dmEstadoInteracao;
+    private String assuntoInteracao;
+    private String mensagemInteracao;
+    private Integer userResposta;
+    private LocalDate dataResposta;
+    private String mensagemResposta;
+    private Integer idUser;
+    private String email;
+    private String telefone;
+    private String nome;
+    private String tipoInteracaoDesc;
+    private String dmEstadoInteracaoDesc;
 }

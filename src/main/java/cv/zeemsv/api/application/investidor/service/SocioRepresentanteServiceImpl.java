@@ -2,6 +2,7 @@ package cv.zeemsv.api.application.investidor.service;
 
 import cv.zeemsv.api.application.domain.DomainDescriptionHelper;
 import cv.zeemsv.api.application.geografia.service.NacionalidadeResolver;
+import cv.zeemsv.api.application.generic.service.OTPService;
 import cv.zeemsv.api.application.investidor.dto.RepresentanteInvestidorResponseDTO;
 import cv.zeemsv.api.application.investidor.dto.SocioRepresentanteRequestDTO;
 import cv.zeemsv.api.application.investidor.dto.SocioRepresentanteResponseDTO;
@@ -48,6 +49,7 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
     private final DocumentoBus documentoBus;
     private final DocumentViewerUrlService documentViewerUrlService;
     private final EmailService emailService;
+    private final OTPService otpService;
 
     @Override
     @Transactional
@@ -86,8 +88,11 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
         }
         boolean emailChanged = false;
         if (StringUtils.hasText(dto.getEmail()) && !trim(dto.getEmail()).equalsIgnoreCase(trim(entity.getEmail()))) {
-            UserModel user = resolveUpdateUserByEmail(dto.getEmail(), entity);
-            entity.setEmail(trim(dto.getEmail()));
+            String newEmail = normalizeEmail(dto.getEmail());
+            validateUpdateEmailAvailable(newEmail, entity);
+            validateEmailChangeOtp(newEmail, dto.getOtp());
+            UserModel user = resolveUpdateUserByEmail(newEmail, entity);
+            entity.setEmail(newEmail);
             entity.setIdUser(user.getId());
             emailChanged = true;
         }
@@ -152,7 +157,7 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
     }
 
     private UserModel resolveUpdateUserByEmail(String email, ZeeTSocioRepresEntity currentSocioRepres) {
-        String normalizedEmail = trim(email).toLowerCase();
+        String normalizedEmail = normalizeEmail(email);
         repository.findByEmailIgnoreCase(normalizedEmail).stream()
             .filter(socioRepres -> !Objects.equals(socioRepres.getId(), currentSocioRepres.getId()))
             .findFirst()
@@ -177,6 +182,33 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
             .provider(LoginProvider.LOCAL.name())
             .status(UserStatus.PENDENTE)
             .build());
+    }
+
+    private void validateUpdateEmailAvailable(String normalizedEmail, ZeeTSocioRepresEntity currentSocioRepres) {
+        repository.findByEmailIgnoreCase(normalizedEmail).stream()
+            .filter(socioRepres -> !Objects.equals(socioRepres.getId(), currentSocioRepres.getId()))
+            .findFirst()
+            .ifPresent(socioRepres -> {
+                throw new BusinessException("Este email pertence a um outro socio/representante.");
+            });
+
+        userBus.findByEmail(normalizedEmail)
+            .ifPresent(user -> repository.findByIdUser(user.getId()).stream()
+                .filter(socioRepres -> !Objects.equals(socioRepres.getId(), currentSocioRepres.getId()))
+                .findFirst()
+                .ifPresent(socioRepres -> {
+                    throw new BusinessException("Este email pertence a um outro socio/representante.");
+                }));
+    }
+
+    private void validateEmailChangeOtp(String normalizedEmail, String otp) {
+        if (!StringUtils.hasText(otp)) {
+            otpService.sendOTP(normalizedEmail);
+            throw new BusinessException("OTP enviado para o novo email. Informe o OTP para confirmar a alteração.");
+        }
+        if (!otpService.validateOtp(normalizedEmail, trim(otp))) {
+            throw new BusinessException("OTP inválido ou expirado.");
+        }
     }
 
     private ZeeTSocioRepresEntity toEntity(SocioRepresentanteRequestDTO dto, UserModel user, String estado) {
@@ -217,6 +249,10 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
 
     private String trim(String value) {
         return value != null ? value.trim() : null;
+    }
+
+    private String normalizeEmail(String email) {
+        return trim(email).toLowerCase();
     }
 
     private SocioRepresentanteResponseDTO toResponse(ZeeTSocioRepresEntity entity) {
@@ -300,8 +336,8 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
     }
 
     private void notifyEmailAssociado(ZeeTSocioRepresEntity socioRepres) {
-        String subject = "Email associado a conta ZEEMSV";
-        String body = "Informamos que este email foi associado a conta de "
+        String subject = "Email associado à conta ZEEMSV";
+        String body = "Informamos que este email foi associado à conta de "
             + socioRepres.getNome()
             + " no dia "
             + LocalDate.now().format(DATE_FORMATTER)

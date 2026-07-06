@@ -11,6 +11,7 @@ import cv.zeemsv.api.application.user.dto.UserAccountDetailResponseDTO;
 import cv.zeemsv.api.domain.external.business.AutentikaBus;
 import cv.zeemsv.api.domain.external.model.AuthenticatedUserInfo;
 import cv.zeemsv.api.domain.external.model.CniResponseModel;
+import cv.zeemsv.api.domain.documento.business.DocumentViewerUrlService;
 import cv.zeemsv.api.domain.pessoa.business.PessoaBus;
 import cv.zeemsv.api.domain.pessoa.model.PessoaModel;
 import cv.zeemsv.api.domain.user.business.SessionBus;
@@ -19,6 +20,7 @@ import cv.zeemsv.api.domain.user.model.SessionModel;
 import cv.zeemsv.api.domain.user.model.UserModel;
 import cv.zeemsv.api.exceptions.BusinessException;
 import cv.zeemsv.api.exceptions.ExternalApiException;
+import cv.zeemsv.api.infrastructure.repository.ZeeTRepresInvestidorRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTSocioRepresRepository;
 import cv.zeemsv.api.utils.Constants;
 import cv.zeemsv.api.utils.Helpers;
@@ -47,6 +49,8 @@ public class SessionService {
     private final ContatoService contatoService;
     private final PessoaModelDTOMapper pessoaDTOMapper;
     private final ZeeTSocioRepresRepository socioRepresRepository;
+    private final ZeeTRepresInvestidorRepository represInvestidorRepository;
+    private final DocumentViewerUrlService documentViewerUrlService;
 
     @Value("${application.session.jwt-secret:01234567890123456789012345678901}")
     private String jwtSecret;
@@ -214,6 +218,8 @@ public class SessionService {
             .orElseThrow(() -> new BusinessException(Messages.USER_NOT_FOUND, new RuntimeException(Messages.USER_NOT_FOUND)));
 
         var socioRepres = socioRepresRepository.findFirstByIdUserOrderByIdDesc(user.getId()).orElse(null);
+        boolean hasInvestidorRelation = socioRepres != null
+            && represInvestidorRepository.existsByIdSocioRepres(socioRepres.getId());
 
         UserAccountDetailResponseDTO response = UserAccountDetailResponseDTO.builder()
             .userId(user.getId())
@@ -222,8 +228,9 @@ public class SessionService {
             .name(user.getName())
             .status(user.getStatus())
             .subCmdcv(user.getSubCmdcv())
-            .role(socioRepres != null ? "INVESTIDOR" : "none_investidor")
+            .role(hasInvestidorRelation ? "INVESTIDOR" : "none_investidor")
             .idSocioRepres(socioRepres != null ? socioRepres.getId() : null)
+            .fotoSocioRepres(socioRepres != null ? resolveSocioRepresFoto(socioRepres.getFotoUrl(), socioRepres.getFotoPath()) : null)
             .build();
 
         Optional<PessoaModel> pessoaOpt;
@@ -242,6 +249,13 @@ public class SessionService {
         }
 
         return response;
+    }
+
+    private String resolveSocioRepresFoto(String fotoUrl, String fotoPath) {
+        if (org.springframework.util.StringUtils.hasText(fotoUrl)) {
+            return fotoUrl;
+        }
+        return documentViewerUrlService.toViewerUrl(fotoPath);
     }
 
     @Transactional

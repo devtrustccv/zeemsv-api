@@ -42,7 +42,7 @@ public class ZeeTAtividadeEntity {
     @Column(name = "data_conclusao")
     private LocalDate dataConclusao;
 
-    @Column(name = "user_responsavel", nullable = false)
+    @Column(name = "user_responsavel")
     private Integer userResponsavel;
 
     @Column(name = "dm_estado_atividade", length = 20)
@@ -90,7 +90,7 @@ public class ZeeTAtividadeEntity {
     @Column(name = "dm_estado", nullable = false)
     private String dmEstado;
 
-    @Column(name = "user_registo", nullable = false)
+    @Column(name = "user_registo")
     private Integer userRegisto;
 
     @Column(name = "data_create", nullable = false)
@@ -110,5 +110,38 @@ public class ZeeTAtividadeEntity {
 
     @Column(name = "hora_fim")
     private String horaFim;
+
+    @Column(name = "tipo_interacao", length = 255)
+    private String tipoInteracao;
+
+    @Column(name = "dm_estado_interacao", length = 50)
+    private String dmEstadoInteracao;
+
+    @Column(name = "assunto_interacao", length = 500)
+    private String assuntoInteracao;
+
+    @Column(name = "mensagem_interacao", length = 4000)
+    private String mensagemInteracao;
+
+    @Column(name = "user_resposta")
+    private Integer userResposta;
+
+    @Column(name = "data_resposta")
+    private LocalDate dataResposta;
+
+    @Column(name = "mensagem_resposta", length = 4000)
+    private String mensagemResposta;
+
+    @Column(name = "id_user")
+    private Integer idUser;
+
+    @Column(name = "email", length = 255)
+    private String email;
+
+    @Column(name = "telefone", length = 50)
+    private String telefone;
+
+    @Column(name = "nome", length = 255)
+    private String nome;
 
 }
