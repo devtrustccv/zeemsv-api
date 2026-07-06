@@ -1,17 +1,23 @@
 package cv.zeemsv.api.application.atividade.service;
 
 import cv.zeemsv.api.application.atividade.dto.AtividadeResponseDTO;
+import cv.zeemsv.api.application.atividade.dto.InteracaoAnexoResponseDTO;
 import cv.zeemsv.api.application.atividade.dto.InteracaoRequestDTO;
 import cv.zeemsv.api.application.atividade.dto.InteracaoResponseDTO;
 import cv.zeemsv.api.application.atividade.dto.NotificacaoInvestidorResponseDTO;
 import cv.zeemsv.api.application.domain.DomainDescriptionHelper;
 import cv.zeemsv.api.application.generic.service.EmailService;
+import cv.zeemsv.api.domain.documento.business.DocumentViewerUrlService;
+import cv.zeemsv.api.domain.documento.business.DocumentoBus;
+import cv.zeemsv.api.domain.documento.dto.UploadDTO;
 import cv.zeemsv.api.exceptions.BusinessException;
 import cv.zeemsv.api.infrastructure.entity.ZeeTEmailsEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTAtividadeEntity;
+import cv.zeemsv.api.infrastructure.entity.ZeeTDocRelacaoEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTParamReportEntity;
 import cv.zeemsv.api.infrastructure.repository.TNotificacaoRelacaoRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTAtividadeRepository;
+import cv.zeemsv.api.infrastructure.repository.ZeeTDocRelacaoRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTEmailsRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTInvestidorRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTParamReportRepository;
@@ -30,12 +36,15 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
 @Log4j2
 public class AtividadeServiceImpl implements AtividadeService {
     private static final String TIPO_ATIVIDADE_INTERACAO = "INTERACAO";
+    private static final String TIPO_RELACAO_INTERACAO = "INTERACAO";
+    private static final String NOME_FICHEIRO_ANEXO_INTERACAO = "anexo";
     private static final String TIPO_NOTIFICACAO = "NOTIFICACAO";
     private static final String ESTADO_INTERACAO_SUBMETIDO = "SUBMETIDO";
     private static final String ESTADO_ATIVO = "A";
@@ -43,15 +52,24 @@ public class AtividadeServiceImpl implements AtividadeService {
     private final ZeeTAtividadeRepository repository;
     private final ZeeTInvestidorRepository investidorRepository;
     private final ZeeTUserRepository userRepository;
+    private final ZeeTDocRelacaoRepository docRelacaoRepository;
     private final ZeeTParamReportRepository paramReportRepository;
     private final ZeeTEmailsRepository emailsRepository;
     private final TNotificacaoRelacaoRepository notificacaoRelacaoRepository;
+    private final DocumentoBus documentoBus;
+    private final DocumentViewerUrlService documentViewerUrlService;
     private final EmailService emailService;
     private final DomainDescriptionHelper domainHelper;
 
     @Override
     @Transactional
     public AtividadeResponseDTO createInteracao(InteracaoRequestDTO dto) {
+        return createInteracao(dto, null);
+    }
+
+    @Override
+    @Transactional
+    public AtividadeResponseDTO createInteracao(InteracaoRequestDTO dto, MultipartFile anexo) {
         if (dto.getIdInvestidor() != null && !investidorRepository.existsById(dto.getIdInvestidor())) {
             throw new BusinessException("Investidor nao encontrado.");
         }
@@ -76,6 +94,7 @@ public class AtividadeServiceImpl implements AtividadeService {
         entity.setDataCreate(LocalDate.now());
 
         ZeeTAtividadeEntity saved = repository.save(entity);
+        saveAnexoInteracao(saved, anexo);
         notifyTecnicosInteracao(saved);
         notifyRequerenteInteracao(saved);
         return toResponse(saved);
@@ -180,6 +199,7 @@ public class AtividadeServiceImpl implements AtividadeService {
         dto.setNome(entity.getNome());
         dto.setTipoInteracaoDesc(resolveTipoInteracao(entity.getTipoInteracao()));
         dto.setDmEstadoInteracaoDesc(resolveEstadoInteracao(entity.getDmEstadoInteracao()));
+        dto.setAnexos(loadAnexos(entity.getId()));
         return dto;
     }
 
@@ -201,6 +221,57 @@ public class AtividadeServiceImpl implements AtividadeService {
         dto.setDataResposta(entity.getDataResposta());
         dto.setMensagemResposta(entity.getMensagemResposta());
         dto.setDataCreate(entity.getDataCreate());
+        dto.setAnexos(loadAnexos(entity.getId()));
+        return dto;
+    }
+
+    private void saveAnexoInteracao(ZeeTAtividadeEntity interacao, MultipartFile anexo) {
+        if (anexo == null || anexo.isEmpty()) {
+            return;
+        }
+
+        UploadDTO upload = buildAnexoUpload(interacao, anexo);
+        documentoBus.saveOrUpdate(upload, interacao.getIdUser() != null ? String.valueOf(interacao.getIdUser()) : null);
+    }
+
+    private UploadDTO buildAnexoUpload(ZeeTAtividadeEntity interacao, MultipartFile anexo) {
+        ZeeTDocRelacaoEntity docRelacao = new ZeeTDocRelacaoEntity();
+        docRelacao.setTipoRelacao(TIPO_RELACAO_INTERACAO);
+        docRelacao.setIdRelacao(BigDecimal.valueOf(interacao.getId()));
+        docRelacao.setDescricao("Anexo da interacao");
+
+        String basePath = DocumentoBus.getBasePathForModuloOrObject(
+            TIPO_RELACAO_INTERACAO,
+            interacao.getId().toString()
+        );
+        return new UploadDTO(anexo, NOME_FICHEIRO_ANEXO_INTERACAO, basePath, docRelacao);
+    }
+
+    private List<InteracaoAnexoResponseDTO> loadAnexos(Integer interacaoId) {
+        if (interacaoId == null) {
+            return List.of();
+        }
+
+        return docRelacaoRepository.findByTipoRelacaoAndIdRelacaoAndEstadoOrderByDateCreateDescIdDesc(
+                TIPO_RELACAO_INTERACAO,
+                BigDecimal.valueOf(interacaoId),
+                DocumentoBus.ESTADO_ATIVO
+            )
+            .stream()
+            .map(this::toAnexoResponse)
+            .toList();
+    }
+
+    private InteracaoAnexoResponseDTO toAnexoResponse(ZeeTDocRelacaoEntity entity) {
+        InteracaoAnexoResponseDTO dto = new InteracaoAnexoResponseDTO();
+        dto.setId(entity.getId());
+        dto.setPath(entity.getPath());
+        dto.setUrl(documentViewerUrlService.toViewerUrl(entity.getPath(), entity.getMimetype()));
+        dto.setNomeFicheiro(DocumentoBus.getFileNameWithExtensionByPath(entity.getPath()));
+        dto.setMimetype(entity.getMimetype());
+        dto.setDocSize(entity.getDocSize());
+        dto.setDescricao(entity.getDescricao());
+        dto.setDateCreate(entity.getDateCreate());
         return dto;
     }
 

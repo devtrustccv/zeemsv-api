@@ -1,14 +1,21 @@
 package cv.zeemsv.api.web.atividade;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import cv.zeemsv.api.application.atividade.dto.AtividadeResponseDTO;
 import cv.zeemsv.api.application.atividade.dto.InteracaoRequestDTO;
 import cv.zeemsv.api.application.atividade.dto.InteracaoResponseDTO;
 import cv.zeemsv.api.application.atividade.dto.NotificacaoInvestidorResponseDTO;
 import cv.zeemsv.api.application.atividade.service.AtividadeService;
+import cv.zeemsv.api.exceptions.BusinessException;
 import cv.zeemsv.api.interfaces.dto.ApiResponse;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Valid;
+import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,20 +23,36 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/v1/atividades")
 @RequiredArgsConstructor
 public class AtividadeController {
     private final AtividadeService service;
+    private final ObjectMapper objectMapper;
+    private final Validator validator;
 
-    @PostMapping("/interacoes")
+    @PostMapping(value = "/interacoes", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse<AtividadeResponseDTO>> createInteracao(@Valid @RequestBody InteracaoRequestDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.ok("Interacao criada com sucesso", service.createInteracao(dto)));
+    }
+
+    @PostMapping(value = "/interacoes", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<AtividadeResponseDTO>> createInteracaoComAnexo(
+        @RequestPart("interacao") String interacao,
+        @RequestPart(value = "anexo", required = false) MultipartFile anexo
+    ) {
+        InteracaoRequestDTO dto = parseInteracao(interacao);
+        validateInteracao(dto);
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(ApiResponse.ok("Interacao criada com sucesso", service.createInteracao(dto, anexo)));
     }
 
     @GetMapping("/interacoes")
@@ -49,5 +72,20 @@ public class AtividadeController {
     @GetMapping("/investidor/{idInvestidor}/agendadas")
     public ResponseEntity<ApiResponse<List<AtividadeResponseDTO>>> findAgendadasByInvestidorId(@PathVariable Integer idInvestidor) {
         return ResponseEntity.ok(ApiResponse.ok("Atividades agendadas do investidor encontradas", service.findAgendadasByInvestidorId(idInvestidor)));
+    }
+
+    private InteracaoRequestDTO parseInteracao(String interacao) {
+        try {
+            return objectMapper.readValue(interacao, InteracaoRequestDTO.class);
+        } catch (JsonProcessingException ex) {
+            throw new BusinessException("O campo interacao deve conter JSON valido.", ex);
+        }
+    }
+
+    private void validateInteracao(InteracaoRequestDTO dto) {
+        Set<ConstraintViolation<InteracaoRequestDTO>> violations = validator.validate(dto);
+        if (!violations.isEmpty()) {
+            throw new ConstraintViolationException(violations);
+        }
     }
 }

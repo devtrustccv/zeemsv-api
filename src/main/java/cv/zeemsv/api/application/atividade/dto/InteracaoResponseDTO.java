@@ -1,6 +1,7 @@
 package cv.zeemsv.api.application.atividade.dto;
 
 import java.time.LocalDate;
+import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -22,4 +23,5 @@ public class InteracaoResponseDTO {
     private LocalDate dataResposta;
     private String mensagemResposta;
     private LocalDate dataCreate;
+    private List<InteracaoAnexoResponseDTO> anexos;
 }
