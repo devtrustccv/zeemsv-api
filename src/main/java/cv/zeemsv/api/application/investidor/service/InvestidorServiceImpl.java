@@ -1,6 +1,8 @@
 package cv.zeemsv.api.application.investidor.service;
 
 import cv.zeemsv.api.application.domain.DomainDescriptionHelper;
+import cv.zeemsv.api.application.investidor.dto.DashboardCountDTO;
+import cv.zeemsv.api.application.investidor.dto.InvestidorDashboardResponseDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorDocumentoResponseDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorRequestDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorResponseDTO;
@@ -10,7 +12,9 @@ import cv.zeemsv.api.domain.documento.business.DocumentoBus;
 import cv.zeemsv.api.application.investidor.mapper.InvestidorDtoMapper;
 import cv.zeemsv.api.domain.investidor.business.InvestidorBus;
 import cv.zeemsv.api.exceptions.BusinessException;
+import cv.zeemsv.api.infrastructure.repository.InvestidorDashboardRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTDocRelacaoRepository;
+import cv.zeemsv.api.infrastructure.repository.projection.DashboardCountProjection;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +29,7 @@ public class InvestidorServiceImpl implements InvestidorService {
     private final InvestidorDtoMapper mapper;
     private final DomainDescriptionHelper domainHelper;
     private final ZeeTDocRelacaoRepository docRelacaoRepository;
+    private final InvestidorDashboardRepository dashboardRepository;
     private final DocumentViewerUrlService documentViewerUrlService;
 
     @Override @Transactional
@@ -57,6 +62,35 @@ public class InvestidorServiceImpl implements InvestidorService {
             .toList();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public InvestidorDashboardResponseDTO getDashboard(Integer idInvestidor) {
+        if (idInvestidor == null) {
+            throw new BusinessException("Informe o id do investidor.");
+        }
+        bus.findById(idInvestidor);
+
+        InvestidorDashboardResponseDTO dto = new InvestidorDashboardResponseDTO();
+        dto.setIdInvestidor(idInvestidor);
+        dto.setTotalLote(defaultZero(dashboardRepository.countLotesAtivos(idInvestidor)));
+        dto.setTotalLoteReservado(defaultZero(dashboardRepository.countLotesReservados(idInvestidor)));
+        dto.setTotalProjeto(defaultZero(dashboardRepository.countProjetos(idInvestidor)));
+        dto.setProjetoPorSituacao(toDashboardCounts(
+            dashboardRepository.countProjetosPorSituacao(idInvestidor),
+            DomainDescriptionHelper.SITUACAO_PROJ
+        ));
+        dto.setTotalProcesso(defaultZero(dashboardRepository.countProcessos(idInvestidor)));
+        dto.setProcessoPorEstado(toDashboardCounts(
+            dashboardRepository.countProcessosPorEstado(idInvestidor),
+            DomainDescriptionHelper.ESTADO_PROC_SOLICIT
+        ));
+        dto.setProcessoPorEtapa(toDashboardCounts(
+            dashboardRepository.countProcessosPorEtapa(idInvestidor),
+            null
+        ));
+        return dto;
+    }
+
     @Override @Transactional
     public void delete(Integer id) { bus.delete(id); }
 
@@ -81,6 +115,20 @@ public class InvestidorServiceImpl implements InvestidorService {
         dto.setMimetype(projection.getMimetype());
         dto.setDescricao(projection.getDescricao());
         return dto;
+    }
+
+    private List<DashboardCountDTO> toDashboardCounts(List<DashboardCountProjection> projections, String dominio) {
+        return projections.stream()
+            .map(projection -> new DashboardCountDTO(
+                projection.getCodigo(),
+                firstText(domainHelper.describe(dominio, projection.getCodigo()), projection.getCodigo()),
+                defaultZero(projection.getTotal())
+            ))
+            .toList();
+    }
+
+    private Long defaultZero(Long value) {
+        return value != null ? value : 0L;
     }
 
     private String resolveTipoRelacaoDesc(String tipoRelacao) {

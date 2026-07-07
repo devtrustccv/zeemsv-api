@@ -1,5 +1,6 @@
 package cv.zeemsv.api.application.investidor.service;
 
+import cv.zeemsv.api.application.investidor.dto.InvestidorDashboardResponseDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorDocumentoResponseDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorRequestDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorResponseDTO;
@@ -13,5 +14,6 @@ public interface InvestidorService {
     List<InvestidorResponseDTO> findAll();
     List<InvestidorUserResponseDTO> findByUserEmail(String email);
     List<InvestidorDocumentoResponseDTO> findDocumentosByInvestidorId(Integer idInvestidor);
+    InvestidorDashboardResponseDTO getDashboard(Integer idInvestidor);
     void delete(Integer id);
 }
