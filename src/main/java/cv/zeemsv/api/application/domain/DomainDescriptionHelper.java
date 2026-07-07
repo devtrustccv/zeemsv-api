@@ -41,6 +41,7 @@ public class DomainDescriptionHelper {
     public static final String TIPO_CHAMADA = "TIPO_CHAMADA";
     public static final String TIPO_DOCUMENTO = "TIPO_DOCUMENTO";
     public static final String TIPO_ENTIDADE = "TIPO_ENTIDADE";
+    public static final String TIPO_OBJETO = "TIPO_OBJETO";
     public static final String TIPO_ONBOARDING = "TIPO_ONBOARDING";
     public static final String TIPO_ORDEM = "TIPO_ORDEM";
     public static final String TIPO_PEDIDO_ACESSO = "TIPO_PEDIDO_ACESSO";

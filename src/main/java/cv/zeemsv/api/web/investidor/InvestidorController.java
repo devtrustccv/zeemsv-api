@@ -1,6 +1,7 @@
 package cv.zeemsv.api.web.investidor;
 
 import cv.zeemsv.api.application.investidor.dto.AssociarRepresentanteRequestDTO;
+import cv.zeemsv.api.application.investidor.dto.InvestidorDocumentoResponseDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorRequestDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorResponseDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorUserResponseDTO;
@@ -48,6 +49,13 @@ public class InvestidorController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<InvestidorResponseDTO>>> findAll() {
         return ResponseEntity.ok(ApiResponse.ok("Registos encontrados", service.findAll()));
+    }
+
+    @GetMapping("/{idInvestidor}/documentos")
+    public ResponseEntity<ApiResponse<List<InvestidorDocumentoResponseDTO>>> findDocumentosByInvestidorId(
+        @PathVariable Integer idInvestidor
+    ) {
+        return ResponseEntity.ok(ApiResponse.ok("Documentos do investidor encontrados", service.findDocumentosByInvestidorId(idInvestidor)));
     }
 
     @GetMapping("/user/email/{email}")
