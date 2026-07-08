@@ -4,6 +4,7 @@ import cv.zeemsv.api.application.atividade.dto.AtividadeResponseDTO;
 import cv.zeemsv.api.application.atividade.dto.InteracaoAnexoResponseDTO;
 import cv.zeemsv.api.application.atividade.dto.InteracaoMensagemResponseDTO;
 import cv.zeemsv.api.application.atividade.dto.InteracaoRequestDTO;
+import cv.zeemsv.api.application.atividade.dto.InteracaoRespostaRequestDTO;
 import cv.zeemsv.api.application.atividade.dto.InteracaoResponseDTO;
 import cv.zeemsv.api.application.atividade.dto.NotificacaoInvestidorResponseDTO;
 import cv.zeemsv.api.application.atividade.dto.NotificacaoRespostaRequestDTO;
@@ -33,6 +34,9 @@ import cv.zeemsv.api.infrastructure.repository.ZeeTUserRepository;
 import cv.zeemsv.api.infrastructure.repository.projection.NotificacaoInvestidorProjection;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -53,7 +57,9 @@ import org.springframework.web.multipart.MultipartFile;
 public class AtividadeServiceImpl implements AtividadeService {
     private static final String TIPO_ATIVIDADE_INTERACAO = "INTERACAO";
     private static final String TIPO_RELACAO_INTERACAO = "INTERACAO";
+    private static final String TIPO_RELACAO_INTERACAO_RESPOSTA = "INTERACAO_RESPOSTA";
     private static final String NOME_FICHEIRO_ANEXO_INTERACAO = "anexo";
+    private static final String NOME_FICHEIRO_RESPOSTA_INTERACAO = "resposta";
     private static final String TIPO_NOTIFICACAO = "NOTIFICACAO";
     private static final String TIPO_NOTIFICACAO_EMAIL = "EMAIL";
     private static final String ESTADO_INTERACAO_SUBMETIDO = "SUBMETIDO";
@@ -73,6 +79,8 @@ public class AtividadeServiceImpl implements AtividadeService {
     private final DocumentViewerUrlService documentViewerUrlService;
     private final EmailService emailService;
     private final DomainDescriptionHelper domainHelper;
+    @Qualifier("igrpJdbcTemplate")
+    private final JdbcTemplate igrpJdbcTemplate;
 
     @Override
     @Transactional
@@ -122,6 +130,39 @@ public class AtividadeServiceImpl implements AtividadeService {
                 .orElse(dto.getIdUser());
         }
         return dto.getIdUser();
+    }
+
+    @Override
+    @Transactional
+    public InteracaoMensagemResponseDTO responderInteracao(Integer idInteracao, InteracaoRespostaRequestDTO dto, MultipartFile anexo) {
+        ZeeTAtividadeEntity interacao = repository.findById(idInteracao)
+            .orElseThrow(() -> new BusinessException("Interacao nao encontrada."));
+        if (!TIPO_ATIVIDADE_INTERACAO.equalsIgnoreCase(firstText(interacao.getDmTipoAtividade(), ""))) {
+            throw new BusinessException("A atividade informada nao e uma interacao.");
+        }
+
+        ZeeTMensagemInteracaoEntity mensagem = new ZeeTMensagemInteracaoEntity();
+        mensagem.setIdInteracao(interacao.getId());
+        mensagem.setMensagem(trim(dto.getMensagem()));
+        mensagem.setUserEnvio(dto.getUserResposta());
+        mensagem.setDataEnvio(LocalDateTime.now());
+        mensagem.setPathDoc(trim(dto.getPathDoc()));
+
+        ZeeTMensagemInteracaoEntity saved = mensagemInteracaoRepository.save(mensagem);
+        if (anexo != null && !anexo.isEmpty()) {
+            UploadDTO upload = buildRespostaUpload(saved, anexo);
+            documentoBus.saveOrUpdate(upload, String.valueOf(dto.getUserResposta()));
+            saved.setPathDoc(upload.getZeeTDocRelacao().getPath());
+            saved = mensagemInteracaoRepository.save(saved);
+        }
+
+        interacao.setUserResposta(dto.getUserResposta());
+        interacao.setDataResposta(LocalDate.now());
+        interacao.setMensagemResposta(trim(dto.getMensagem()));
+        repository.save(interacao);
+
+        notifyRespostaInteracao(interacao, saved);
+        return toMensagemResponse(saved);
     }
 
     @Override
@@ -353,6 +394,19 @@ public class AtividadeServiceImpl implements AtividadeService {
         return new UploadDTO(anexo, NOME_FICHEIRO_ANEXO_INTERACAO, basePath, docRelacao);
     }
 
+    private UploadDTO buildRespostaUpload(ZeeTMensagemInteracaoEntity mensagem, MultipartFile anexo) {
+        ZeeTDocRelacaoEntity docRelacao = new ZeeTDocRelacaoEntity();
+        docRelacao.setTipoRelacao(TIPO_RELACAO_INTERACAO_RESPOSTA);
+        docRelacao.setIdRelacao(BigDecimal.valueOf(mensagem.getId()));
+        docRelacao.setDescricao("Anexo da resposta da interacao");
+
+        String basePath = DocumentoBus.getBasePathForModuloOrObject(
+            TIPO_RELACAO_INTERACAO_RESPOSTA,
+            mensagem.getIdInteracao().toString()
+        );
+        return new UploadDTO(anexo, NOME_FICHEIRO_RESPOSTA_INTERACAO + "_" + mensagem.getId(), basePath, docRelacao);
+    }
+
     private List<InteracaoAnexoResponseDTO> loadAnexos(Integer interacaoId) {
         if (interacaoId == null) {
             return List.of();
@@ -402,6 +456,40 @@ public class AtividadeServiceImpl implements AtividadeService {
         dto.setPathDoc(entity.getPathDoc());
         dto.setUrlDoc(StringUtils.hasText(entity.getPathDoc()) ? documentViewerUrlService.toViewerUrl(entity.getPathDoc()) : null);
         return dto;
+    }
+
+    private void notifyRespostaInteracao(ZeeTAtividadeEntity interacao, ZeeTMensagemInteracaoEntity resposta) {
+        String subject = "Resposta da interação nº " + interacao.getId();
+        String body = "Informamos que foi registada uma resposta à interação nº "
+            + interacao.getId()
+            + ". Assunto: " + firstText(interacao.getAssuntoInteracao(), "não informado")
+            + ". Resposta: " + firstText(resposta.getMensagem(), "não informado");
+
+        Set<String> recipients = new LinkedHashSet<>();
+        if (StringUtils.hasText(interacao.getEmail())) {
+            recipients.add(interacao.getEmail().trim());
+        }
+        resolveIgrpUserEmail(resposta.getUserEnvio()).ifPresent(recipients::add);
+
+        for (String recipient : recipients) {
+            sendEmailSafely(recipient, subject, body, interacao.getId(), "resposta_interacao");
+        }
+    }
+
+    private java.util.Optional<String> resolveIgrpUserEmail(Integer idUser) {
+        if (idUser == null) {
+            return java.util.Optional.empty();
+        }
+        try {
+            return java.util.Optional.ofNullable(igrpJdbcTemplate.queryForObject(
+                "select email from tbl_user where id = ?",
+                String.class,
+                idUser
+            )).filter(StringUtils::hasText);
+        } catch (DataAccessException ex) {
+            log.warn("Nao foi possivel resolver email do tbl_user {}.", idUser, ex);
+            return java.util.Optional.empty();
+        }
     }
 
     private BigDecimal toBigDecimal(Integer value) {
