@@ -44,6 +44,7 @@ public class ProjetoServiceImpl implements ProjetoService {
     public void delete(Integer id) { bus.delete(id); }
 
     private ProjetoResponseDTO enrich(ProjetoResponseDTO dto) {
+        dto.setEstadoDesc(domainHelper.describe(DomainDescriptionHelper.ESTADO, dto.getEstado()));
         dto.setDmEnquadramenoDesc(domainHelper.describe(DomainDescriptionHelper.FORMA_COMERCIALIZACAO, dto.getDmEnquadrameno()));
         dto.setDmRegimeDesc(domainHelper.describe(DomainDescriptionHelper.REGIME, dto.getDmRegime()));
         dto.setDmProdutoServicoDesc(domainHelper.describe(DomainDescriptionHelper.PRODUTO_SERVICO, dto.getDmProdutoServico()));

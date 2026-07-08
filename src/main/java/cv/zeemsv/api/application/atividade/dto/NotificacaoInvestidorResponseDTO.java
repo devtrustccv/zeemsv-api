@@ -29,6 +29,7 @@ public class NotificacaoInvestidorResponseDTO {
     private String flagSucesso;
     private String flagLeitura;
     private BigDecimal userLeitura;
+    private LocalDateTime dataLeitura;
     private BigDecimal numeroReenvios;
     private String tipo;
     private Integer notificacaoIdRelacao;

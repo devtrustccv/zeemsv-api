@@ -24,4 +24,5 @@ public class InteracaoResponseDTO {
     private String mensagemResposta;
     private LocalDate dataCreate;
     private List<InteracaoAnexoResponseDTO> anexos;
+    private List<InteracaoMensagemResponseDTO> mensagensResposta;
 }

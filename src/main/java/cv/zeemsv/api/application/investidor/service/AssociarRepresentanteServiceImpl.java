@@ -80,9 +80,6 @@ public class AssociarRepresentanteServiceImpl implements AssociarRepresentanteSe
         if (represInvestidor.getDataRegisto() == null) {
             represInvestidor.setDataRegisto(LocalDate.now());
         }
-        if (user != null) {
-            represInvestidor.setIdUser(user.getId());
-        }
         represInvestidor.setFlagRepresentante(true);
         represInvestidor.setDmPrincipal(StringUtils.hasText(dto.getPrincipal()) ? trim(dto.getPrincipal()) : NAO);
 
@@ -236,7 +233,7 @@ public class AssociarRepresentanteServiceImpl implements AssociarRepresentanteSe
         dto.setDmEstadoDesc(domainHelper.describe(DomainDescriptionHelper.ESTADO, represInvestidor.getDmEstado()));
         dto.setDataRegisto(represInvestidor.getDataRegisto());
         dto.setUserRegisto(represInvestidor.getUserRegisto());
-        dto.setIdUser(represInvestidor.getIdUser());
+        dto.setIdUser(socioRepres != null ? socioRepres.getIdUser() : null);
 
         if (socioRepres != null) {
             dto.setNome(socioRepres.getNome());

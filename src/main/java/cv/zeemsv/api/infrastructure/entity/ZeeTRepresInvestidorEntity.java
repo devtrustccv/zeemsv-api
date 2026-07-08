@@ -50,7 +50,4 @@ public class ZeeTRepresInvestidorEntity {
     @Column(name = "user_registo", nullable = false)
     private BigDecimal userRegisto;
 
-    @Column(name = "id_user")
-    private Integer idUser;
-
 }

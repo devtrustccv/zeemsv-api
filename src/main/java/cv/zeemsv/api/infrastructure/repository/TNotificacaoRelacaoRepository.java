@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface TNotificacaoRelacaoRepository extends JpaRepository<TNotificacaoRelacaoEntity, Integer>, JpaSpecificationExecutor<TNotificacaoRelacaoEntity> {
+    List<TNotificacaoRelacaoEntity> findByIdNotificacao(Integer idNotificacao);
+
     @Query(value = """
         select
             r.id as idRelacaoNotificacao,
@@ -31,6 +33,7 @@ public interface TNotificacaoRelacaoRepository extends JpaRepository<TNotificaca
             n.flag_sucesso as flagSucesso,
             n.flag_leitura as flagLeitura,
             n.user_leitura as userLeitura,
+            n.data_leitura as dataLeitura,
             n.numero_reenvios as numeroReenvios,
             n.tipo as tipo,
             n.id_relacao as notificacaoIdRelacao,
@@ -119,6 +122,7 @@ public interface TNotificacaoRelacaoRepository extends JpaRepository<TNotificaca
             n.flag_sucesso as flagSucesso,
             n.flag_leitura as flagLeitura,
             n.user_leitura as userLeitura,
+            n.data_leitura as dataLeitura,
             n.numero_reenvios as numeroReenvios,
             n.tipo as tipo,
             n.id_relacao as notificacaoIdRelacao,

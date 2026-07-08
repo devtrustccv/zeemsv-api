@@ -25,6 +25,7 @@ public interface NotificacaoInvestidorProjection {
     String getFlagSucesso();
     String getFlagLeitura();
     BigDecimal getUserLeitura();
+    LocalDateTime getDataLeitura();
     BigDecimal getNumeroReenvios();
     String getTipo();
     Integer getNotificacaoIdRelacao();

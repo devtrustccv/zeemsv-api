@@ -263,7 +263,6 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         represInvestidor.setDmEstado(ESTADO_PENDENTE);
         represInvestidor.setDataRegisto(LocalDate.now());
         represInvestidor.setUserRegisto(BigDecimal.valueOf(dto.getIdUser()));
-        represInvestidor.setIdUser(socioRepres.getIdUser());
         represInvestidorRepository.save(represInvestidor);
     }
 

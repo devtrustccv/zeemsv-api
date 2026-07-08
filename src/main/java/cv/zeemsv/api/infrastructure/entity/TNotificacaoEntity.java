@@ -69,6 +69,9 @@ public class TNotificacaoEntity {
     @Column(name = "user_leitura")
     private BigDecimal userLeitura;
 
+    @Column(name = "data_leitura")
+    private LocalDateTime dataLeitura;
+
     @Column(name = "numero_reenvios")
     private BigDecimal numeroReenvios;
 

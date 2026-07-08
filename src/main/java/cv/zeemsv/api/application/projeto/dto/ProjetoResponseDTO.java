@@ -11,6 +11,7 @@ public class ProjetoResponseDTO {
     private String nome;
     private String descricao;
     private String estado;
+    private String estadoDesc;
     private String denominacao;
     private String dmEnquadrameno;
     private String dmEnquadramenoDesc;

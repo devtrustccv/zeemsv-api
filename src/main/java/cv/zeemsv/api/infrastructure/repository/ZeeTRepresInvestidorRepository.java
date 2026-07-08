@@ -10,11 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface ZeeTRepresInvestidorRepository extends JpaRepository<ZeeTRepresInvestidorEntity, Integer>, JpaSpecificationExecutor<ZeeTRepresInvestidorEntity> {
-    boolean existsByIdUser(Integer idUser);
-
     boolean existsByIdSocioRepres(Integer idSocioRepres);
-
-    Optional<ZeeTRepresInvestidorEntity> findFirstByIdUserOrderByDataRegistoDescIdDesc(Integer idUser);
 
     @Query("""
         select
@@ -29,7 +25,7 @@ public interface ZeeTRepresInvestidorRepository extends JpaRepository<ZeeTRepres
             r.dmEstado as dmEstado,
             r.dataRegisto as dataRegisto,
             r.userRegisto as userRegisto,
-            r.idUser as idUser,
+            s.idUser as idUser,
             coalesce(s.nome, o.nome) as nome,
             coalesce(s.nacionalidade, o.nacionalidade) as nacionalidade,
             coalesce(s.nif, str(o.nif)) as nif,
@@ -64,7 +60,7 @@ public interface ZeeTRepresInvestidorRepository extends JpaRepository<ZeeTRepres
             r.dmEstado as dmEstado,
             r.dataRegisto as dataRegisto,
             r.userRegisto as userRegisto,
-            r.idUser as idUser,
+            s.idUser as idUser,
             s.nome as nome,
             s.nacionalidade as nacionalidade,
             s.nif as nif,

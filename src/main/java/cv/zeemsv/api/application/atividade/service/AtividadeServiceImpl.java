@@ -2,24 +2,32 @@ package cv.zeemsv.api.application.atividade.service;
 
 import cv.zeemsv.api.application.atividade.dto.AtividadeResponseDTO;
 import cv.zeemsv.api.application.atividade.dto.InteracaoAnexoResponseDTO;
+import cv.zeemsv.api.application.atividade.dto.InteracaoMensagemResponseDTO;
 import cv.zeemsv.api.application.atividade.dto.InteracaoRequestDTO;
 import cv.zeemsv.api.application.atividade.dto.InteracaoResponseDTO;
 import cv.zeemsv.api.application.atividade.dto.NotificacaoInvestidorResponseDTO;
+import cv.zeemsv.api.application.atividade.dto.NotificacaoRespostaRequestDTO;
+import cv.zeemsv.api.application.atividade.dto.NotificacaoRespostaResponseDTO;
 import cv.zeemsv.api.application.domain.DomainDescriptionHelper;
 import cv.zeemsv.api.application.generic.service.EmailService;
 import cv.zeemsv.api.domain.documento.business.DocumentViewerUrlService;
 import cv.zeemsv.api.domain.documento.business.DocumentoBus;
 import cv.zeemsv.api.domain.documento.dto.UploadDTO;
 import cv.zeemsv.api.exceptions.BusinessException;
+import cv.zeemsv.api.infrastructure.entity.TNotificacaoEntity;
+import cv.zeemsv.api.infrastructure.entity.TNotificacaoRelacaoEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTEmailsEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTAtividadeEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTDocRelacaoEntity;
+import cv.zeemsv.api.infrastructure.entity.ZeeTMensagemInteracaoEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTParamReportEntity;
+import cv.zeemsv.api.infrastructure.repository.TNotificacaoRepository;
 import cv.zeemsv.api.infrastructure.repository.TNotificacaoRelacaoRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTAtividadeRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTDocRelacaoRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTEmailsRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTInvestidorRepository;
+import cv.zeemsv.api.infrastructure.repository.ZeeTMensagemInteracaoRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTParamReportRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTUserRepository;
 import cv.zeemsv.api.infrastructure.repository.projection.NotificacaoInvestidorProjection;
@@ -31,6 +39,7 @@ import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -46,15 +55,19 @@ public class AtividadeServiceImpl implements AtividadeService {
     private static final String TIPO_RELACAO_INTERACAO = "INTERACAO";
     private static final String NOME_FICHEIRO_ANEXO_INTERACAO = "anexo";
     private static final String TIPO_NOTIFICACAO = "NOTIFICACAO";
+    private static final String TIPO_NOTIFICACAO_EMAIL = "EMAIL";
     private static final String ESTADO_INTERACAO_SUBMETIDO = "SUBMETIDO";
     private static final String ESTADO_ATIVO = "A";
+    private static final String ESTADO_PENDENTE = "PENDENTE";
 
     private final ZeeTAtividadeRepository repository;
     private final ZeeTInvestidorRepository investidorRepository;
     private final ZeeTUserRepository userRepository;
     private final ZeeTDocRelacaoRepository docRelacaoRepository;
+    private final ZeeTMensagemInteracaoRepository mensagemInteracaoRepository;
     private final ZeeTParamReportRepository paramReportRepository;
     private final ZeeTEmailsRepository emailsRepository;
+    private final TNotificacaoRepository notificacaoRepository;
     private final TNotificacaoRelacaoRepository notificacaoRelacaoRepository;
     private final DocumentoBus documentoBus;
     private final DocumentViewerUrlService documentViewerUrlService;
@@ -76,10 +89,11 @@ public class AtividadeServiceImpl implements AtividadeService {
         if (dto.getIdUser() != null && !userRepository.existsById(dto.getIdUser())) {
             throw new BusinessException("Utilizador nao encontrado.");
         }
+        Integer idUser = resolveInteracaoIdUser(dto);
 
         ZeeTAtividadeEntity entity = new ZeeTAtividadeEntity();
         entity.setIdInvestidor(toBigDecimal(dto.getIdInvestidor()));
-        entity.setIdUser(dto.getIdUser());
+        entity.setIdUser(idUser);
         entity.setNome(trim(dto.getNome()));
         entity.setEmail(trim(dto.getEmail()));
         entity.setTelefone(trim(dto.getTelefone()));
@@ -89,8 +103,8 @@ public class AtividadeServiceImpl implements AtividadeService {
         entity.setDmEstadoInteracao(ESTADO_INTERACAO_SUBMETIDO);
         entity.setDmTipoAtividade(TIPO_ATIVIDADE_INTERACAO);
         entity.setDmEstado(ESTADO_ATIVO);
-        entity.setUserResponsavel(dto.getIdUser());
-        entity.setUserRegisto(dto.getIdUser());
+        entity.setUserResponsavel(idUser);
+        entity.setUserRegisto(idUser);
         entity.setDataCreate(LocalDate.now());
 
         ZeeTAtividadeEntity saved = repository.save(entity);
@@ -98,6 +112,16 @@ public class AtividadeServiceImpl implements AtividadeService {
         notifyTecnicosInteracao(saved);
         notifyRequerenteInteracao(saved);
         return toResponse(saved);
+    }
+
+    private Integer resolveInteracaoIdUser(InteracaoRequestDTO dto) {
+        String email = trim(dto.getEmail());
+        if (StringUtils.hasText(email)) {
+            return userRepository.findByEmailIgnoreCase(email)
+                .map(user -> user.getId())
+                .orElse(dto.getIdUser());
+        }
+        return dto.getIdUser();
     }
 
     @Override
@@ -135,6 +159,87 @@ public class AtividadeServiceImpl implements AtividadeService {
             .stream()
             .map(this::toNotificacaoResponse)
             .toList();
+    }
+
+    @Override
+    @Transactional
+    public NotificacaoRespostaResponseDTO responderNotificacao(NotificacaoRespostaRequestDTO dto) {
+        TNotificacaoEntity pai = notificacaoRepository.findById(dto.getIdPai())
+            .orElseThrow(() -> new BusinessException("Notificacao pai nao encontrada."));
+
+        Set<String> recipients = resolveTecnicoEmails();
+        if (recipients.isEmpty()) {
+            throw new BusinessException("Nenhum email tecnico configurado para envio da resposta.");
+        }
+
+        String subject = firstText(dto.getAssunto(), "Resposta da notificacao " + dto.getIdPai());
+        String body = trim(dto.getMensagem());
+        boolean sent = true;
+        for (String recipient : recipients) {
+            sent = sendEmailSafely(recipient, subject, body, dto.getIdPai(), "tecnico") && sent;
+        }
+
+        TNotificacaoEntity notificacao = new TNotificacaoEntity();
+        notificacao.setIdPai(pai.getId());
+        notificacao.setIdAplicacao(pai.getIdAplicacao() != null ? pai.getIdAplicacao() : BigDecimal.ZERO);
+        notificacao.setIdOrganica(pai.getIdOrganica() != null ? pai.getIdOrganica() : BigDecimal.ZERO);
+        notificacao.setUserRegisto(BigDecimal.valueOf(dto.getUserRegisto()));
+        notificacao.setDataRegisto(LocalDate.now());
+        notificacao.setAssunto(subject);
+        notificacao.setDataEnvio(LocalDateTime.now());
+        notificacao.setMensagem(body);
+        notificacao.setEmail(recipients.iterator().next());
+        notificacao.setEstado(firstText(pai.getEstado(), ESTADO_PENDENTE));
+        notificacao.setFlagAutomatico("N");
+        notificacao.setFlagSucesso(sent ? "S" : "N");
+        notificacao.setFlagLeitura("N");
+        notificacao.setNumeroReenvios(BigDecimal.ZERO);
+        notificacao.setTipo(firstText(pai.getTipo(), TIPO_NOTIFICACAO_EMAIL));
+        notificacao.setIdRelacao(pai.getIdRelacao());
+        notificacao.setDe(String.valueOf(dto.getUserRegisto()));
+        notificacao.setEmailsEnviados(String.join(",", recipients));
+        notificacao.setConfirmRecebimento(false);
+
+        TNotificacaoEntity saved = notificacaoRepository.save(notificacao);
+        copyRelacoesNotificacao(pai.getId(), saved.getId());
+        return toNotificacaoRespostaResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public void markNotificacaoAsRead(Integer idNotificacao, Integer idUser) {
+        if (idUser == null) {
+            throw new BusinessException("Informe o id_user para marcar a notificacao como lida.");
+        }
+        TNotificacaoEntity notificacao = notificacaoRepository.findById(idNotificacao)
+            .orElseThrow(() -> new BusinessException("Notificacao nao encontrada."));
+        notificacao.setFlagLeitura("S");
+        notificacao.setUserLeitura(BigDecimal.valueOf(idUser));
+        notificacao.setDataLeitura(LocalDateTime.now());
+        notificacaoRepository.save(notificacao);
+    }
+
+    private void copyRelacoesNotificacao(Integer idNotificacaoPai, Integer idNotificacaoFilha) {
+        notificacaoRelacaoRepository.findByIdNotificacao(idNotificacaoPai)
+            .forEach(relacaoPai -> {
+                TNotificacaoRelacaoEntity relacao = new TNotificacaoRelacaoEntity();
+                relacao.setIdNotificacao(idNotificacaoFilha);
+                relacao.setTpRelacao(relacaoPai.getTpRelacao());
+                relacao.setIdRelacao(relacaoPai.getIdRelacao());
+                notificacaoRelacaoRepository.save(relacao);
+            });
+    }
+
+    private NotificacaoRespostaResponseDTO toNotificacaoRespostaResponse(TNotificacaoEntity entity) {
+        NotificacaoRespostaResponseDTO dto = new NotificacaoRespostaResponseDTO();
+        dto.setId(entity.getId());
+        dto.setIdPai(entity.getIdPai());
+        dto.setAssunto(entity.getAssunto());
+        dto.setMensagem(entity.getMensagem());
+        dto.setEmailsEnviados(entity.getEmailsEnviados());
+        dto.setFlagSucesso(entity.getFlagSucesso());
+        dto.setDataEnvio(entity.getDataEnvio());
+        return dto;
     }
 
     @Override
@@ -222,6 +327,7 @@ public class AtividadeServiceImpl implements AtividadeService {
         dto.setMensagemResposta(entity.getMensagemResposta());
         dto.setDataCreate(entity.getDataCreate());
         dto.setAnexos(loadAnexos(entity.getId()));
+        dto.setMensagensResposta(loadMensagensResposta(entity.getId()));
         return dto;
     }
 
@@ -272,6 +378,29 @@ public class AtividadeServiceImpl implements AtividadeService {
         dto.setDocSize(entity.getDocSize());
         dto.setDescricao(entity.getDescricao());
         dto.setDateCreate(entity.getDateCreate());
+        return dto;
+    }
+
+    private List<InteracaoMensagemResponseDTO> loadMensagensResposta(Integer interacaoId) {
+        if (interacaoId == null) {
+            return List.of();
+        }
+
+        return mensagemInteracaoRepository.findByIdInteracaoOrderByDataEnvioAscIdAsc(interacaoId)
+            .stream()
+            .map(this::toMensagemResponse)
+            .toList();
+    }
+
+    private InteracaoMensagemResponseDTO toMensagemResponse(ZeeTMensagemInteracaoEntity entity) {
+        InteracaoMensagemResponseDTO dto = new InteracaoMensagemResponseDTO();
+        dto.setId(entity.getId());
+        dto.setIdInteracao(entity.getIdInteracao());
+        dto.setMensagem(entity.getMensagem());
+        dto.setUserEnvio(entity.getUserEnvio());
+        dto.setDataEnvio(entity.getDataEnvio());
+        dto.setPathDoc(entity.getPathDoc());
+        dto.setUrlDoc(StringUtils.hasText(entity.getPathDoc()) ? documentViewerUrlService.toViewerUrl(entity.getPathDoc()) : null);
         return dto;
     }
 
@@ -395,6 +524,7 @@ public class AtividadeServiceImpl implements AtividadeService {
         dto.setFlagSucesso(projection.getFlagSucesso());
         dto.setFlagLeitura(projection.getFlagLeitura());
         dto.setUserLeitura(projection.getUserLeitura());
+        dto.setDataLeitura(projection.getDataLeitura());
         dto.setNumeroReenvios(projection.getNumeroReenvios());
         dto.setTipo(projection.getTipo());
         dto.setNotificacaoIdRelacao(projection.getNotificacaoIdRelacao());
