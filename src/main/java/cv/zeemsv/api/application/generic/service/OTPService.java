@@ -19,7 +19,7 @@ public class OTPService {
     @Value("${application.session.otp-expiration-in-minutes:5}")
     private int otpExpirationTime;
 
-    @Value("${application.mail.otp-subject:Código de verificação ZEEMSV}")
+    @Value("${application.mail.otp-subject:Codigo de verificacao ZEEMSV}")
     private String otpSubject;
 
     public OtpModel sendOTP(String email) {
@@ -48,7 +48,7 @@ public class OTPService {
     }
 
     private String buildOtpMessage(String otp) {
-        return "O seu código de verificação ZEEMSV é: " + otp
-            + "\n\nEste código expira em " + otpExpirationTime + " minuto(s).";
+        return "O seu codigo de verificacao ZEEMSV e: " + otp
+            + "\n\nEste codigo expira em " + otpExpirationTime + " minuto(s).";
     }
 }

@@ -613,6 +613,7 @@ public class AtividadeServiceImpl implements AtividadeService {
         dto.setEmail(projection.getEmail());
         dto.setTelemovel(projection.getTelemovel());
         dto.setEstado(projection.getEstado());
+        dto.setEstadoDesc(domainHelper.describe(DomainDescriptionHelper.ESTADO, projection.getEstado()));
         dto.setFlagAutomatico(projection.getFlagAutomatico());
         dto.setFlagSucesso(projection.getFlagSucesso());
         dto.setFlagLeitura(projection.getFlagLeitura());
@@ -620,6 +621,7 @@ public class AtividadeServiceImpl implements AtividadeService {
         dto.setDataLeitura(projection.getDataLeitura());
         dto.setNumeroReenvios(projection.getNumeroReenvios());
         dto.setTipo(projection.getTipo());
+        dto.setTipoDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_NOTIFICACAO, projection.getTipo()));
         dto.setNotificacaoIdRelacao(projection.getNotificacaoIdRelacao());
         dto.setDe(projection.getDe());
         dto.setEmailsEnviados(projection.getEmailsEnviados());

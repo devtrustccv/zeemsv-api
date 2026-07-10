@@ -25,6 +25,7 @@ public class NotificacaoInvestidorResponseDTO {
     private String email;
     private String telemovel;
     private String estado;
+    private String estadoDesc;
     private String flagAutomatico;
     private String flagSucesso;
     private String flagLeitura;
@@ -32,6 +33,7 @@ public class NotificacaoInvestidorResponseDTO {
     private LocalDateTime dataLeitura;
     private BigDecimal numeroReenvios;
     private String tipo;
+    private String tipoDesc;
     private Integer notificacaoIdRelacao;
     private String de;
     private String emailsEnviados;
