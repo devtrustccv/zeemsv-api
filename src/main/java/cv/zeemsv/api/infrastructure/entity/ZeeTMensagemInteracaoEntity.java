@@ -22,6 +22,12 @@ public class ZeeTMensagemInteracaoEntity {
     @Column(name = "id_interacao", nullable = false)
     private Integer idInteracao;
 
+    @Column(name = "id_relacao")
+    private Integer idRelacao;
+
+    @Column(name = "tp_relacao", length = 100)
+    private String tpRelacao;
+
     @Column(name = "mensagem", nullable = false, length = 4000)
     private String mensagem;
 

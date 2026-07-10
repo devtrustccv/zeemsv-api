@@ -143,12 +143,15 @@ public class AtividadeServiceImpl implements AtividadeService {
 
         ZeeTMensagemInteracaoEntity mensagem = new ZeeTMensagemInteracaoEntity();
         mensagem.setIdInteracao(interacao.getId());
+        mensagem.setTpRelacao(TIPO_RELACAO_INTERACAO_RESPOSTA);
         mensagem.setMensagem(trim(dto.getMensagem()));
         mensagem.setUserEnvio(dto.getUserResposta());
         mensagem.setDataEnvio(LocalDateTime.now());
         mensagem.setPathDoc(trim(dto.getPathDoc()));
 
         ZeeTMensagemInteracaoEntity saved = mensagemInteracaoRepository.save(mensagem);
+        saved.setIdRelacao(saved.getId());
+        saved = mensagemInteracaoRepository.save(saved);
         if (anexo != null && !anexo.isEmpty()) {
             UploadDTO upload = buildRespostaUpload(saved, anexo);
             documentoBus.saveOrUpdate(upload, String.valueOf(dto.getUserResposta()));
@@ -450,6 +453,8 @@ public class AtividadeServiceImpl implements AtividadeService {
         InteracaoMensagemResponseDTO dto = new InteracaoMensagemResponseDTO();
         dto.setId(entity.getId());
         dto.setIdInteracao(entity.getIdInteracao());
+        dto.setIdRelacao(entity.getIdRelacao());
+        dto.setTpRelacao(entity.getTpRelacao());
         dto.setMensagem(entity.getMensagem());
         dto.setUserEnvio(entity.getUserEnvio());
         dto.setDataEnvio(entity.getDataEnvio());

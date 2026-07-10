@@ -87,6 +87,7 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         ZeeTUserEntity user = userRepository.findById(dto.getIdUser())
             .orElseThrow(() -> new BusinessException("Utilizador nao encontrado."));
 
+        resolveInvestidorByNifEntidade(dto);
         String tipoPedido = resolveTipoPedido(dto);
         ZeeTInvestidorEntity investidor = null;
         if (dto.getIdInvestidor() != null) {
@@ -148,6 +149,21 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
             .stream()
             .map(this::toResponseWithFileContent)
             .toList();
+    }
+
+    private void resolveInvestidorByNifEntidade(PedidoAcessoInvestidorRequestDTO dto) {
+        if (dto.getIdInvestidor() != null || !StringUtils.hasText(dto.getNifEntidade())) {
+            return;
+        }
+
+        List<ZeeTInvestidorEntity> investidores = investidorRepository.findByNif(trim(dto.getNifEntidade()));
+        if (investidores.isEmpty()) {
+            return;
+        }
+        if (investidores.size() > 1) {
+            throw new BusinessException("Existe mais de um investidor local com o NIF informado.");
+        }
+        dto.setIdInvestidor(investidores.get(0).getId());
     }
 
     private String trim(String value) {

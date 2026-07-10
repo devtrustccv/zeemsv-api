@@ -8,6 +8,8 @@ import lombok.Setter;
 public class InteracaoMensagemResponseDTO {
     private Integer id;
     private Integer idInteracao;
+    private Integer idRelacao;
+    private String tpRelacao;
     private String mensagem;
     private Integer userEnvio;
     private LocalDateTime dataEnvio;
