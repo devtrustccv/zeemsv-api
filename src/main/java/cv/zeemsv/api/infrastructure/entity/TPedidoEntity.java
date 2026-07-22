@@ -89,4 +89,7 @@ public class TPedidoEntity {
     @Column(name = "tp_processo")
     private String tpProcesso;
 
+    @Column(name = "path_recibo", length = 1000)
+    private String pathRecibo;
+
 }

@@ -21,6 +21,7 @@ public class PedidoAcessoInvestidorRequestDTO {
     private String tipoPedido;
 
     private Integer idSocioRepres;
+    private Integer idOrdem;
 
     @JsonAlias("nif_entidsade")
     private String nifEntidade;

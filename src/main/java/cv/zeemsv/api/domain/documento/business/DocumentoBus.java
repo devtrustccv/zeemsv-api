@@ -86,6 +86,7 @@ public class DocumentoBus {
 
         for (UploadDTO item : uploadedFiles) {
             ZeeTDocRelacaoEntity docRelacao = item.getZeeTDocRelacao();
+            reuseExistingUploadDocument(docRelacao);
             docRelacao.setPath(item.getFullPath());
             docRelacao.setMimetype(item.getUploadedFile().getContentType());
             docRelacao.setDocSize(BigDecimal.valueOf(item.getUploadedFile().getSize()));
@@ -180,6 +181,41 @@ public class DocumentoBus {
             );
         } catch (Exception ex) {
             throw new IllegalArgumentException("Falha ao tentar ler ficheiro.", ex);
+        }
+    }
+
+    private void reuseExistingUploadDocument(ZeeTDocRelacaoEntity docRelacao) {
+        if (docRelacao == null
+            || docRelacao.getId() != null
+            || !hasText(docRelacao.getTipoRelacao())
+            || docRelacao.getIdRelacao() == null) {
+            return;
+        }
+
+        List<ZeeTDocRelacaoEntity> activeDocs = docRelacaoRepository.findByTipoRelacaoAndIdRelacaoAndEstadoOrderByDateCreateDescIdDesc(
+            docRelacao.getTipoRelacao(),
+            docRelacao.getIdRelacao(),
+            ESTADO_ATIVO
+        );
+
+        if (docRelacao.getIdTpDoc() != null) {
+            activeDocs.stream()
+                .filter(item -> docRelacao.getIdTpDoc().equals(item.getIdTpDoc()))
+                .findFirst()
+                .ifPresent(item -> docRelacao.setId(item.getId()));
+            return;
+        }
+
+        if (hasText(docRelacao.getDescricao())) {
+            activeDocs.stream()
+                .filter(item -> docRelacao.getDescricao().equals(item.getDescricao()))
+                .findFirst()
+                .ifPresent(item -> docRelacao.setId(item.getId()));
+            return;
+        }
+
+        if (activeDocs.size() == 1) {
+            docRelacao.setId(activeDocs.get(0).getId());
         }
     }
 

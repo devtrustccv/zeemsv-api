@@ -33,6 +33,9 @@ public class ZeeTPedidoAcessoInvestidorEntity {
     @Column(name = "id_socio_repres")
     private Integer idSocioRepres;
 
+    @Column(name = "id_ordem")
+    private Integer idOrdem;
+
     @Column(name = "nif_entidade", length = 20)
     private String nifEntidade;
 

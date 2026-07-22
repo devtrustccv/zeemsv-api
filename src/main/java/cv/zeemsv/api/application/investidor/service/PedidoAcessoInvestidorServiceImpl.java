@@ -25,6 +25,7 @@ import cv.zeemsv.api.infrastructure.repository.TNotificacaoRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTConfigTemplateNotifRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTEmailsRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTInvestidorRepository;
+import cv.zeemsv.api.infrastructure.repository.ZeeTOrdemRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTParamReportRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTPedidoAcessoInvestidorRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTRepresInvestidorRepository;
@@ -64,6 +65,7 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
     private final ZeeTPedidoAcessoInvestidorRepository repository;
     private final ZeeTUserRepository userRepository;
     private final ZeeTInvestidorRepository investidorRepository;
+    private final ZeeTOrdemRepository ordemRepository;
     private final ZeeTParamReportRepository paramReportRepository;
     private final ZeeTEmailsRepository emailsRepository;
     private final ZeeTSocioRepresRepository socioRepresRepository;
@@ -96,16 +98,26 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         }
 
         Integer idSocioRepres = dto.getIdSocioRepres();
+        Integer idOrdem = dto.getIdOrdem();
+        boolean shouldValidatePedidoRepresentanteDuplicado = idSocioRepres != null || idOrdem != null;
         if (TIPO_PEDIDO_REPRES_INVESTIDOR.equals(tipoPedido)) {
             if (dto.getIdInvestidor() == null) {
                 throw new BusinessException("O campo id_investidor e obrigatorio para pedido REPRES_INVESTIDOR.");
             }
-            idSocioRepres = resolveSocioRepres(dto);
-            if (repository.existsNaoRejeitadoByIdSocioRepresAndIdInvestidor(idSocioRepres, dto.getIdInvestidor())) {
-                throw new BusinessException("Ja existe pedido de acesso para este socio/representante e investidor.");
+            if (idOrdem != null && !ordemRepository.existsById(idOrdem)) {
+                throw new BusinessException("Ordem nao encontrada.");
             }
-            validateSocioRepresNotAssociated(dto.getIdInvestidor(), idSocioRepres);
-            createRepresInvestidorPendente(dto, idSocioRepres);
+            if (idOrdem == null) {
+                idSocioRepres = resolveSocioRepres(dto);
+            }
+            if (shouldValidatePedidoRepresentanteDuplicado
+                && existsPedidoRepresentanteNaoRejeitado(idSocioRepres, idOrdem, dto.getIdInvestidor())) {
+                throw new BusinessException("Ja existe pedido de acesso para este socio/representante ou ordem e investidor.");
+            }
+            if (idSocioRepres != null || idOrdem != null) {
+                validateRepresentanteNotAssociated(dto.getIdInvestidor(), idSocioRepres, idOrdem);
+            }
+            createRepresInvestidorPendente(dto, idSocioRepres, idOrdem);
         } else if (dto.getIdInvestidor() != null && repository.existsNaoRejeitadoByIdUtilizadorAndIdInvestidor(dto.getIdUser(), dto.getIdInvestidor())) {
             throw new BusinessException("Ja existe pedido de acesso para este utilizador e investidor.");
         }
@@ -115,6 +127,7 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         entity.setIdInvestidor(dto.getIdInvestidor());
         entity.setDmTipoPedido(tipoPedido);
         entity.setIdSocioRepres(idSocioRepres);
+        entity.setIdOrdem(idOrdem);
         entity.setNifEntidade(trim(dto.getNifEntidade()));
         entity.setDenominacaoEntidade(trim(dto.getDenominacaoEntidade()));
         entity.setEmailContactoEntidade(trim(dto.getEmailContactoEntidade()));
@@ -171,7 +184,7 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
     }
 
     private String resolveTipoPedido(PedidoAcessoInvestidorRequestDTO dto) {
-        if (dto.getIdSocioRepres() != null && dto.getIdInvestidor() != null) {
+        if ((dto.getIdSocioRepres() != null || dto.getIdOrdem() != null) && dto.getIdInvestidor() != null) {
             return TIPO_PEDIDO_REPRES_INVESTIDOR;
         }
         if (dto.getIdSocioRepres() != null && dto.getIdInvestidor() == null
@@ -220,9 +233,21 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         return socioRepresentante.getId();
     }
 
-    private void validateSocioRepresNotAssociated(Integer idInvestidor, Integer idSocioRepres) {
-        if (represInvestidorRepository.findAssociation(idInvestidor, idSocioRepres, null).isPresent()) {
-            throw new BusinessException("Socio/representante ja associado ao investidor.");
+    private boolean existsPedidoRepresentanteNaoRejeitado(Integer idSocioRepres, Integer idOrdem, Integer idInvestidor) {
+        boolean socioDuplicado = idSocioRepres != null
+            && repository.existsNaoRejeitadoByIdSocioRepresAndIdInvestidor(idSocioRepres, idInvestidor);
+        boolean ordemDuplicada = idOrdem != null
+            && repository.existsNaoRejeitadoByIdOrdemAndIdInvestidor(idOrdem, idInvestidor);
+        return socioDuplicado || ordemDuplicada;
+    }
+
+    private void validateRepresentanteNotAssociated(Integer idInvestidor, Integer idSocioRepres, Integer idOrdem) {
+        boolean socioAssociated = idSocioRepres != null
+            && represInvestidorRepository.findAssociation(idInvestidor, idSocioRepres, null).isPresent();
+        boolean ordemAssociated = idOrdem != null
+            && represInvestidorRepository.findAssociation(idInvestidor, null, idOrdem).isPresent();
+        if (socioAssociated || ordemAssociated) {
+            throw new BusinessException("Socio/representante ou ordem ja associado ao investidor.");
         }
     }
 
@@ -266,13 +291,11 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         return socioRepresRepository.findByEmailIgnoreCase(trim(email));
     }
 
-    private void createRepresInvestidorPendente(PedidoAcessoInvestidorRequestDTO dto, Integer idSocioRepres) {
-        ZeeTSocioRepresEntity socioRepres = socioRepresRepository.findById(idSocioRepres)
-            .orElseThrow(() -> new BusinessException("Socio/representante nao encontrado."));
-
+    private void createRepresInvestidorPendente(PedidoAcessoInvestidorRequestDTO dto, Integer idSocioRepres, Integer idOrdem) {
         ZeeTRepresInvestidorEntity represInvestidor = new ZeeTRepresInvestidorEntity();
         represInvestidor.setIdInvestidor(dto.getIdInvestidor());
         represInvestidor.setIdSocioRepres(idSocioRepres);
+        represInvestidor.setIdOrdem(idOrdem);
         represInvestidor.setDmTpRepresentante(firstText(dto.getDmTpRepresentante(), TIPO_SOCIO));
         represInvestidor.setFlagRepresentante(true);
         represInvestidor.setFlagSocio(TIPO_SOCIO.equalsIgnoreCase(firstText(dto.getDmTpRepresentante(), TIPO_SOCIO)));
@@ -472,6 +495,7 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         dto.setIdInvestidor(entity.getIdInvestidor());
         dto.setTipoPedido(entity.getDmTipoPedido());
         dto.setIdSocioRepres(entity.getIdSocioRepres());
+        dto.setIdOrdem(entity.getIdOrdem());
         dto.setNifEntidade(entity.getNifEntidade());
         dto.setDenominacaoEntidade(entity.getDenominacaoEntidade());
         dto.setEmailContactoEntidade(entity.getEmailContactoEntidade());

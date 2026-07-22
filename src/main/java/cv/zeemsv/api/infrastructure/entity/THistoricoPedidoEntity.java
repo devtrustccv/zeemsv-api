@@ -49,4 +49,7 @@ public class THistoricoPedidoEntity {
     @Column(name = "motivo_domain")
     private String motivoDomain;
 
+    @Column(name = "xml")
+    private byte[] xml;
+
 }

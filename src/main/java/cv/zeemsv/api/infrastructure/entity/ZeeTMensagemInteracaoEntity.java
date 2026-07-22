@@ -19,7 +19,7 @@ public class ZeeTMensagemInteracaoEntity {
     @Column(name = "id", nullable = false)
     private Integer id;
 
-    @Column(name = "id_interacao", nullable = false)
+    @Column(name = "id_interacao")
     private Integer idInteracao;
 
     @Column(name = "id_relacao")
