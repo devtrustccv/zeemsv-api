@@ -3,6 +3,7 @@ package cv.zeemsv.api.infrastructure.repository;
 import cv.zeemsv.api.infrastructure.entity.ZeeTSolicitacaoEntity;
 import cv.zeemsv.api.infrastructure.repository.projection.SolicitacaoInvestidorProjection;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -10,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface ZeeTSolicitacaoRepository extends JpaRepository<ZeeTSolicitacaoEntity, Integer>, JpaSpecificationExecutor<ZeeTSolicitacaoEntity> {
     List<ZeeTSolicitacaoEntity> findByIdInvestidorOrderByDataSolicDesc(Integer idInvestidor);
+    Optional<ZeeTSolicitacaoEntity> findFirstByIdPedido(Integer idPedido);
 
     @Query("""
         select

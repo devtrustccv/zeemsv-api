@@ -14,5 +14,4 @@ public class SolicitacaoRequisitoResponseDTO {
     private String flagObrigatorio;
     private String flagObrigatorioDesc;
     private String cumpre;
-    private String cumpreCheck;
 }

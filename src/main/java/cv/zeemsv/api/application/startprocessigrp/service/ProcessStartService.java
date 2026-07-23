@@ -49,7 +49,18 @@ public class ProcessStartService {
             }
 
             final String jsonResponse = sendRequest(url, bearer, jsonBody);
-            return parseResponse(jsonResponse);
+            StartProcessResponse response = parseResponse(jsonResponse);
+            log.info(
+                "[ProcessStart] response processInstanceId={} processName={} name={} processDefinitionKey={} processDefinitionId={} taskDefinitionKey={} formKey={}",
+                response.getProcessInstanceId(),
+                response.getProcessName(),
+                response.getName(),
+                response.getProcessDefinitionKey(),
+                response.getProcessDefinitionId(),
+                response.getTaskDefinitionKey(),
+                response.getFormKey()
+            );
+            return response;
         } catch (ProcessStartException e) {
             log.error("ProcessStartException: {}", e.getMessage());
             throw e;
@@ -153,13 +164,25 @@ public class ProcessStartService {
             .taskDefinitionKey(asText(root, "taskDefinitionKey"))
             .tenantId(asText(root, "tenantId"))
             .variables(asList(root, "variables"))
-            .processName(asText(root, "processName"))
+            .processName(firstText(asText(root, "processName"), asText(root, "processDefinitionName")))
             .build();
     }
 
     private static String asText(JsonNode node, String field) {
         JsonNode value = node.get(field);
         return value == null || value.isNull() ? null : value.asText();
+    }
+
+    private static String firstText(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (value != null && !value.trim().isEmpty()) {
+                return value.trim();
+            }
+        }
+        return null;
     }
 
     private static Integer asInt(JsonNode node, String field) {

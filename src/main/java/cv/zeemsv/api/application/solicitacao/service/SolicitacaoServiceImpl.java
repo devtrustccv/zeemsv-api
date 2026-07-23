@@ -11,6 +11,7 @@ import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoRequisitoResponseDTO
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoResponseDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoTaxaResponseDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SubmeterSolicitacaoRequestDTO;
+import cv.zeemsv.api.application.solicitacao.dto.ReciboPedidoDadosResponseDTO;
 import cv.zeemsv.api.application.solicitacao.mapper.SolicitacaoDtoMapper;
 import cv.zeemsv.api.application.startprocessigrp.service.ProcessStartService;
 import cv.zeemsv.api.domain.documento.business.DocumentoBus;
@@ -36,6 +37,7 @@ import cv.zeemsv.api.infrastructure.repository.TNotificacaoRelacaoRepository;
 import cv.zeemsv.api.infrastructure.repository.TNotificacaoRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTConfigTemplateNotifRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTEmailsRepository;
+import cv.zeemsv.api.infrastructure.repository.ZeeTInfProjetoRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTInvestidorRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTLeadPromotorRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTParamReportRepository;
@@ -44,6 +46,7 @@ import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicTaxaEntity;
 import cv.zeemsv.api.infrastructure.repository.ZeeTSolicitacaoRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTTpSolicitacaoRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTTpSolicTaxaRepository;
+import cv.zeemsv.api.infrastructure.repository.ZeeTTpDocRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTTpSolicTpDocRepository;
 import cv.zeemsv.api.infrastructure.repository.projection.SolicitacaoDocProjection;
 import cv.zeemsv.api.infrastructure.repository.projection.SolicitacaoDocumentoConfiguradoProjection;
@@ -76,6 +79,8 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     private static final String TEMPLATE_SUBMISSAO_SOLICITACAO = "PROC_SOLIC_TASK_SOLIC";
     private static final String TIPO_NOTIFICACAO_EMAIL = "EMAIL";
     private static final String ORIGEM_PORTAL = "PORTAL";
+    private static final String ETAPA_ANALISE_SOLICITACAO = "Análise Solicitação";
+    private static final BigDecimal ID_ORGANICA_DEFAULT = BigDecimal.valueOf(4);
 
     private final SolicitacaoBus bus;
     private final SolicitacaoDtoMapper mapper;
@@ -84,6 +89,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     private final ZeeTSolicitacaoDocRepository solicitacaoDocRepository;
     private final ZeeTTpSolicitacaoRepository tpSolicitacaoRepository;
     private final ZeeTTpSolicTaxaRepository tpSolicTaxaRepository;
+    private final ZeeTTpDocRepository tpDocRepository;
     private final ZeeTTpSolicTpDocRepository tpSolicTpDocRepository;
     private final TPedidoRepository pedidoRepository;
     private final ZeeTConfigTemplateNotifRepository templateNotifRepository;
@@ -91,6 +97,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     private final TNotificacaoRelacaoRepository notificacaoRelacaoRepository;
     private final ZeeTParamReportRepository paramReportRepository;
     private final ZeeTEmailsRepository emailsRepository;
+    private final ZeeTInfProjetoRepository infProjetoRepository;
     private final ZeeTInvestidorRepository investidorRepository;
     private final ZeeTLeadPromotorRepository leadPromotorRepository;
     private final DocumentViewerUrlService documentViewerUrlService;
@@ -113,6 +120,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
             throw new BusinessException("Tipo de solicitacao sem entidade externa configurada.");
         }
         validateSubmissao(dto);
+        validateRelatedEntities(dto);
 
         StartProcessResponse processo = processStartService.start(PROCESS_KEY_SOLICITACAO_INVESTIDOR, authorization, "{}");
         BigDecimal idProcesso = toBigDecimal(processo.getProcessInstanceId(), "id do processo");
@@ -130,7 +138,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
 
         saveDocumentos(dto.getDocumentos(), solicitacao, idProcesso, idEtapaDoc);
         saveRequisitos(dto.getRequisitos(), solicitacao, idProcesso, idEtapaDoc);
-        notifyRequerente(dto, solicitacao, pedido, processo);
+        notifyRequerente(dto, solicitacao, pedido, processo, tpSolicitacao);
         notifyTecnicos(solicitacao, pedido, tpSolicitacao);
 
         return enrich(mapper.toResponse(bus.findById(solicitacao.getId())));
@@ -150,6 +158,26 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         return solicitacaoRepository.findDetalheByInvestidorId(idInvestidor).stream()
             .map(this::toResponse)
             .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ReciboPedidoDadosResponseDTO findReciboDados(Integer idSolicitacao) {
+        ZeeTSolicitacaoEntity solicitacao = solicitacaoRepository.findById(idSolicitacao)
+            .orElseThrow(() -> new BusinessException("Solicitacao nao encontrada: " + idSolicitacao));
+        TPedidoEntity pedido = pedidoRepository.findById(solicitacao.getIdPedido())
+            .orElseThrow(() -> new BusinessException("Pedido nao encontrado para a solicitacao: " + idSolicitacao));
+        return buildReciboDados(solicitacao, pedido);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ReciboPedidoDadosResponseDTO findReciboDadosByProcesso(BigDecimal nrProcesso) {
+        TPedidoEntity pedido = pedidoRepository.findFirstByIdProcessoAndTipoRelacaoIgnoreCaseOrderByIdDesc(nrProcesso, TIPO_RELACAO_SOLICITACAO)
+            .orElseThrow(() -> new BusinessException("Pedido nao encontrado para o processo: " + nrProcesso));
+        ZeeTSolicitacaoEntity solicitacao = solicitacaoRepository.findFirstByIdPedido(pedido.getId())
+            .orElseThrow(() -> new BusinessException("Solicitacao nao encontrada para o pedido: " + pedido.getId()));
+        return buildReciboDados(solicitacao, pedido);
     }
 
     @Override @Transactional(readOnly = true)
@@ -173,6 +201,146 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     @Override @Transactional
     public void delete(Integer id) { bus.delete(id); }
 
+    private ReciboPedidoDadosResponseDTO buildReciboDados(ZeeTSolicitacaoEntity solicitacao, TPedidoEntity pedido) {
+        ZeeTTpSolicitacaoEntity tpSolicitacao = tpSolicitacaoRepository.findById(solicitacao.getIdTpSolicitacao())
+            .orElseThrow(() -> new BusinessException("Tipo de solicitacao nao encontrado: " + solicitacao.getIdTpSolicitacao()));
+        ZeeTParamReportEntity paramReport = paramReportRepository.findAll().stream().findFirst().orElse(null);
+        RequerenteDados requerente = resolveRequerenteDados(solicitacao, pedido);
+
+        ReciboPedidoDadosResponseDTO response = new ReciboPedidoDadosResponseDTO();
+        response.setIdPedido(pedido.getId());
+        response.setIdSolicitacao(solicitacao.getId());
+        response.setNrProcesso(pedido.getIdProcesso());
+        response.setNrDoc(pedido.getIdProcesso());
+        response.setTipoProcesso(pedido.getTpProcesso());
+        response.setTipoSolicitacao(firstText(tpSolicitacao.getNome(), tpSolicitacao.getCodigo()));
+        response.setTipoSolicitacaoDescricao(firstText(tpSolicitacao.getDescricao(), solicitacao.getDescSolic()));
+        response.setDataEntrada(firstTextDate(pedido.getDtRegisto(), solicitacao.getDataSolic()));
+        response.setEntidade(requerente.nome());
+        response.setRequerente(requerente.nome());
+        response.setNif(requerente.nif());
+        response.setEmail(firstText(requerente.email(), pedido.getEmail()));
+        response.setEndereco(requerente.endereco());
+        response.setInstituicao(toInstituicao(paramReport));
+        response.setDocumentos(solicitacaoDocRepository.findDetalheByIdSolicitacao(solicitacao.getId(), solicitacao.getIdTpSolicitacao()).stream()
+            .map(this::toReciboDocumento)
+            .toList());
+        Set<Integer> requisitosCumpridos = new LinkedHashSet<>(solicitacaoDocRepository.findIdTpSolicTpDocByIdSolicitacao(solicitacao.getId()));
+        response.setRequisitos(tpSolicTpDocRepository.findRequisitosByIdTpSolicitacao(solicitacao.getIdTpSolicitacao()).stream()
+            .map(requisito -> toReciboRequisito(requisito, requisitosCumpridos))
+            .toList());
+        return response;
+    }
+
+    private ReciboPedidoDadosResponseDTO.InstituicaoDTO toInstituicao(ZeeTParamReportEntity paramReport) {
+        ReciboPedidoDadosResponseDTO.InstituicaoDTO dto = new ReciboPedidoDadosResponseDTO.InstituicaoDTO();
+        dto.setNome("ZEEMSV - ZONA ECONÓMICA ESPECIAL MARÍTIMA EM SÃO VICENTE");
+        if (paramReport == null) {
+            return dto;
+        }
+        dto.setNif(paramReport.getNif());
+        dto.setEmail(paramReport.getEmail());
+        dto.setEndereco(paramReport.getRua());
+        dto.setTelefone(paramReport.getTelefone());
+        dto.setTelemovel(paramReport.getTelemovel());
+        dto.setCodigoPostal(paramReport.getCodigoPostal());
+        dto.setLinkPortal(paramReport.getLinkPortal());
+        dto.setIdLogo(toLogoViewerUrl(paramReport.getIdLogo()));
+        return dto;
+    }
+
+    private String toLogoViewerUrl(String path) {
+        if (!hasText(path)) {
+            return null;
+        }
+        String mimetype = resolveImageMimeType(path);
+        return documentViewerUrlService.toViewerUrl(path, mimetype);
+    }
+
+    private static String resolveImageMimeType(String path) {
+        String filename = DocumentoBus.getFileNameWithExtensionByPath(path);
+        if (!hasText(filename)) {
+            return "image/png";
+        }
+        String lower = filename.toLowerCase();
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
+            return "image/jpeg";
+        }
+        if (lower.endsWith(".gif")) {
+            return "image/gif";
+        }
+        if (lower.endsWith(".webp")) {
+            return "image/webp";
+        }
+        if (lower.endsWith(".svg")) {
+            return "image/svg+xml";
+        }
+        return "image/png";
+    }
+
+    private ReciboPedidoDadosResponseDTO.DocumentoDTO toReciboDocumento(SolicitacaoDocProjection projection) {
+        boolean entregue = projection.getId() != null;
+        ReciboPedidoDadosResponseDTO.DocumentoDTO dto = new ReciboPedidoDadosResponseDTO.DocumentoDTO();
+        dto.setDocumento(firstText(projection.getTpDocNome(), projection.getRequisito(), projection.getTpDocCodigo()));
+        dto.setCodigo(projection.getTpDocCodigo());
+        dto.setObrigatorio("SIM".equalsIgnoreCase(projection.getFlagObrigatorio()) ? "Sim" : "Nao");
+        dto.setEntregue(entregue);
+        dto.setSim(entregue);
+        dto.setNao(!entregue);
+        return dto;
+    }
+
+    private ReciboPedidoDadosResponseDTO.RequisitoDTO toReciboRequisito(
+        SolicitacaoRequisitoProjection projection,
+        Set<Integer> requisitosCumpridos
+    ) {
+        boolean cumprido = requisitosCumpridos.contains(projection.getIdTpSolicTpDoc());
+        ReciboPedidoDadosResponseDTO.RequisitoDTO dto = new ReciboPedidoDadosResponseDTO.RequisitoDTO();
+        dto.setIdTpSolicTpDoc(projection.getIdTpSolicTpDoc());
+        dto.setRequisito(projection.getRequisito());
+        dto.setObrigatorio("SIM".equalsIgnoreCase(projection.getFlagObrigatorio()) ? "Sim" : "Nao");
+        dto.setCumprido(cumprido);
+        dto.setSim(cumprido);
+        dto.setNao(!cumprido);
+        return dto;
+    }
+
+    private RequerenteDados resolveRequerenteDados(ZeeTSolicitacaoEntity solicitacao, TPedidoEntity pedido) {
+        if (solicitacao.getIdInvestidor() != null) {
+            return investidorRepository.findById(solicitacao.getIdInvestidor())
+                .map(investidor -> new RequerenteDados(
+                    firstText(investidor.getDenominacao(), pedido.getRequerente()),
+                    investidor.getNif(),
+                    firstText(investidor.getEmail(), pedido.getEmail()),
+                    firstText(investidor.getEndereco(), investidor.getSede())
+                ))
+                .orElseGet(() -> new RequerenteDados(pedido.getRequerente(), null, pedido.getEmail(), null));
+        }
+        if (solicitacao.getIdPromotor() != null) {
+            return leadPromotorRepository.findById(solicitacao.getIdPromotor())
+                .map(promotor -> new RequerenteDados(
+                    firstText(promotor.getDenominacao(), pedido.getRequerente()),
+                    promotor.getNif(),
+                    firstText(promotor.getEmail(), pedido.getEmail()),
+                    firstText(promotor.getEndereco(), promotor.getSede())
+                ))
+                .orElseGet(() -> new RequerenteDados(pedido.getRequerente(), null, pedido.getEmail(), null));
+        }
+        return new RequerenteDados(pedido.getRequerente(), null, pedido.getEmail(), null);
+    }
+
+    private static LocalDate firstTextDate(LocalDate... values) {
+        if (values == null) {
+            return null;
+        }
+        for (LocalDate value : values) {
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
     private void validateSubmissao(SubmeterSolicitacaoRequestDTO dto) {
         if (dto.getDocumentos() != null) {
             for (SolicitacaoDocumentoRequestDTO documento : dto.getDocumentos()) {
@@ -192,7 +360,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
 
         if (dto.getRequisitos() != null) {
             for (SolicitacaoRequisitoRequestDTO requisito : dto.getRequisitos()) {
-                if (!Objects.equals(requisito.getCumpre(), requisito.getCumpreCheck())) {
+                if (!isSim(requisito.getCumpre())) {
                     continue;
                 }
                 if (requisito.getIdTpSolicTpDoc() == null) {
@@ -204,6 +372,18 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
                     throw new BusinessException("Requisito nao pertence ao tipo de solicitacao informado.");
                 }
             }
+        }
+    }
+
+    private void validateRelatedEntities(SubmeterSolicitacaoRequestDTO dto) {
+        if (dto.getIdInvestidor() != null && !investidorRepository.existsById(dto.getIdInvestidor())) {
+            throw new BusinessException("Investidor nao encontrado: " + dto.getIdInvestidor());
+        }
+        if (dto.getIdPromotor() != null && !leadPromotorRepository.existsById(dto.getIdPromotor())) {
+            throw new BusinessException("Promotor nao encontrado: " + dto.getIdPromotor());
+        }
+        if (dto.getIdProjeto() != null && !infProjetoRepository.existsById(dto.getIdProjeto())) {
+            throw new BusinessException("Projeto nao encontrado: " + dto.getIdProjeto());
         }
     }
 
@@ -222,11 +402,11 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         pedido.setIdUserReg(dto.getIdUser() != null ? BigDecimal.valueOf(dto.getIdUser()) : BigDecimal.ZERO);
         pedido.setIdProcesso(idProcesso);
         pedido.setEmail(dto.getEmail());
-        pedido.setIdOrganica(dto.getIdOrganica() != null ? dto.getIdOrganica() : BigDecimal.ZERO);
+        pedido.setIdOrganica(ID_ORGANICA_DEFAULT);
         pedido.setTipoRelacao(TIPO_RELACAO_SOLICITACAO);
-        pedido.setRequerente(firstText(dto.getNomeDenominacao(), dto.getDenominacaoSocial()));
-        pedido.setTpProcesso(processo.getProcessName());
-        pedido.setEtapaAtual(processo.getTaskDefinitionKey());
+        pedido.setRequerente(dto.getNomeRequerente());
+        pedido.setTpProcesso(resolveTpProcesso(processo));
+        pedido.setEtapaAtual(ETAPA_ANALISE_SOLICITACAO);
         pedido.setCodEtapaAtual(processo.getFormKey());
         return pedido;
     }
@@ -240,7 +420,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         ZeeTSolicitacaoEntity solicitacao = new ZeeTSolicitacaoEntity();
         solicitacao.setIdTpSolicitacao(tpSolicitacao.getId());
         solicitacao.setIdEntidade(tpSolicitacao.getIdEntExterna());
-        solicitacao.setIdOrganica(dto.getIdOrganica() != null ? dto.getIdOrganica() : BigDecimal.ZERO);
+        solicitacao.setIdOrganica(ID_ORGANICA_DEFAULT);
         solicitacao.setIdProcesso(idProcesso);
         solicitacao.setIdPromotor(dto.getIdPromotor());
         solicitacao.setIdInvestidor(dto.getIdInvestidor());
@@ -290,7 +470,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
             docRelacao.setIdTpDoc(tpSolicTpDoc.getIdTpDoc());
             docRelacao.setDescricao(tpSolicTpDoc.getRequisito());
 
-            String filename = firstText(documento.getTipoDoc(), tpSolicTpDoc.getIdTpDoc() != null ? tpSolicTpDoc.getIdTpDoc().toString() : null, documento.getIdTpSolicTpDoc().toString());
+            String filename = resolveDocumentoFilename(tpSolicTpDoc, documento);
             UploadDTO upload = new UploadDTO(
                 documento.getFicheiro(),
                 filename,
@@ -322,7 +502,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         }
 
         for (SolicitacaoRequisitoRequestDTO requisito : requisitos) {
-            if (!Objects.equals(requisito.getCumpre(), requisito.getCumpreCheck())) {
+            if (!isSim(requisito.getCumpre())) {
                 continue;
             }
             if (requisito.getIdTpSolicTpDoc() == null) {
@@ -361,8 +541,35 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         return value != null && !value.trim().isEmpty();
     }
 
+    private String resolveDocumentoFilename(ZeeTTpSolicTpDocEntity tpSolicTpDoc, SolicitacaoDocumentoRequestDTO documento) {
+        String nomeDocumento = tpSolicTpDoc.getIdTpDoc() == null
+            ? null
+            : tpDocRepository.findById(tpSolicTpDoc.getIdTpDoc())
+                .map(tpDoc -> firstText(tpDoc.getNome(), tpDoc.getCodigo()))
+                .orElse(null);
+        return firstText(
+            nomeDocumento,
+            tpSolicTpDoc.getRequisito(),
+            tpSolicTpDoc.getIdTpDoc() != null ? tpSolicTpDoc.getIdTpDoc().toString() : null,
+            documento.getIdTpSolicTpDoc().toString()
+        );
+    }
+
+    private static boolean isSim(String value) {
+        return "SIM".equalsIgnoreCase(value != null ? value.trim() : null);
+    }
+
     private static String resolveOrigem(SubmeterSolicitacaoRequestDTO dto) {
         return hasText(dto.getOrigem()) ? dto.getOrigem().trim() : ORIGEM_PORTAL;
+    }
+
+    private static String resolveTpProcesso(StartProcessResponse processo) {
+        return firstText(
+            processo.getProcessName(),
+            processo.getName(),
+            processo.getProcessDefinitionKey(),
+            PROCESS_KEY_SOLICITACAO_INVESTIDOR
+        );
     }
 
     private static BigDecimal toBigDecimal(String value, String label) {
@@ -391,7 +598,8 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         SubmeterSolicitacaoRequestDTO dto,
         ZeeTSolicitacaoEntity solicitacao,
         TPedidoEntity pedido,
-        StartProcessResponse processo
+        StartProcessResponse processo,
+        ZeeTTpSolicitacaoEntity tpSolicitacao
     ) {
         if (!hasText(dto.getEmail())) {
             log.info("Nenhum email informado para notificacao da solicitacao {}.", solicitacao.getId());
@@ -399,7 +607,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         }
 
         String linkRecibo = buildLinkRecibo(pedido, processo);
-        TemplateContent content = resolveSubmissaoTemplate(processo, pedido, solicitacao, linkRecibo);
+        TemplateContent content = resolveSubmissaoTemplate(processo, pedido, solicitacao, tpSolicitacao, linkRecibo);
         boolean sent = sendEmailSafely(dto.getEmail(), content.subject(), content.body(), solicitacao.getId());
 
         try {
@@ -433,18 +641,39 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         StartProcessResponse processo,
         TPedidoEntity pedido,
         ZeeTSolicitacaoEntity solicitacao,
+        ZeeTTpSolicitacaoEntity tpSolicitacao,
         String linkRecibo
     ) {
         return templateNotifRepository.findFirstByCodigoAndDmEstadoOrderByIdDesc(TEMPLATE_SUBMISSAO_SOLICITACAO, ESTADO_ATIVO)
             .map(template -> new TemplateContent(
-                replaceTemplate(template.getAssunto(), processo, pedido, solicitacao, linkRecibo),
-                replaceTemplate(template.getTemplateMsg(), processo, pedido, solicitacao, linkRecibo)
+                replaceTemplate(template.getAssunto(), processo, pedido, solicitacao, tpSolicitacao, linkRecibo),
+                replaceTemplate(template.getTemplateMsg(), processo, pedido, solicitacao, tpSolicitacao, linkRecibo)
             ))
             .orElseGet(() -> new TemplateContent(
-                "Solicitacao submetida",
-                "A sua solicitacao foi submetida com o numero de processo " + processo.getProcessInstanceId()
-                    + (hasText(linkRecibo) ? ". Recibo: " + linkRecibo : ".")
+                "Solicitação submetida",
+                buildDefaultSubmissaoBody(processo, pedido, linkRecibo)
             ));
+    }
+
+    private String buildDefaultSubmissaoBody(StartProcessResponse processo, TPedidoEntity pedido, String linkRecibo) {
+        StringBuilder body = new StringBuilder()
+            .append("<p>Caro utente, a ZEEMSV informa que o seu processo")
+            .append(hasText(pedido.getRequerente()) ? " de " + escapeHtml(pedido.getRequerente().trim()) : "")
+            .append(" foi submetido.</p>");
+
+        if (hasText(linkRecibo)) {
+            body.append("<p>Para aceder ao recibo do pedido clique no link ")
+                .append(buildHtmlLink(linkRecibo, "Recibo Pedido"))
+                .append(".</p>");
+        } else if (hasText(processo.getProcessInstanceId())) {
+            body.append("<p>Número de processo: ")
+                .append(escapeHtml(processo.getProcessInstanceId()))
+                .append(".</p>");
+        }
+
+        return body
+            .append("<p>Para mais informações, queira contactar os nossos serviços.</p>")
+            .toString();
     }
 
     private String replaceTemplate(
@@ -452,36 +681,54 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         StartProcessResponse processo,
         TPedidoEntity pedido,
         ZeeTSolicitacaoEntity solicitacao,
+        ZeeTTpSolicitacaoEntity tpSolicitacao,
         String linkRecibo
     ) {
         String value = hasText(template) ? template : "";
-        String processoNome = firstText(processo.getProcessName(), processo.getProcessDefinitionKey(), "");
-        String nrProcesso = firstText(processo.getProcessInstanceId(), pedido.getIdProcesso() != null ? pedido.getIdProcesso().toString() : "", "");
-        return value
-            .replace("${processo}", processoNome)
-            .replace("{processo}", processoNome)
-            .replace("#processo#", processoNome)
-            .replace(":processo", processoNome)
-            .replace("${nrProcesso}", nrProcesso)
-            .replace("{nrProcesso}", nrProcesso)
-            .replace("#nrProcesso#", nrProcesso)
-            .replace(":nrProcesso", nrProcesso)
-            .replace("${linkRecibo}", firstText(linkRecibo, ""))
-            .replace("{linkRecibo}", firstText(linkRecibo, ""))
-            .replace("#linkRecibo#", firstText(linkRecibo, ""))
-            .replace(":linkRecibo", firstText(linkRecibo, ""))
-            .replace("${nrPedido}", String.valueOf(pedido.getId()))
-            .replace("{nrPedido}", String.valueOf(pedido.getId()))
-            .replace("#nrPedido#", String.valueOf(pedido.getId()))
-            .replace(":nrPedido", String.valueOf(pedido.getId()))
-            .replace("${idSolicitacao}", String.valueOf(solicitacao.getId()))
-            .replace("{idSolicitacao}", String.valueOf(solicitacao.getId()))
-            .replace("#idSolicitacao#", String.valueOf(solicitacao.getId()))
-            .replace(":idSolicitacao", String.valueOf(solicitacao.getId()));
+        String processoNome = emptyIfNull(firstText(tpSolicitacao.getNome(), tpSolicitacao.getDescricao()));
+        String nrProcesso = emptyIfNull(firstText(
+            processo.getProcessInstanceId(),
+            pedido.getIdProcesso() != null ? pedido.getIdProcesso().toString() : null
+        ));
+        String linkReciboValue = emptyIfNull(linkRecibo);
+        String linkReciboHtml = hasText(linkRecibo) ? buildHtmlLink(linkRecibo, "Recibo Pedido") : "";
+        value = replaceTemplateValue(value, processoNome, "processo", "nomeProcesso", "nome_processo", "processName", "PROCESS");
+        value = replaceTemplateValue(value, nrProcesso, "nrProcesso", "nr_processo", "numeroProcesso", "numero_processo", "processInstanceId", "PROCESS_NUMBER");
+        value = replaceTemplateValue(value, linkReciboValue, "linkRecibo", "link_recibo", "recibo", "link");
+        value = replaceTemplateValue(value, linkReciboHtml, "linkReciboHtml", "link_recibo_html", "reciboHtml", "recibo_html");
+        value = replaceTemplateValue(value, emptyIfNull(pedido.getRequerente()), "requerente", "nomeRequerente", "nome_requerente");
+        value = replaceTemplateValue(value, String.valueOf(pedido.getId()), "nrPedido", "nr_pedido", "numeroPedido", "numero_pedido", "idPedido", "id_pedido");
+        value = replaceTemplateValue(
+            value,
+            String.valueOf(solicitacao.getId()),
+            "idSolicitacao",
+            "id_solicitacao",
+            "solicitacaoId",
+            "solicitacao_id"
+        );
+        return applyReciboPedidoLink(value, linkRecibo);
+    }
+
+    private static String replaceTemplateValue(String template, String replacement, String... keys) {
+        String value = template;
+        String safeReplacement = emptyIfNull(replacement);
+        for (String key : keys) {
+            value = value
+                .replace("${" + key + "}", safeReplacement)
+                .replace("{{" + key + "}}", safeReplacement)
+                .replace("{" + key + "}", safeReplacement)
+                .replace("#" + key + "#", safeReplacement)
+                .replace(":" + key, safeReplacement)
+                .replace("@" + key + "@", safeReplacement)
+                .replace("$" + key + "$", safeReplacement)
+                .replace("[[" + key + "]]", safeReplacement);
+        }
+        return value;
     }
 
     private String buildLinkRecibo(TPedidoEntity pedido, StartProcessResponse processo) {
         if (!hasText(reciboUrlTemplate)) {
+            log.warn("Template de URL do recibo nao configurado. Defina RECIBO_URL_TEMPLATE para gerar o link do recibo do pedido {}.", pedido.getId());
             return "";
         }
         String link = reciboUrlTemplate
@@ -588,6 +835,34 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         }
     }
 
+    private static String emptyIfNull(String value) {
+        return value != null ? value : "";
+    }
+
+    private static String buildHtmlLink(String url, String label) {
+        String safeUrl = escapeHtml(url);
+        return "<a href=\"" + safeUrl + "\">" + escapeHtml(label) + "</a>";
+    }
+
+    private static String applyReciboPedidoLink(String value, String linkRecibo) {
+        if (!hasText(value) || !hasText(linkRecibo) || value.matches("(?is).*<a\\b[^>]*>\\s*Recibo Pedido\\s*</a>.*")) {
+            return value;
+        }
+        return value.replace("Recibo Pedido", buildHtmlLink(linkRecibo, "Recibo Pedido"));
+    }
+
+    private static String escapeHtml(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\"", "&quot;")
+            .replace("'", "&#39;");
+    }
+
     private static String encode(Object value) {
         if (value == null) {
             return "";
@@ -596,6 +871,9 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     }
 
     private record TemplateContent(String subject, String body) {
+    }
+
+    private record RequerenteDados(String nome, String nif, String email, String endereco) {
     }
 
     private SolicitacaoResponseDTO enrich(SolicitacaoResponseDTO dto) {
@@ -640,8 +918,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         dto.setRequisito(p.getRequisito());
         dto.setFlagObrigatorio(p.getFlagObrigatorio());
         dto.setFlagObrigatorioDesc("SIM".equalsIgnoreCase(p.getFlagObrigatorio()) ? "Sim" : "Nao");
-        dto.setCumpre("1");
-        dto.setCumpreCheck("0");
+        dto.setCumpre("NAO");
         return dto;
     }
 

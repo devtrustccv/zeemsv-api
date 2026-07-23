@@ -8,6 +8,5 @@ import org.springframework.web.multipart.MultipartFile;
 @Setter
 public class SolicitacaoDocumentoRequestDTO {
     private Integer idTpSolicTpDoc;
-    private String tipoDoc;
     private MultipartFile ficheiro;
 }

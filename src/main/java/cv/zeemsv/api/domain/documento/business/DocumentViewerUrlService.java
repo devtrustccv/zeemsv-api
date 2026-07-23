@@ -1,6 +1,7 @@
 package cv.zeemsv.api.domain.documento.business;
 
 import cv.zeemsv.api.infrastructure.repository.ZeeTDocRelacaoRepository;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Arrays;
@@ -46,9 +47,9 @@ public class DocumentViewerUrlService {
         String separator = publicViewerUrl.contains("?") ? "&" : "?";
         return publicViewerUrl
             + separator
-            + "path=" + encryptedPath
-            + "&type=" + (StringUtils.hasText(mimetype) ? mimetype : DEFAULT_MIMETYPE)
-            + "&download_name=" + fileName;
+            + "path=" + encode(encryptedPath)
+            + "&type=" + encode(StringUtils.hasText(mimetype) ? mimetype : DEFAULT_MIMETYPE)
+            + "&download_name=" + encode(fileName);
     }
 
     private String encrypt(String content) {
@@ -56,7 +57,7 @@ public class DocumentViewerUrlService {
             Cipher cipher = Cipher.getInstance(ALGO);
             cipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(getSecretKey(), SECRET_KEY_SPEC));
             return new String(
-                Base64.getUrlEncoder().encode(cipher.doFinal(content.getBytes(StandardCharsets.UTF_8))),
+                Base64.getUrlEncoder().withoutPadding().encode(cipher.doFinal(content.getBytes(StandardCharsets.UTF_8))),
                 StandardCharsets.UTF_8
             );
         } catch (Exception ignored) {
@@ -68,5 +69,9 @@ public class DocumentViewerUrlService {
         MessageDigest sha = MessageDigest.getInstance(SECRET_KEY_ALGO);
         byte[] key = sha.digest(SECRET_KEY_ENCRYPT_DB.getBytes(StandardCharsets.UTF_8));
         return Arrays.copyOf(key, 16);
+    }
+
+    private static String encode(String value) {
+        return value != null ? URLEncoder.encode(value, StandardCharsets.UTF_8) : "";
     }
 }

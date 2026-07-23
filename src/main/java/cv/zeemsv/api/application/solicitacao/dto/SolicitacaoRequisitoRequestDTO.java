@@ -8,5 +8,4 @@ import lombok.Setter;
 public class SolicitacaoRequisitoRequestDTO {
     private Integer idTpSolicTpDoc;
     private String cumpre;
-    private String cumpreCheck;
 }

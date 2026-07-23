@@ -38,4 +38,11 @@ public interface ZeeTSolicitacaoDocRepository extends JpaRepository<ZeeTSolicita
         @Param("idSolicitacao") Integer idSolicitacao,
         @Param("idTpSolicitacao") Integer idTpSolicitacao
     );
+
+    @Query("""
+        select sd.idTpSolicTpDoc
+        from ZeeTSolicitacaoDocEntity sd
+        where sd.idSolicitacao = :idSolicitacao
+        """)
+    List<Integer> findIdTpSolicTpDocByIdSolicitacao(@Param("idSolicitacao") Integer idSolicitacao);
 }

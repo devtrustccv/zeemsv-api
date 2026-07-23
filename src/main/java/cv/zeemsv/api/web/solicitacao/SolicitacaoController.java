@@ -4,6 +4,7 @@ import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDocumentosRequisitos
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoRequestDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoResponseDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SubmeterSolicitacaoRequestDTO;
+import cv.zeemsv.api.application.solicitacao.dto.ReciboPedidoDadosResponseDTO;
 import cv.zeemsv.api.application.solicitacao.service.SolicitacaoService;
 import cv.zeemsv.api.interfaces.dto.ApiResponse;
 import jakarta.validation.Valid;
@@ -13,6 +14,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
@@ -43,6 +45,16 @@ public class SolicitacaoController {
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<SolicitacaoResponseDTO>> findById(@PathVariable Integer id) {
         return ResponseEntity.ok(ApiResponse.ok("Registo encontrado", service.findById(id)));
+    }
+
+    @GetMapping("/{id}/recibo-dados")
+    public ResponseEntity<ApiResponse<ReciboPedidoDadosResponseDTO>> findReciboDados(@PathVariable Integer id) {
+        return ResponseEntity.ok(ApiResponse.ok("Dados do recibo encontrados", service.findReciboDados(id)));
+    }
+
+    @GetMapping("/recibo-dados/processo/{nrProcesso}")
+    public ResponseEntity<ApiResponse<ReciboPedidoDadosResponseDTO>> findReciboDadosByProcesso(@PathVariable BigDecimal nrProcesso) {
+        return ResponseEntity.ok(ApiResponse.ok("Dados do recibo encontrados", service.findReciboDadosByProcesso(nrProcesso)));
     }
 
     @GetMapping

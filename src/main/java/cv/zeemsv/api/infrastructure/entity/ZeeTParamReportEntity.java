@@ -33,6 +33,9 @@ public class ZeeTParamReportEntity {
     @Column(name = "link_portal", length = 255)
     private String linkPortal;
 
+    @Column(name = "nif", length = 50)
+    private String nif;
+
     @Column(name = "rua", length = 255)
     private String rua;
 
