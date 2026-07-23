@@ -30,6 +30,9 @@ public class ProcessStartService {
     @Value("${zeemsv.gateway.base-url}")
     private String baseUrl;
 
+    @Value("${zeemsv.gateway.authorization:}")
+    private String defaultAuthorization;
+
     public StartProcessResponse start(String bearerOrNull, String rawJsonOrNull) {
         return start("correcao", bearerOrNull, rawJsonOrNull);
     }
@@ -71,10 +74,11 @@ public class ProcessStartService {
     }
 
     private String resolveBearer(String bearerOrNull) {
-        if (bearerOrNull == null || bearerOrNull.isBlank()) {
+        String authorization = StringUtils.hasText(bearerOrNull) ? bearerOrNull : defaultAuthorization;
+        if (!StringUtils.hasText(authorization)) {
             return null;
         }
-        final String bearer = bearerOrNull.trim();
+        final String bearer = authorization.trim();
         return bearer.regionMatches(true, 0, "Bearer ", 0, 7) ? bearer : "Bearer " + bearer;
     }
 
