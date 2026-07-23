@@ -1,6 +1,7 @@
 package cv.zeemsv.api.application.solicitacao.service;
 
 import cv.zeemsv.api.application.domain.DomainDescriptionHelper;
+import cv.zeemsv.api.application.generic.service.EmailService;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDocResponseDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDocumentosRequisitosResponseDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDocumentoRequestDTO;
@@ -18,13 +19,26 @@ import cv.zeemsv.api.domain.documento.dto.UploadDTO;
 import cv.zeemsv.api.domain.external.model.StartProcessResponse;
 import cv.zeemsv.api.domain.solicitacao.business.SolicitacaoBus;
 import cv.zeemsv.api.exceptions.BusinessException;
+import cv.zeemsv.api.infrastructure.entity.TNotificacaoEntity;
+import cv.zeemsv.api.infrastructure.entity.TNotificacaoRelacaoEntity;
 import cv.zeemsv.api.infrastructure.entity.TPedidoEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTDocRelacaoEntity;
+import cv.zeemsv.api.infrastructure.entity.ZeeTEmailsEntity;
+import cv.zeemsv.api.infrastructure.entity.ZeeTInvestidorEntity;
+import cv.zeemsv.api.infrastructure.entity.ZeeTLeadPromotorEntity;
+import cv.zeemsv.api.infrastructure.entity.ZeeTParamReportEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTSolicitacaoDocEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTSolicitacaoEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicTpDocEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicitacaoEntity;
 import cv.zeemsv.api.infrastructure.repository.TPedidoRepository;
+import cv.zeemsv.api.infrastructure.repository.TNotificacaoRelacaoRepository;
+import cv.zeemsv.api.infrastructure.repository.TNotificacaoRepository;
+import cv.zeemsv.api.infrastructure.repository.ZeeTConfigTemplateNotifRepository;
+import cv.zeemsv.api.infrastructure.repository.ZeeTEmailsRepository;
+import cv.zeemsv.api.infrastructure.repository.ZeeTInvestidorRepository;
+import cv.zeemsv.api.infrastructure.repository.ZeeTLeadPromotorRepository;
+import cv.zeemsv.api.infrastructure.repository.ZeeTParamReportRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTSolicitacaoDocRepository;
 import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicTaxaEntity;
 import cv.zeemsv.api.infrastructure.repository.ZeeTSolicitacaoRepository;
@@ -36,20 +50,32 @@ import cv.zeemsv.api.infrastructure.repository.projection.SolicitacaoDocumentoCo
 import cv.zeemsv.api.infrastructure.repository.projection.SolicitacaoInvestidorProjection;
 import cv.zeemsv.api.infrastructure.repository.projection.SolicitacaoRequisitoProjection;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
+@Log4j2
 public class SolicitacaoServiceImpl implements SolicitacaoService {
     private static final String PROCESS_KEY_SOLICITACAO_INVESTIDOR = "proc_solicitacao_investidor";
     private static final String ESTADO_PENDENTE = "PENDENTE";
+    private static final String ESTADO_ATIVO = "A";
     private static final String TIPO_RELACAO_SOLICITACAO = "SOLICITACAO";
+    private static final String TEMPLATE_SUBMISSAO_SOLICITACAO = "PROC_SOLIC_TASK_SOLIC";
+    private static final String TIPO_NOTIFICACAO_EMAIL = "EMAIL";
+    private static final String ORIGEM_PORTAL = "PORTAL";
 
     private final SolicitacaoBus bus;
     private final SolicitacaoDtoMapper mapper;
@@ -60,9 +86,20 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     private final ZeeTTpSolicTaxaRepository tpSolicTaxaRepository;
     private final ZeeTTpSolicTpDocRepository tpSolicTpDocRepository;
     private final TPedidoRepository pedidoRepository;
+    private final ZeeTConfigTemplateNotifRepository templateNotifRepository;
+    private final TNotificacaoRepository notificacaoRepository;
+    private final TNotificacaoRelacaoRepository notificacaoRelacaoRepository;
+    private final ZeeTParamReportRepository paramReportRepository;
+    private final ZeeTEmailsRepository emailsRepository;
+    private final ZeeTInvestidorRepository investidorRepository;
+    private final ZeeTLeadPromotorRepository leadPromotorRepository;
     private final DocumentViewerUrlService documentViewerUrlService;
     private final DocumentoBus documentoBus;
     private final ProcessStartService processStartService;
+    private final EmailService emailService;
+
+    @Value("${application.reports.recibo-url-template:}")
+    private String reciboUrlTemplate;
 
     @Override @Transactional
     public SolicitacaoResponseDTO create(SolicitacaoRequestDTO dto) { return enrich(mapper.toResponse(bus.create(mapper.toModel(dto)))); }
@@ -93,6 +130,8 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
 
         saveDocumentos(dto.getDocumentos(), solicitacao, idProcesso, idEtapaDoc);
         saveRequisitos(dto.getRequisitos(), solicitacao, idProcesso, idEtapaDoc);
+        notifyRequerente(dto, solicitacao, pedido, processo);
+        notifyTecnicos(solicitacao, pedido, tpSolicitacao);
 
         return enrich(mapper.toResponse(bus.findById(solicitacao.getId())));
     }
@@ -135,10 +174,6 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     public void delete(Integer id) { bus.delete(id); }
 
     private void validateSubmissao(SubmeterSolicitacaoRequestDTO dto) {
-        if (!hasText(dto.getOrigem())) {
-            throw new BusinessException("O campo origem e obrigatorio.");
-        }
-
         if (dto.getDocumentos() != null) {
             for (SolicitacaoDocumentoRequestDTO documento : dto.getDocumentos()) {
                 if (documento.getFicheiro() == null || documento.getFicheiro().isEmpty()) {
@@ -180,7 +215,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     ) {
         TPedidoEntity pedido = new TPedidoEntity();
         pedido.setDmEstadoPedido(ESTADO_PENDENTE);
-        pedido.setDmOrigemReg(dto.getOrigem());
+        pedido.setDmOrigemReg(resolveOrigem(dto));
         pedido.setDtRegisto(LocalDate.now());
         pedido.setIdTpProcesso(firstText(processo.getProcessDefinitionKey(), PROCESS_KEY_SOLICITACAO_INVESTIDOR));
         pedido.setIdEtapa(idEtapa);
@@ -211,7 +246,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         solicitacao.setIdInvestidor(dto.getIdInvestidor());
         solicitacao.setIdProjeto(dto.getIdProjeto());
         solicitacao.setExposicao(dto.getExposicao());
-        solicitacao.setDmOrigem(dto.getOrigem());
+        solicitacao.setDmOrigem(resolveOrigem(dto));
         solicitacao.setDataSolic(LocalDate.now());
         solicitacao.setUserSolic(firstText(dto.getUserName(), dto.getEmail(), dto.getIdUser() != null ? dto.getIdUser().toString() : null, "system"));
         solicitacao.setDmEstadoProc(ESTADO_PENDENTE);
@@ -326,6 +361,10 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         return value != null && !value.trim().isEmpty();
     }
 
+    private static String resolveOrigem(SubmeterSolicitacaoRequestDTO dto) {
+        return hasText(dto.getOrigem()) ? dto.getOrigem().trim() : ORIGEM_PORTAL;
+    }
+
     private static BigDecimal toBigDecimal(String value, String label) {
         if (value == null || value.trim().isEmpty()) {
             throw new BusinessException("IGRP nao retornou " + label + ".");
@@ -346,6 +385,217 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         } catch (NumberFormatException ex) {
             return BigDecimal.ZERO;
         }
+    }
+
+    private void notifyRequerente(
+        SubmeterSolicitacaoRequestDTO dto,
+        ZeeTSolicitacaoEntity solicitacao,
+        TPedidoEntity pedido,
+        StartProcessResponse processo
+    ) {
+        if (!hasText(dto.getEmail())) {
+            log.info("Nenhum email informado para notificacao da solicitacao {}.", solicitacao.getId());
+            return;
+        }
+
+        String linkRecibo = buildLinkRecibo(pedido, processo);
+        TemplateContent content = resolveSubmissaoTemplate(processo, pedido, solicitacao, linkRecibo);
+        boolean sent = sendEmailSafely(dto.getEmail(), content.subject(), content.body(), solicitacao.getId());
+
+        try {
+            TNotificacaoEntity notificacao = new TNotificacaoEntity();
+            notificacao.setIdAplicacao(BigDecimal.ZERO);
+            notificacao.setIdOrganica(pedido.getIdOrganica() != null ? pedido.getIdOrganica() : BigDecimal.ZERO);
+            notificacao.setUserRegisto(pedido.getIdUserReg() != null ? pedido.getIdUserReg() : BigDecimal.ZERO);
+            notificacao.setDataRegisto(LocalDate.now());
+            notificacao.setAssunto(content.subject());
+            notificacao.setDataEnvio(LocalDateTime.now());
+            notificacao.setMensagem(content.body());
+            notificacao.setEmail(dto.getEmail().trim());
+            notificacao.setEstado(ESTADO_PENDENTE);
+            notificacao.setFlagAutomatico("S");
+            notificacao.setFlagSucesso(sent ? "S" : "N");
+            notificacao.setFlagLeitura("N");
+            notificacao.setNumeroReenvios(BigDecimal.ZERO);
+            notificacao.setTipo(TIPO_NOTIFICACAO_EMAIL);
+            notificacao.setIdRelacao(solicitacao.getId());
+            notificacao.setEmailsEnviados(dto.getEmail().trim());
+            notificacao.setConfirmRecebimento(false);
+
+            TNotificacaoEntity saved = notificacaoRepository.save(notificacao);
+            saveNotificacaoRelacao(saved.getId(), solicitacao.getId());
+        } catch (RuntimeException ex) {
+            log.error("Erro ao gravar notificacao da solicitacao {}.", solicitacao.getId(), ex);
+        }
+    }
+
+    private TemplateContent resolveSubmissaoTemplate(
+        StartProcessResponse processo,
+        TPedidoEntity pedido,
+        ZeeTSolicitacaoEntity solicitacao,
+        String linkRecibo
+    ) {
+        return templateNotifRepository.findFirstByCodigoAndDmEstadoOrderByIdDesc(TEMPLATE_SUBMISSAO_SOLICITACAO, ESTADO_ATIVO)
+            .map(template -> new TemplateContent(
+                replaceTemplate(template.getAssunto(), processo, pedido, solicitacao, linkRecibo),
+                replaceTemplate(template.getTemplateMsg(), processo, pedido, solicitacao, linkRecibo)
+            ))
+            .orElseGet(() -> new TemplateContent(
+                "Solicitacao submetida",
+                "A sua solicitacao foi submetida com o numero de processo " + processo.getProcessInstanceId()
+                    + (hasText(linkRecibo) ? ". Recibo: " + linkRecibo : ".")
+            ));
+    }
+
+    private String replaceTemplate(
+        String template,
+        StartProcessResponse processo,
+        TPedidoEntity pedido,
+        ZeeTSolicitacaoEntity solicitacao,
+        String linkRecibo
+    ) {
+        String value = hasText(template) ? template : "";
+        String processoNome = firstText(processo.getProcessName(), processo.getProcessDefinitionKey(), "");
+        String nrProcesso = firstText(processo.getProcessInstanceId(), pedido.getIdProcesso() != null ? pedido.getIdProcesso().toString() : "", "");
+        return value
+            .replace("${processo}", processoNome)
+            .replace("{processo}", processoNome)
+            .replace("#processo#", processoNome)
+            .replace(":processo", processoNome)
+            .replace("${nrProcesso}", nrProcesso)
+            .replace("{nrProcesso}", nrProcesso)
+            .replace("#nrProcesso#", nrProcesso)
+            .replace(":nrProcesso", nrProcesso)
+            .replace("${linkRecibo}", firstText(linkRecibo, ""))
+            .replace("{linkRecibo}", firstText(linkRecibo, ""))
+            .replace("#linkRecibo#", firstText(linkRecibo, ""))
+            .replace(":linkRecibo", firstText(linkRecibo, ""))
+            .replace("${nrPedido}", String.valueOf(pedido.getId()))
+            .replace("{nrPedido}", String.valueOf(pedido.getId()))
+            .replace("#nrPedido#", String.valueOf(pedido.getId()))
+            .replace(":nrPedido", String.valueOf(pedido.getId()))
+            .replace("${idSolicitacao}", String.valueOf(solicitacao.getId()))
+            .replace("{idSolicitacao}", String.valueOf(solicitacao.getId()))
+            .replace("#idSolicitacao#", String.valueOf(solicitacao.getId()))
+            .replace(":idSolicitacao", String.valueOf(solicitacao.getId()));
+    }
+
+    private String buildLinkRecibo(TPedidoEntity pedido, StartProcessResponse processo) {
+        if (!hasText(reciboUrlTemplate)) {
+            return "";
+        }
+        String link = reciboUrlTemplate
+            .replace("${p_id_pedido}", encode(pedido.getId()))
+            .replace("{p_id_pedido}", encode(pedido.getId()))
+            .replace("${p_id_processo}", encode(pedido.getIdProcesso()))
+            .replace("{p_id_processo}", encode(pedido.getIdProcesso()))
+            .replace("${processDefinitionKey}", encode(processo.getProcessDefinitionKey()))
+            .replace("{processDefinitionKey}", encode(processo.getProcessDefinitionKey()))
+            .replace("${processDefinition}", encode(processo.getProcessName()))
+            .replace("{processDefinition}", encode(processo.getProcessName()))
+            .replace("${taskId}", encode(pedido.getIdEtapa()))
+            .replace("{taskId}", encode(pedido.getIdEtapa()))
+            .replace("${isPublic}", "1")
+            .replace("{isPublic}", "1");
+        pedido.setPathRecibo(link);
+        return link;
+    }
+
+    private boolean sendEmailSafely(String recipient, String subject, String body, Integer solicitacaoId) {
+        try {
+            emailService.sendText(recipient, subject, body);
+            return true;
+        } catch (RuntimeException ex) {
+            log.error("Erro ao enviar notificacao da solicitacao {} para {}.", solicitacaoId, recipient, ex);
+            return false;
+        }
+    }
+
+    private void saveNotificacaoRelacao(Integer idNotificacao, Integer idSolicitacao) {
+        TNotificacaoRelacaoEntity relacao = new TNotificacaoRelacaoEntity();
+        relacao.setIdNotificacao(idNotificacao);
+        relacao.setTpRelacao(TIPO_RELACAO_SOLICITACAO);
+        relacao.setIdRelacao(BigDecimal.valueOf(idSolicitacao));
+        notificacaoRelacaoRepository.save(relacao);
+    }
+
+    private void notifyTecnicos(
+        ZeeTSolicitacaoEntity solicitacao,
+        TPedidoEntity pedido,
+        ZeeTTpSolicitacaoEntity tpSolicitacao
+    ) {
+        Set<String> recipients = resolveTecnicoEmails();
+        if (recipients.isEmpty()) {
+            log.info("Nenhum email tecnico configurado para notificacao da solicitacao {}.", solicitacao.getId());
+            return;
+        }
+
+        String origem = firstText(solicitacao.getDmOrigem(), "");
+        String viaPortal = ORIGEM_PORTAL.equalsIgnoreCase(origem) || "ONLINE".equalsIgnoreCase(origem) ? " Via Portal" : "";
+        String nomeTipoSolicitacao = firstText(tpSolicitacao.getNome(), tpSolicitacao.getDescricao(), "solicitacao");
+        String subject = "Nova Submissao de Pedido" + viaPortal
+            + " - Processo no - " + firstText(pedido.getIdProcesso() != null ? pedido.getIdProcesso().toString() : null, "nao informado")
+            + " - " + nomeTipoSolicitacao;
+        String requerente = resolveRequerenteTecnico(solicitacao, pedido);
+        String pedidoNome = nomeTipoSolicitacao.replaceFirst("(?i)^Pedido de\\s*", "").trim();
+        String body = "Caro Tecnico da AZEEMSV, informamos que "
+            + requerente
+            + " submeteu o pedido de " + firstText(pedidoNome, nomeTipoSolicitacao)
+            + " - Processo no " + firstText(pedido.getIdProcesso() != null ? pedido.getIdProcesso().toString() : null, "nao informado")
+            + ". Por favor consulte o processo para mais informacoes.";
+
+        for (String recipient : recipients) {
+            sendEmailSafely(recipient, subject, body, solicitacao.getId());
+        }
+    }
+
+    private String resolveRequerenteTecnico(ZeeTSolicitacaoEntity solicitacao, TPedidoEntity pedido) {
+        if (solicitacao.getIdInvestidor() != null) {
+            return investidorRepository.findById(solicitacao.getIdInvestidor())
+                .map(ZeeTInvestidorEntity::getDenominacao)
+                .filter(SolicitacaoServiceImpl::hasText)
+                .map(denominacao -> "o investidor " + denominacao)
+                .orElseGet(() -> firstText(pedido.getRequerente(), "pessoa nao identificada"));
+        }
+        if (solicitacao.getIdPromotor() != null) {
+            return leadPromotorRepository.findById(solicitacao.getIdPromotor())
+                .map(ZeeTLeadPromotorEntity::getDenominacao)
+                .filter(SolicitacaoServiceImpl::hasText)
+                .map(denominacao -> "o promotor " + denominacao)
+                .orElseGet(() -> firstText(pedido.getRequerente(), "pessoa nao identificada"));
+        }
+        return firstText(pedido.getRequerente(), "pessoa nao identificada");
+    }
+
+    private Set<String> resolveTecnicoEmails() {
+        Set<String> emails = new LinkedHashSet<>();
+        paramReportRepository.findAll().stream()
+            .map(ZeeTParamReportEntity::getEmail)
+            .filter(SolicitacaoServiceImpl::hasText)
+            .map(String::trim)
+            .forEach(email -> addEmailIgnoreCase(emails, email));
+        emailsRepository.findAll().stream()
+            .map(ZeeTEmailsEntity::getEmail)
+            .filter(SolicitacaoServiceImpl::hasText)
+            .map(String::trim)
+            .forEach(email -> addEmailIgnoreCase(emails, email));
+        return emails;
+    }
+
+    private static void addEmailIgnoreCase(Set<String> emails, String email) {
+        if (emails.stream().noneMatch(existing -> existing.equalsIgnoreCase(email))) {
+            emails.add(email);
+        }
+    }
+
+    private static String encode(Object value) {
+        if (value == null) {
+            return "";
+        }
+        return URLEncoder.encode(String.valueOf(value), StandardCharsets.UTF_8);
+    }
+
+    private record TemplateContent(String subject, String body) {
     }
 
     private SolicitacaoResponseDTO enrich(SolicitacaoResponseDTO dto) {
