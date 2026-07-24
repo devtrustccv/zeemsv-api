@@ -59,6 +59,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.net.URLEncoder;
@@ -79,6 +83,8 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     private static final String TEMPLATE_SUBMISSAO_SOLICITACAO = "PROC_SOLIC_TASK_SOLIC";
     private static final String TIPO_NOTIFICACAO_EMAIL = "EMAIL";
     private static final String ORIGEM_PORTAL = "PORTAL";
+    private static final String RECIBO_PEDIDO_DESCRICAO = "Recibo Pedido";
+    private static final String RECIBO_PEDIDO_MIMETYPE = "application/pdf";
     private static final String ETAPA_ANALISE_SOLICITACAO = "Análise Solicitação";
     private static final BigDecimal ID_ORGANICA_DEFAULT = BigDecimal.valueOf(4);
 
@@ -105,8 +111,8 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     private final ProcessStartService processStartService;
     private final EmailService emailService;
 
-    @Value("${application.reports.recibo-url-template:}")
-    private String reciboUrlTemplate;
+    @Value("${application.reports.recibo-pdf-url-template:${application.reports.recibo-url-template:}}")
+    private String reciboPdfUrlTemplate;
 
     @Override @Transactional
     public SolicitacaoResponseDTO create(SolicitacaoRequestDTO dto) { return enrich(mapper.toResponse(bus.create(mapper.toModel(dto)))); }
@@ -606,7 +612,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
             return;
         }
 
-        String linkRecibo = buildLinkRecibo(pedido, processo);
+        String linkRecibo = gerarReciboPedidoPdfLink(solicitacao, pedido);
         TemplateContent content = resolveSubmissaoTemplate(processo, pedido, solicitacao, tpSolicitacao, linkRecibo);
         boolean sent = sendEmailSafely(dto.getEmail(), content.subject(), content.body(), solicitacao.getId());
 
@@ -726,26 +732,75 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         return value;
     }
 
-    private String buildLinkRecibo(TPedidoEntity pedido, StartProcessResponse processo) {
-        if (!hasText(reciboUrlTemplate)) {
-            log.warn("Template de URL do recibo nao configurado. Defina RECIBO_URL_TEMPLATE para gerar o link do recibo do pedido {}.", pedido.getId());
+    private String gerarReciboPedidoPdfLink(ZeeTSolicitacaoEntity solicitacao, TPedidoEntity pedido) {
+        if (hasText(pedido.getPathRecibo())) {
+            return documentViewerUrlService.toViewerUrl(pedido.getPathRecibo(), RECIBO_PEDIDO_MIMETYPE);
+        }
+        if (!hasText(reciboPdfUrlTemplate)) {
+            log.warn("Template de URL do recibo PDF nao configurado. Defina RECIBO_PDF_URL_TEMPLATE para gerar o recibo da solicitacao {}.", solicitacao.getId());
             return "";
         }
-        String link = reciboUrlTemplate
-            .replace("${p_id_pedido}", encode(pedido.getId()))
-            .replace("{p_id_pedido}", encode(pedido.getId()))
-            .replace("${p_id_processo}", encode(pedido.getIdProcesso()))
-            .replace("{p_id_processo}", encode(pedido.getIdProcesso()))
-            .replace("${processDefinitionKey}", encode(processo.getProcessDefinitionKey()))
-            .replace("{processDefinitionKey}", encode(processo.getProcessDefinitionKey()))
-            .replace("${processDefinition}", encode(processo.getProcessName()))
-            .replace("{processDefinition}", encode(processo.getProcessName()))
-            .replace("${taskId}", encode(pedido.getIdEtapa()))
-            .replace("{taskId}", encode(pedido.getIdEtapa()))
-            .replace("${isPublic}", "1")
-            .replace("{isPublic}", "1");
-        pedido.setPathRecibo(link);
-        return link;
+
+        try {
+            byte[] pdf = downloadReciboPedidoPdf(buildReciboPedidoPdfUrl(solicitacao));
+            ZeeTDocRelacaoEntity docRelacao = new ZeeTDocRelacaoEntity();
+            docRelacao.setTipoRelacao(TIPO_RELACAO_SOLICITACAO);
+            docRelacao.setIdRelacao(BigDecimal.valueOf(solicitacao.getId()));
+            docRelacao.setDescricao(RECIBO_PEDIDO_DESCRICAO);
+
+            String filename = "recibo-pedido-" + solicitacao.getId() + ".pdf";
+            ZeeTDocRelacaoEntity saved = documentoBus.saveGeneratedDocument(
+                pdf,
+                filename,
+                DocumentoBus.getBasePathForModuloOrObject(TIPO_RELACAO_SOLICITACAO, solicitacao.getId().toString()),
+                RECIBO_PEDIDO_MIMETYPE,
+                docRelacao,
+                solicitacao.getUserSolic()
+            );
+            pedido.setPathRecibo(saved.getPath());
+            pedidoRepository.save(pedido);
+            return documentViewerUrlService.toViewerUrl(saved.getPath(), RECIBO_PEDIDO_MIMETYPE);
+        } catch (RuntimeException ex) {
+            log.error("Erro ao gerar recibo PDF da solicitacao {}.", solicitacao.getId(), ex);
+            return "";
+        }
+    }
+
+    private String buildReciboPedidoPdfUrl(ZeeTSolicitacaoEntity solicitacao) {
+        String idSolicitacao = encode(solicitacao.getId());
+        String url = reciboPdfUrlTemplate
+            .replace("${id_solicitacao}", idSolicitacao)
+            .replace("{id_solicitacao}", idSolicitacao)
+            .replace("${idSolicitacao}", idSolicitacao)
+            .replace("{idSolicitacao}", idSolicitacao);
+        if (url.equals(reciboPdfUrlTemplate)) {
+            String separator = url.endsWith("/") ? "" : "/";
+            url = url + separator + idSolicitacao;
+        }
+        return url;
+    }
+
+    private byte[] downloadReciboPedidoPdf(String url) {
+        try {
+            HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+                .GET()
+                .header("Accept", RECIBO_PEDIDO_MIMETYPE)
+                .build();
+            HttpResponse<byte[]> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofByteArray());
+            if (response.statusCode() / 100 != 2) {
+                throw new IllegalStateException("Laravel retornou HTTP " + response.statusCode() + " ao gerar recibo.");
+            }
+            byte[] body = response.body();
+            if (body == null || body.length == 0) {
+                throw new IllegalStateException("Laravel retornou recibo vazio.");
+            }
+            return body;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Thread interrompida ao gerar recibo no Laravel.", e);
+        } catch (Exception e) {
+            throw new IllegalStateException("Falha ao gerar recibo no Laravel.", e);
+        }
     }
 
     private boolean sendEmailSafely(String recipient, String subject, String body, Integer solicitacaoId) {

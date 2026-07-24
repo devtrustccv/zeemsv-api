@@ -14,6 +14,9 @@ import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.Objects;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,6 +35,9 @@ public class ProcessStartService {
 
     @Value("${zeemsv.gateway.authorization:}")
     private String defaultAuthorization;
+
+    @Value("${zeemsv.gateway.ssl.trust-all:false}")
+    private boolean trustAllSsl;
 
     public StartProcessResponse start(String bearerOrNull, String rawJsonOrNull) {
         return start("correcao", bearerOrNull, rawJsonOrNull);
@@ -106,7 +112,7 @@ public class ProcessStartService {
     }
 
     private String sendRequest(String url, String bearer, String jsonBody) throws IOException, InterruptedException {
-        HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(20)).build();
+        HttpClient client = buildHttpClient();
 
         HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
             .timeout(Duration.ofSeconds(30))
@@ -137,6 +143,41 @@ public class ProcessStartService {
             throw new ProcessStartException(message);
         }
         return Objects.toString(response.body(), "");
+    }
+
+    private HttpClient buildHttpClient() {
+        HttpClient.Builder builder = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(20));
+        if (trustAllSsl) {
+            builder.sslContext(trustAllSslContext());
+            log.warn("SSL trust-all ativo para zeemsv.gateway. Use apenas em ambientes de desenvolvimento/teste.");
+        }
+        return builder.build();
+    }
+
+    private static SSLContext trustAllSslContext() {
+        try {
+            TrustManager[] trustManagers = new TrustManager[] {
+                new X509TrustManager() {
+                    @Override
+                    public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authType) {
+                    }
+
+                    @Override
+                    public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authType) {
+                    }
+
+                    @Override
+                    public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                        return new java.security.cert.X509Certificate[0];
+                    }
+                }
+            };
+            SSLContext sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(null, trustManagers, new java.security.SecureRandom());
+            return sslContext;
+        } catch (Exception e) {
+            throw new IllegalStateException("Falha ao configurar SSL trust-all para o gateway IGRP.", e);
+        }
     }
 
     private StartProcessResponse parseResponse(String json) throws IOException {

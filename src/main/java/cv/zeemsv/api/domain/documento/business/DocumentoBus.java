@@ -94,6 +94,33 @@ public class DocumentoBus {
         }
     }
 
+    @Transactional
+    public ZeeTDocRelacaoEntity saveGeneratedDocument(
+        byte[] content,
+        String filename,
+        String basePathToSave,
+        String contentType,
+        ZeeTDocRelacaoEntity docRelacao,
+        String userCreate
+    ) {
+        if (content == null || content.length == 0) {
+            throw new IllegalArgumentException("Conteudo do documento e obrigatorio.");
+        }
+        String fullPath = DocumentoBus.addSlashToBasePath(basePathToSave) + filename;
+        minioStoreEngine.saveFiles(List.of(new DocumentMinioDTO(
+            normalizeText(fullPath),
+            content,
+            content.length,
+            contentType
+        )));
+
+        reuseExistingUploadDocument(docRelacao);
+        docRelacao.setPath(fullPath);
+        docRelacao.setMimetype(contentType);
+        docRelacao.setDocSize(BigDecimal.valueOf(content.length));
+        return saveOrUpdate(docRelacao, userCreate);
+    }
+
     @Transactional(readOnly = true)
     public List<ZeeTTpDocEntity> loadTpDocByTipoObject(String tpObject) {
         return tpDocRepository.findByTipoRelacaoAndEstado(tpObject, ESTADO_ATIVO);
