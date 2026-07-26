@@ -3,6 +3,7 @@ package cv.zeemsv.api.application.atividade.dto;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
@@ -40,4 +41,5 @@ public class NotificacaoInvestidorResponseDTO {
     private Boolean confirmRecebimento;
     private Long totalAnexos;
     private Map<String, Object> relacao;
+    private List<NotificacaoInvestidorResponseDTO> filhos;
 }

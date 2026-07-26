@@ -1,6 +1,7 @@
 package cv.zeemsv.api.web.solicitacao;
 
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDocumentosRequisitosResponseDTO;
+import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDetailResponseDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoRequestDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoResponseDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SubmeterSolicitacaoRequestDTO;
@@ -45,6 +46,11 @@ public class SolicitacaoController {
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<SolicitacaoResponseDTO>> findById(@PathVariable Integer id) {
         return ResponseEntity.ok(ApiResponse.ok("Registo encontrado", service.findById(id)));
+    }
+
+    @GetMapping("/{id}/detalhes")
+    public ResponseEntity<ApiResponse<SolicitacaoDetailResponseDTO>> findDetailById(@PathVariable Integer id) {
+        return ResponseEntity.ok(ApiResponse.ok("Detalhes da solicitacao encontrados", service.findDetailById(id)));
     }
 
     @GetMapping("/{id}/recibo-dados")

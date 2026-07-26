@@ -2,6 +2,7 @@ package cv.zeemsv.api.web.investidor;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import cv.zeemsv.api.application.investidor.dto.PedidoAcessoInvestidorDetailResponseDTO;
 import cv.zeemsv.api.application.investidor.dto.PedidoAcessoInvestidorRequestDTO;
 import cv.zeemsv.api.application.investidor.dto.PedidoAcessoInvestidorResponseDTO;
 import cv.zeemsv.api.application.investidor.service.PedidoAcessoInvestidorService;
@@ -48,6 +49,13 @@ public class PedidoAcessoInvestidorController {
         @PathVariable Integer idUser
     ) {
         return ResponseEntity.ok(ApiResponse.ok("Pedidos de acesso do utilizador encontrados", service.findByUserId(idUser)));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<PedidoAcessoInvestidorDetailResponseDTO>> findDetailById(
+        @PathVariable Integer id
+    ) {
+        return ResponseEntity.ok(ApiResponse.ok("Detalhes do pedido de acesso encontrados", service.findDetailById(id)));
     }
 
     private PedidoAcessoInvestidorRequestDTO parsePedido(String pedido) {

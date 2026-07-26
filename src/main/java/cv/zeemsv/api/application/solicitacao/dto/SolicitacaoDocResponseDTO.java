@@ -19,6 +19,8 @@ public class SolicitacaoDocResponseDTO {
     private String tpDocCodigo;
     private String requisito;
     private String flagObrigatorio;
+    private String flagObrigatorioDesc;
+    private Boolean anexado;
     private String pedResp;
     private BigDecimal idProcesso;
     private BigDecimal idEtapa;

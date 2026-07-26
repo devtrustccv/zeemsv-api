@@ -49,6 +49,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
@@ -190,19 +191,29 @@ public class AtividadeServiceImpl implements AtividadeService {
     @Override
     @Transactional(readOnly = true)
     public List<NotificacaoInvestidorResponseDTO> findNotificacoesByInvestidorId(Integer idInvestidor) {
-        return notificacaoRelacaoRepository.findByInvestidorId(idInvestidor)
-            .stream()
-            .map(this::toNotificacaoResponse)
-            .toList();
+        List<NotificacaoInvestidorProjection> roots = notificacaoRelacaoRepository.findByInvestidorId(idInvestidor);
+        if (roots.isEmpty()) {
+            return List.of();
+        }
+        List<NotificacaoInvestidorProjection> children = notificacaoRelacaoRepository.findChildrenByInvestidorId(
+            roots.stream().map(NotificacaoInvestidorProjection::getIdNotificacao).toList(),
+            idInvestidor
+        );
+        return withFilhos(roots, children);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<NotificacaoInvestidorResponseDTO> findNotificacoesByUserId(Integer idUser) {
-        return notificacaoRelacaoRepository.findByUserId(idUser)
-            .stream()
-            .map(this::toNotificacaoResponse)
-            .toList();
+        List<NotificacaoInvestidorProjection> roots = notificacaoRelacaoRepository.findByUserId(idUser);
+        if (roots.isEmpty()) {
+            return List.of();
+        }
+        List<NotificacaoInvestidorProjection> children = notificacaoRelacaoRepository.findChildrenByUserId(
+            roots.stream().map(NotificacaoInvestidorProjection::getIdNotificacao).toList(),
+            idUser
+        );
+        return withFilhos(roots, children);
     }
 
     @Override
@@ -628,7 +639,29 @@ public class AtividadeServiceImpl implements AtividadeService {
         dto.setConfirmRecebimento(projection.getConfirmRecebimento());
         dto.setTotalAnexos(projection.getTotalAnexos());
         dto.setRelacao(toRelacao(projection));
+        dto.setFilhos(List.of());
         return dto;
+    }
+
+    private List<NotificacaoInvestidorResponseDTO> withFilhos(
+        List<NotificacaoInvestidorProjection> roots,
+        List<NotificacaoInvestidorProjection> children
+    ) {
+        if (roots.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Integer, List<NotificacaoInvestidorResponseDTO>> childrenByParent = children.stream()
+            .collect(Collectors.groupingBy(
+                NotificacaoInvestidorProjection::getIdPai,
+                LinkedHashMap::new,
+                Collectors.mapping(this::toNotificacaoResponse, Collectors.toList())
+            ));
+
+        return roots.stream()
+            .map(this::toNotificacaoResponse)
+            .peek(dto -> dto.setFilhos(childrenByParent.getOrDefault(dto.getIdNotificacao(), List.of())))
+            .toList();
     }
 
     private Map<String, Object> toRelacao(NotificacaoInvestidorProjection projection) {

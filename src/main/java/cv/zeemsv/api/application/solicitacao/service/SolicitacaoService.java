@@ -1,6 +1,7 @@
 package cv.zeemsv.api.application.solicitacao.service;
 
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDocumentosRequisitosResponseDTO;
+import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDetailResponseDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoRequestDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoResponseDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SubmeterSolicitacaoRequestDTO;
@@ -13,6 +14,7 @@ public interface SolicitacaoService {
     SolicitacaoResponseDTO submeter(SubmeterSolicitacaoRequestDTO dto, String authorization);
     SolicitacaoResponseDTO update(Integer id, SolicitacaoRequestDTO dto);
     SolicitacaoResponseDTO findById(Integer id);
+    SolicitacaoDetailResponseDTO findDetailById(Integer id);
     List<SolicitacaoResponseDTO> findAll();
     List<SolicitacaoResponseDTO> findByInvestidorId(Integer idInvestidor);
     ReciboPedidoDadosResponseDTO findReciboDados(Integer idSolicitacao);

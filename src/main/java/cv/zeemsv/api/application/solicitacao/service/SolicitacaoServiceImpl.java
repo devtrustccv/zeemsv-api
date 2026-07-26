@@ -3,6 +3,7 @@ package cv.zeemsv.api.application.solicitacao.service;
 import cv.zeemsv.api.application.domain.DomainDescriptionHelper;
 import cv.zeemsv.api.application.generic.service.EmailService;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDocResponseDTO;
+import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDetailResponseDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDocumentosRequisitosResponseDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDocumentoRequestDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoRequestDTO;
@@ -28,8 +29,10 @@ import cv.zeemsv.api.infrastructure.entity.ZeeTEmailsEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTInvestidorEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTLeadPromotorEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTParamReportEntity;
+import cv.zeemsv.api.infrastructure.entity.ZeeTPagamentoEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTSolicitacaoDocEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTSolicitacaoEntity;
+import cv.zeemsv.api.infrastructure.entity.ZeeTSolicitacaoTaxaEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicTpDocEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicitacaoEntity;
 import cv.zeemsv.api.infrastructure.repository.TPedidoRepository;
@@ -41,9 +44,11 @@ import cv.zeemsv.api.infrastructure.repository.ZeeTInfProjetoRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTInvestidorRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTLeadPromotorRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTParamReportRepository;
+import cv.zeemsv.api.infrastructure.repository.ZeeTPagamentoRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTSolicitacaoDocRepository;
 import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicTaxaEntity;
 import cv.zeemsv.api.infrastructure.repository.ZeeTSolicitacaoRepository;
+import cv.zeemsv.api.infrastructure.repository.ZeeTSolicitacaoTaxaRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTTpSolicitacaoRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTTpSolicTaxaRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTTpDocRepository;
@@ -71,8 +76,11 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -110,6 +118,8 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     private final ZeeTInfProjetoRepository infProjetoRepository;
     private final ZeeTInvestidorRepository investidorRepository;
     private final ZeeTLeadPromotorRepository leadPromotorRepository;
+    private final ZeeTSolicitacaoTaxaRepository solicitacaoTaxaRepository;
+    private final ZeeTPagamentoRepository pagamentoRepository;
     private final DocumentViewerUrlService documentViewerUrlService;
     private final DocumentoBus documentoBus;
     private final ProcessStartService processStartService;
@@ -181,6 +191,22 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     @Override @Transactional(readOnly = true)
     public SolicitacaoResponseDTO findById(Integer id) { return enrich(mapper.toResponse(bus.findById(id))); }
 
+    @Override
+    @Transactional(readOnly = true)
+    public SolicitacaoDetailResponseDTO findDetailById(Integer id) {
+        SolicitacaoResponseDTO solicitacao = solicitacaoRepository.findDetalheById(id)
+            .map(this::toResponse)
+            .orElseThrow(() -> new BusinessException("Solicitacao nao encontrada: " + id));
+
+        SolicitacaoDetailResponseDTO detail = new SolicitacaoDetailResponseDTO();
+        detail.setSolicitacao(solicitacao);
+        detail.setPedido(resolvePedidoDados(solicitacao));
+        detail.setDocumentos(findDocumentosDetalhe(solicitacao));
+        detail.setRequisitos(findRequisitosDetalhe(solicitacao));
+        detail.setTaxas(findTaxasDetalhe(solicitacao));
+        return detail;
+    }
+
     @Override @Transactional(readOnly = true)
     public List<SolicitacaoResponseDTO> findAll() { return bus.findAll().stream().map(mapper::toResponse).map(this::enrich).toList(); }
 
@@ -231,6 +257,104 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
 
     @Override @Transactional
     public void delete(Integer id) { bus.delete(id); }
+
+    private ReciboPedidoDadosResponseDTO resolvePedidoDados(SolicitacaoResponseDTO solicitacao) {
+        try {
+            return findReciboDados(solicitacao.getId());
+        } catch (BusinessException ex) {
+            log.warn("Nao foi possivel obter dados do pedido da solicitacao {}.", solicitacao.getId(), ex);
+            return null;
+        }
+    }
+
+    private List<SolicitacaoDocResponseDTO> findDocumentosDetalhe(SolicitacaoResponseDTO solicitacao) {
+        return solicitacaoDocRepository.findDetalheByIdSolicitacao(solicitacao.getId(), solicitacao.getIdTpSolicitacao())
+            .stream()
+            .map(this::toDocumentoResponse)
+            .toList();
+    }
+
+    private List<SolicitacaoRequisitoResponseDTO> findRequisitosDetalhe(SolicitacaoResponseDTO solicitacao) {
+        Set<Integer> requisitosCumpridos = new LinkedHashSet<>(solicitacaoDocRepository.findIdTpSolicTpDocByIdSolicitacao(solicitacao.getId()));
+        return tpSolicTpDocRepository.findRequisitosByIdTpSolicitacao(solicitacao.getIdTpSolicitacao())
+            .stream()
+            .map(requisito -> toRequisitoDetalhe(requisito, requisitosCumpridos))
+            .toList();
+    }
+
+    private List<SolicitacaoTaxaResponseDTO> findTaxasDetalhe(SolicitacaoResponseDTO solicitacao) {
+        List<ZeeTSolicitacaoTaxaEntity> solicitacaoTaxas = solicitacaoTaxaRepository.findByIdSolicitacao(solicitacao.getId());
+        Map<Integer, ZeeTTpSolicTaxaEntity> taxasConfiguradas = tpSolicTaxaRepository.findByIdTpSolic(solicitacao.getIdTpSolicitacao())
+            .stream()
+            .collect(Collectors.toMap(ZeeTTpSolicTaxaEntity::getId, Function.identity(), (first, ignored) -> first));
+        Map<Integer, ZeeTPagamentoEntity> pagamentos = pagamentoRepository.findByIdSolicitacao(solicitacao.getId())
+            .stream()
+            .filter(pagamento -> pagamento.getIdTpSolicTaxa() != null)
+            .collect(Collectors.toMap(ZeeTPagamentoEntity::getIdTpSolicTaxa, Function.identity(), (first, ignored) -> first));
+
+        if (!solicitacaoTaxas.isEmpty()) {
+            return solicitacaoTaxas.stream()
+                .map(taxa -> toTaxaDetalhe(taxa, taxasConfiguradas.get(taxa.getIdTpSolicTaxa()), pagamentos.get(taxa.getIdTpSolicTaxa())))
+                .toList();
+        }
+
+        return taxasConfiguradas.values().stream()
+            .map(taxa -> toTaxaDetalhe(taxa, pagamentos.get(taxa.getId())))
+            .toList();
+    }
+
+    private SolicitacaoRequisitoResponseDTO toRequisitoDetalhe(
+        SolicitacaoRequisitoProjection projection,
+        Set<Integer> requisitosCumpridos
+    ) {
+        SolicitacaoRequisitoResponseDTO dto = toRequisitoResponse(projection);
+        dto.setCumpre(requisitosCumpridos.contains(projection.getIdTpSolicTpDoc()) ? "SIM" : "NAO");
+        return dto;
+    }
+
+    private SolicitacaoTaxaResponseDTO toTaxaDetalhe(
+        ZeeTSolicitacaoTaxaEntity solicitacaoTaxa,
+        ZeeTTpSolicTaxaEntity taxaConfigurada,
+        ZeeTPagamentoEntity pagamento
+    ) {
+        SolicitacaoTaxaResponseDTO dto = toTaxaDetalhe(taxaConfigurada, pagamento);
+        dto.setId(solicitacaoTaxa.getId());
+        dto.setIdSolicitacao(solicitacaoTaxa.getIdSolicitacao());
+        dto.setIdTpSolicTaxa(solicitacaoTaxa.getIdTpSolicTaxa());
+        dto.setValor(solicitacaoTaxa.getValor());
+        return dto;
+    }
+
+    private SolicitacaoTaxaResponseDTO toTaxaDetalhe(ZeeTTpSolicTaxaEntity taxaConfigurada, ZeeTPagamentoEntity pagamento) {
+        SolicitacaoTaxaResponseDTO dto = new SolicitacaoTaxaResponseDTO();
+        if (taxaConfigurada != null) {
+            dto.setIdTpSolicTaxa(taxaConfigurada.getId());
+            dto.setIdTaxa(taxaConfigurada.getIdTaxa());
+            dto.setTaxa(taxaConfigurada.getDescricao());
+            dto.setTipoTaxaCodigo(taxaConfigurada.getTipoTaxa());
+            dto.setTipoTaxa(domainHelper.describe(DomainDescriptionHelper.TIPO_TAXA, taxaConfigurada.getTipoTaxa()));
+            dto.setValor(taxaConfigurada.getValor());
+            dto.setValorConfigurado(taxaConfigurada.getValor());
+        }
+        enrichPagamento(dto, pagamento);
+        return dto;
+    }
+
+    private void enrichPagamento(SolicitacaoTaxaResponseDTO dto, ZeeTPagamentoEntity pagamento) {
+        if (pagamento == null) {
+            return;
+        }
+        dto.setIdPagamento(pagamento.getId());
+        dto.setReferenciaPagamento(pagamento.getReferencia());
+        dto.setDuc(pagamento.getDuc());
+        dto.setDmEstadoPagamento(pagamento.getDmEstadoPag());
+        dto.setDmEstadoPagamentoDesc(domainHelper.describe(DomainDescriptionHelper.ESTADO, pagamento.getDmEstadoPag()));
+        dto.setFormaPagamento(pagamento.getFormaPagamento());
+        dto.setLinkDuc(documentViewerUrlService.toViewerUrl(pagamento.getLinkDuc()));
+        if (dto.getValor() == null) {
+            dto.setValor(pagamento.getValor());
+        }
+    }
 
     private ReciboPedidoDadosResponseDTO buildReciboDados(ZeeTSolicitacaoEntity solicitacao, TPedidoEntity pedido) {
         ZeeTTpSolicitacaoEntity tpSolicitacao = tpSolicitacaoRepository.findById(solicitacao.getIdTpSolicitacao())
@@ -1020,6 +1144,8 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         dto.setTpDocCodigo(p.getTpDocCodigo());
         dto.setRequisito(p.getRequisito());
         dto.setFlagObrigatorio(p.getFlagObrigatorio());
+        dto.setFlagObrigatorioDesc("SIM".equalsIgnoreCase(p.getFlagObrigatorio()) ? "Sim" : "Nao");
+        dto.setAnexado(p.getId() != null);
         dto.setPedResp(p.getPedResp());
         dto.setIdProcesso(p.getIdProcesso());
         dto.setIdEtapa(p.getIdEtapa());
@@ -1037,6 +1163,8 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         dto.setTpDocCodigo(p.getTpDocCodigo());
         dto.setRequisito(p.getRequisito());
         dto.setFlagObrigatorio(p.getFlagObrigatorio());
+        dto.setFlagObrigatorioDesc("SIM".equalsIgnoreCase(p.getFlagObrigatorio()) ? "Sim" : "Nao");
+        dto.setAnexado(false);
         dto.setPedResp(p.getPedResp());
         return dto;
     }
@@ -1053,11 +1181,13 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
 
     private SolicitacaoTaxaResponseDTO toTaxaResponse(ZeeTTpSolicTaxaEntity entity) {
         SolicitacaoTaxaResponseDTO dto = new SolicitacaoTaxaResponseDTO();
+        dto.setIdTpSolicTaxa(entity.getId());
+        dto.setIdTaxa(entity.getIdTaxa());
         dto.setTaxa(entity.getDescricao());
+        dto.setTipoTaxaCodigo(entity.getTipoTaxa());
         dto.setTipoTaxa(domainHelper.describe(DomainDescriptionHelper.TIPO_TAXA, entity.getTipoTaxa()));
-        if (entity.getValor() != null) {
-            dto.setValor(entity.getValor().intValue());
-        }
+        dto.setValor(entity.getValor());
+        dto.setValorConfigurado(entity.getValor());
         return dto;
     }
 

@@ -2,6 +2,7 @@ package cv.zeemsv.api.application.investidor.service;
 
 import cv.zeemsv.api.application.domain.DomainDescriptionHelper;
 import cv.zeemsv.api.application.generic.service.EmailService;
+import cv.zeemsv.api.application.investidor.dto.PedidoAcessoInvestidorDetailResponseDTO;
 import cv.zeemsv.api.application.investidor.dto.PedidoAcessoInvestidorRequestDTO;
 import cv.zeemsv.api.application.investidor.dto.PedidoAcessoInvestidorResponseDTO;
 import cv.zeemsv.api.application.investidor.dto.SocioRepresentanteRequestDTO;
@@ -15,6 +16,7 @@ import cv.zeemsv.api.infrastructure.entity.TNotificacaoRelacaoEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTDocRelacaoEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTEmailsEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTInvestidorEntity;
+import cv.zeemsv.api.infrastructure.entity.ZeeTOrdemEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTPedidoAcessoInvestidorEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTParamReportEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTRepresInvestidorEntity;
@@ -162,6 +164,27 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
             .stream()
             .map(this::toResponseWithFileContent)
             .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PedidoAcessoInvestidorDetailResponseDTO findDetailById(Integer id) {
+        ZeeTPedidoAcessoInvestidorEntity pedido = repository.findById(id)
+            .orElseThrow(() -> new BusinessException("Pedido de acesso nao encontrado."));
+
+        PedidoAcessoInvestidorDetailResponseDTO dto = new PedidoAcessoInvestidorDetailResponseDTO();
+        dto.setPedido(toResponseWithFileContent(pedido));
+        dto.setUtilizador(userRepository.findById(pedido.getIdUtilizador()).map(this::toUtilizador).orElse(null));
+        dto.setInvestidor(pedido.getIdInvestidor() != null
+            ? investidorRepository.findById(pedido.getIdInvestidor()).map(this::toInvestidor).orElse(null)
+            : null);
+        dto.setSocioRepresentante(pedido.getIdSocioRepres() != null
+            ? socioRepresRepository.findById(pedido.getIdSocioRepres()).map(this::toSocioRepresentante).orElse(null)
+            : null);
+        dto.setOrdem(pedido.getIdOrdem() != null
+            ? ordemRepository.findById(pedido.getIdOrdem()).map(this::toOrdem).orElse(null)
+            : null);
+        return dto;
     }
 
     private void resolveInvestidorByNifEntidade(PedidoAcessoInvestidorRequestDTO dto) {
@@ -494,6 +517,7 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
         dto.setIdUser(entity.getIdUtilizador());
         dto.setIdInvestidor(entity.getIdInvestidor());
         dto.setTipoPedido(entity.getDmTipoPedido());
+        dto.setTipoPedidoDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_PEDIDO_ACESSO, entity.getDmTipoPedido()));
         dto.setIdSocioRepres(entity.getIdSocioRepres());
         dto.setIdOrdem(entity.getIdOrdem());
         dto.setNifEntidade(entity.getNifEntidade());
@@ -515,6 +539,125 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
 
     private PedidoAcessoInvestidorResponseDTO toResponseWithFileContent(ZeeTPedidoAcessoInvestidorEntity entity) {
         PedidoAcessoInvestidorResponseDTO dto = toResponse(entity);
+        return dto;
+    }
+
+    private PedidoAcessoInvestidorDetailResponseDTO.UtilizadorDTO toUtilizador(ZeeTUserEntity entity) {
+        PedidoAcessoInvestidorDetailResponseDTO.UtilizadorDTO dto = new PedidoAcessoInvestidorDetailResponseDTO.UtilizadorDTO();
+        dto.setId(entity.getId());
+        dto.setNome(entity.getNome());
+        dto.setEmail(entity.getEmail());
+        dto.setDmEstado(entity.getDmEstado());
+        dto.setDmEstadoDesc(domainHelper.describe(DomainDescriptionHelper.ESTADO, entity.getDmEstado()));
+        dto.setOrigem(entity.getOrigem());
+        dto.setOrigemDesc(domainHelper.describe(DomainDescriptionHelper.ORIGEM, entity.getOrigem()));
+        dto.setOnboardingRealizado(entity.getOnboardingRealizado());
+        dto.setDataOnboarding(entity.getDataOnboarding());
+        dto.setDataRegisto(entity.getDataRegisto());
+        dto.setPessoaId(entity.getPessoaId());
+        return dto;
+    }
+
+    private PedidoAcessoInvestidorDetailResponseDTO.InvestidorDTO toInvestidor(ZeeTInvestidorEntity entity) {
+        PedidoAcessoInvestidorDetailResponseDTO.InvestidorDTO dto = new PedidoAcessoInvestidorDetailResponseDTO.InvestidorDTO();
+        dto.setId(entity.getId());
+        dto.setDenominacao(entity.getDenominacao());
+        dto.setMatricula(entity.getMatricula());
+        dto.setDmNaturezaJuridica(entity.getDmNaturezaJuridica());
+        dto.setDmNaturezaJuridicaDesc(domainHelper.describe(DomainDescriptionHelper.NATUREZA_JURIDICA, entity.getDmNaturezaJuridica()));
+        dto.setSetor(entity.getSetor());
+        dto.setSede(entity.getSede());
+        dto.setDmClassificacao(entity.getDmClassificacao());
+        dto.setDmClassificacaoDesc(domainHelper.describe(DomainDescriptionHelper.CLASSIFICACAO, entity.getDmClassificacao()));
+        dto.setDataConstituicao(entity.getDataConstituicao());
+        dto.setPhone(entity.getPhone());
+        dto.setIndicativoPais(entity.getIndicativoPais());
+        dto.setTelemovel(entity.getTelemovel());
+        dto.setEmail(entity.getEmail());
+        dto.setSite(entity.getSite());
+        dto.setFlagRec(entity.getFlagRec());
+        dto.setDmEstado(entity.getDmEstado());
+        dto.setDmEstadoDesc(domainHelper.describe(DomainDescriptionHelper.ESTADO, entity.getDmEstado()));
+        dto.setLinkRegComercial(documentViewerUrlService.toViewerUrl(entity.getLinkRegComercial()));
+        dto.setDateCreate(entity.getDateCreate());
+        dto.setUserCreate(entity.getUserCreate());
+        dto.setDateUpdate(entity.getDateUpdate());
+        dto.setUserUpdate(entity.getUserUpdate());
+        dto.setFormaObrigar(entity.getFormaObrigar());
+        dto.setCapitalSocial(entity.getCapitalSocial());
+        dto.setPaisOrigem(entity.getPaisOrigem());
+        dto.setEndereco(entity.getEndereco());
+        dto.setNif(entity.getNif());
+        dto.setFlagServico(entity.getFlagServico());
+        dto.setDmIdioma(entity.getDmIdoma());
+        dto.setDmIdiomaDesc(domainHelper.describe(DomainDescriptionHelper.IDIOMA, entity.getDmIdoma()));
+        dto.setDmTipoInvestidor(entity.getDmTipoInvestidor());
+        dto.setDmTipoInvestidorDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_INVESTIDOR, entity.getDmTipoInvestidor()));
+        dto.setDmGenero(entity.getDmGenero());
+        dto.setDmGeneroDesc(domainHelper.describe(DomainDescriptionHelper.GENERO, entity.getDmGenero()));
+        dto.setDataNascimento(entity.getDataNascimento());
+        dto.setDmEstadoCivil(entity.getDmEstadoCivil());
+        dto.setDmEstadoCivilDesc(domainHelper.describe(DomainDescriptionHelper.ESTADO_CIVIL, entity.getDmEstadoCivil()));
+        dto.setProfissao(entity.getProfissao());
+        dto.setNrDocumento(entity.getNrDocumento());
+        dto.setMoeda(entity.getMoeda());
+        dto.setMoedaDesc(domainHelper.describe(DomainDescriptionHelper.MOEDA, entity.getMoeda()));
+        return dto;
+    }
+
+    private PedidoAcessoInvestidorDetailResponseDTO.SocioRepresentanteDTO toSocioRepresentante(ZeeTSocioRepresEntity entity) {
+        PedidoAcessoInvestidorDetailResponseDTO.SocioRepresentanteDTO dto = new PedidoAcessoInvestidorDetailResponseDTO.SocioRepresentanteDTO();
+        dto.setId(entity.getId());
+        dto.setIdInvestidor(entity.getIdInvestidor());
+        dto.setNome(entity.getNome());
+        dto.setNacionalidade(entity.getNacionalidade());
+        dto.setNif(entity.getNif());
+        dto.setTipoDoc(entity.getTipoDoc());
+        dto.setTipoDocDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_DOCUMENTO, entity.getTipoDoc()));
+        dto.setNrDoc(entity.getNrDoc());
+        dto.setDmTpRepresentante(entity.getDmTpRepresentante());
+        dto.setDmTpRepresentanteDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_REPRESENTANTE, entity.getDmTpRepresentante()));
+        dto.setTelefone(entity.getTelefone());
+        dto.setTelemovel(entity.getTelemovel());
+        dto.setEmail(entity.getEmail());
+        dto.setFotoUrl(firstText(entity.getFotoUrl(), documentViewerUrlService.toViewerUrl(entity.getFotoPath())));
+        dto.setFlagSocio(entity.getFlagSocio());
+        dto.setFlagRepresentante(entity.getFlagRepresentante());
+        dto.setDmPrincipal(entity.getDmPrincipal());
+        dto.setDmPrincipalDesc(domainHelper.describe(DomainDescriptionHelper.SIM_NAO, entity.getDmPrincipal()));
+        dto.setEstado(entity.getEstado());
+        dto.setEstadoDesc(domainHelper.describe(DomainDescriptionHelper.ESTADO, entity.getEstado()));
+        dto.setDateCreate(entity.getDateCreate());
+        dto.setUserCreate(entity.getUserCreate());
+        dto.setIndicativoPais(entity.getIndicativoPais());
+        dto.setEndereco(entity.getEndereco());
+        dto.setIdUser(entity.getIdUser());
+        return dto;
+    }
+
+    private PedidoAcessoInvestidorDetailResponseDTO.OrdemDTO toOrdem(ZeeTOrdemEntity entity) {
+        PedidoAcessoInvestidorDetailResponseDTO.OrdemDTO dto = new PedidoAcessoInvestidorDetailResponseDTO.OrdemDTO();
+        dto.setId(entity.getId());
+        dto.setTipoOrdem(entity.getTipoOrdem());
+        dto.setTipoOrdemDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_ORDEM, entity.getTipoOrdem()));
+        dto.setNome(entity.getNome());
+        dto.setCedula(entity.getCedula());
+        dto.setConcelho(entity.getConcelho());
+        dto.setEndereco(entity.getEndereco());
+        dto.setEmail(entity.getEmail());
+        dto.setIndicativoPais(entity.getIndicativoPais());
+        dto.setTelemovel(entity.getTelemovel());
+        dto.setNif(entity.getNif());
+        dto.setNrDocumento(entity.getNrDocumento());
+        dto.setNacionalidade(entity.getNacionalidade());
+        dto.setNumeroInscricao(entity.getNumeroInscricao());
+        dto.setEspecialidade(entity.getEspecialidade());
+        dto.setDmEstado(entity.getDmEstado());
+        dto.setDmEstadoDesc(domainHelper.describe(DomainDescriptionHelper.ESTADO, entity.getDmEstado()));
+        dto.setDataRegisto(entity.getDataRegisto());
+        dto.setUserRegisto(entity.getUserRegisto());
+        dto.setDmTpDoc(entity.getDmTpDoc());
+        dto.setDmTpDocDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_DOCUMENTO, entity.getDmTpDoc()));
         return dto;
     }
 }
