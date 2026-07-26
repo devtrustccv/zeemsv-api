@@ -41,5 +41,5 @@ public class NotificacaoInvestidorResponseDTO {
     private Boolean confirmRecebimento;
     private Long totalAnexos;
     private Map<String, Object> relacao;
-    private List<NotificacaoInvestidorResponseDTO> filhos;
+    private List<NotificacaoInvestidorResponseDTO> respostas;
 }

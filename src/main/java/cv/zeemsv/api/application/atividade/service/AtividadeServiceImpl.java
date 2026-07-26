@@ -195,11 +195,11 @@ public class AtividadeServiceImpl implements AtividadeService {
         if (roots.isEmpty()) {
             return List.of();
         }
-        List<NotificacaoInvestidorProjection> children = notificacaoRelacaoRepository.findChildrenByInvestidorId(
+        List<NotificacaoInvestidorProjection> respostas = notificacaoRelacaoRepository.findRespostasByInvestidorId(
             roots.stream().map(NotificacaoInvestidorProjection::getIdNotificacao).toList(),
             idInvestidor
         );
-        return withFilhos(roots, children);
+        return withRespostas(roots, respostas);
     }
 
     @Override
@@ -209,11 +209,11 @@ public class AtividadeServiceImpl implements AtividadeService {
         if (roots.isEmpty()) {
             return List.of();
         }
-        List<NotificacaoInvestidorProjection> children = notificacaoRelacaoRepository.findChildrenByUserId(
+        List<NotificacaoInvestidorProjection> respostas = notificacaoRelacaoRepository.findRespostasByUserId(
             roots.stream().map(NotificacaoInvestidorProjection::getIdNotificacao).toList(),
             idUser
         );
-        return withFilhos(roots, children);
+        return withRespostas(roots, respostas);
     }
 
     @Override
@@ -639,19 +639,19 @@ public class AtividadeServiceImpl implements AtividadeService {
         dto.setConfirmRecebimento(projection.getConfirmRecebimento());
         dto.setTotalAnexos(projection.getTotalAnexos());
         dto.setRelacao(toRelacao(projection));
-        dto.setFilhos(List.of());
+        dto.setRespostas(List.of());
         return dto;
     }
 
-    private List<NotificacaoInvestidorResponseDTO> withFilhos(
+    private List<NotificacaoInvestidorResponseDTO> withRespostas(
         List<NotificacaoInvestidorProjection> roots,
-        List<NotificacaoInvestidorProjection> children
+        List<NotificacaoInvestidorProjection> respostas
     ) {
         if (roots.isEmpty()) {
             return List.of();
         }
 
-        Map<Integer, List<NotificacaoInvestidorResponseDTO>> childrenByParent = children.stream()
+        Map<Integer, List<NotificacaoInvestidorResponseDTO>> respostasByParent = respostas.stream()
             .collect(Collectors.groupingBy(
                 NotificacaoInvestidorProjection::getIdPai,
                 LinkedHashMap::new,
@@ -660,7 +660,7 @@ public class AtividadeServiceImpl implements AtividadeService {
 
         return roots.stream()
             .map(this::toNotificacaoResponse)
-            .peek(dto -> dto.setFilhos(childrenByParent.getOrDefault(dto.getIdNotificacao(), List.of())))
+            .peek(dto -> dto.setRespostas(respostasByParent.getOrDefault(dto.getIdNotificacao(), List.of())))
             .toList();
     }
 

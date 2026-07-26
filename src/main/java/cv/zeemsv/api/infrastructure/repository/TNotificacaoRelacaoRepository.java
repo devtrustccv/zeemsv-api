@@ -260,7 +260,7 @@ public interface TNotificacaoRelacaoRepository extends JpaRepository<TNotificaca
             )
         order by n.data_registo asc, n.id asc, r.id asc
         """, nativeQuery = true)
-    List<NotificacaoInvestidorProjection> findChildrenByInvestidorId(
+    List<NotificacaoInvestidorProjection> findRespostasByInvestidorId(
         @Param("parentIds") Collection<Integer> parentIds,
         @Param("idInvestidor") Integer idInvestidor
     );
@@ -330,7 +330,7 @@ public interface TNotificacaoRelacaoRepository extends JpaRepository<TNotificaca
             and n.id_pai in (:parentIds)
         order by n.data_registo asc, n.id asc, r.id asc
         """, nativeQuery = true)
-    List<NotificacaoInvestidorProjection> findChildrenByUserId(
+    List<NotificacaoInvestidorProjection> findRespostasByUserId(
         @Param("parentIds") Collection<Integer> parentIds,
         @Param("idUser") Integer idUser
     );
