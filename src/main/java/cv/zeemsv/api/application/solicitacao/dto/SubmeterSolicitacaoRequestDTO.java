@@ -16,6 +16,7 @@ public class SubmeterSolicitacaoRequestDTO {
     private Integer idPromotor;
     private Integer idInvestidor;
     private Integer idProjeto;
+    private String idsLote;
     private String exposicao;
     private String origem;
     private String email;

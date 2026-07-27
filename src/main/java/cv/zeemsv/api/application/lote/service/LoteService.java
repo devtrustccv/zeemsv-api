@@ -11,5 +11,6 @@ public interface LoteService {
     LoteResponseDTO findById(Integer id);
     List<LoteResponseDTO> findAll();
     List<LoteInvestidorResponseDTO> findByInvestidorId(Integer idInvestidor);
+    List<LoteInvestidorResponseDTO> findAssociados(Integer idInvestidor, Integer idProjecto);
     void delete(Integer id);
 }

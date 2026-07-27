@@ -32,6 +32,7 @@ import cv.zeemsv.api.infrastructure.entity.ZeeTParamReportEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTPagamentoEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTSolicitacaoDocEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTSolicitacaoEntity;
+import cv.zeemsv.api.infrastructure.entity.ZeeTSolicitacaoLoteEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTSolicitacaoTaxaEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicTpDocEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicitacaoEntity;
@@ -43,10 +44,12 @@ import cv.zeemsv.api.infrastructure.repository.ZeeTEmailsRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTInfProjetoRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTInvestidorRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTLeadPromotorRepository;
+import cv.zeemsv.api.infrastructure.repository.ZeeTLoteRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTParamReportRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTPagamentoRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTSolicitacaoDocRepository;
 import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicTaxaEntity;
+import cv.zeemsv.api.infrastructure.repository.ZeeTSolicitacaoLoteRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTSolicitacaoRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTSolicitacaoTaxaRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTTpSolicitacaoRepository;
@@ -118,6 +121,8 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     private final ZeeTInfProjetoRepository infProjetoRepository;
     private final ZeeTInvestidorRepository investidorRepository;
     private final ZeeTLeadPromotorRepository leadPromotorRepository;
+    private final ZeeTLoteRepository loteRepository;
+    private final ZeeTSolicitacaoLoteRepository solicitacaoLoteRepository;
     private final ZeeTSolicitacaoTaxaRepository solicitacaoTaxaRepository;
     private final ZeeTPagamentoRepository pagamentoRepository;
     private final DocumentViewerUrlService documentViewerUrlService;
@@ -156,6 +161,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         pedido.setIdRelacao(BigDecimal.valueOf(solicitacao.getId()));
         pedidoRepository.save(pedido);
 
+        saveLotes(dto, solicitacao);
         saveDocumentos(dto.getDocumentos(), solicitacao, idProcesso, idEtapaDoc);
         saveRequisitos(dto.getRequisitos(), solicitacao, idProcesso, idEtapaDoc);
         notifyAfterCommit(dto, solicitacao, pedido, processo, tpSolicitacao);
@@ -540,6 +546,46 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         if (dto.getIdProjeto() != null && !infProjetoRepository.existsById(dto.getIdProjeto())) {
             throw new BusinessException("Projeto nao encontrado: " + dto.getIdProjeto());
         }
+        for (Integer idLote : parseIdsLote(dto.getIdsLote())) {
+            if (!loteRepository.existsById(idLote)) {
+                throw new BusinessException("Lote nao encontrado: " + idLote);
+            }
+        }
+    }
+
+    private void saveLotes(SubmeterSolicitacaoRequestDTO dto, ZeeTSolicitacaoEntity solicitacao) {
+        List<ZeeTSolicitacaoLoteEntity> lotes = parseIdsLote(dto.getIdsLote()).stream()
+            .map(idLote -> {
+                ZeeTSolicitacaoLoteEntity entity = new ZeeTSolicitacaoLoteEntity();
+                entity.setIdSolicitacao(solicitacao.getId());
+                entity.setIdLote(idLote);
+                return entity;
+            })
+            .toList();
+
+        if (!lotes.isEmpty()) {
+            solicitacaoLoteRepository.saveAll(lotes);
+        }
+    }
+
+    private List<Integer> parseIdsLote(String idsLote) {
+        if (idsLote == null || idsLote.trim().isEmpty()) {
+            return List.of();
+        }
+
+        Set<Integer> ids = new LinkedHashSet<>();
+        for (String rawId : idsLote.split(";")) {
+            String value = rawId.trim();
+            if (value.isEmpty()) {
+                continue;
+            }
+            try {
+                ids.add(Integer.valueOf(value));
+            } catch (NumberFormatException ex) {
+                throw new BusinessException("ids_lote contem um id invalido: " + value);
+            }
+        }
+        return List.copyOf(ids);
     }
 
     private TPedidoEntity buildPedido(

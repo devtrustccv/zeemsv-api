@@ -44,6 +44,14 @@ public class LoteController {
         return ResponseEntity.ok(ApiResponse.ok("Lotes do investidor encontrados", service.findByInvestidorId(idInvestidor)));
     }
 
+    @GetMapping("/associados")
+    public ResponseEntity<ApiResponse<List<LoteInvestidorResponseDTO>>> findAssociados(
+        @RequestParam(name = "id_investidor", required = false) Integer idInvestidor,
+        @RequestParam(name = "id_projecto", required = false) Integer idProjecto
+    ) {
+        return ResponseEntity.ok(ApiResponse.ok("Lotes associados encontrados", service.findAssociados(idInvestidor, idProjecto)));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Integer id) {
         service.delete(id);

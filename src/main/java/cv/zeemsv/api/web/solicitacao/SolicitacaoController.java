@@ -32,8 +32,20 @@ public class SolicitacaoController {
     @PostMapping(value = "/submeter", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<SolicitacaoResponseDTO>> submeter(
         @Valid @ModelAttribute SubmeterSolicitacaoRequestDTO dto,
+        @RequestParam(name = "id_investidor", required = false) Integer idInvestidor,
+        @RequestParam(name = "id_projecto", required = false) Integer idProjecto,
+        @RequestParam(name = "ids_lote", required = false) String idsLote,
         @RequestHeader(name = "Authorization", required = false) String authorization
     ) {
+        if (dto.getIdInvestidor() == null) {
+            dto.setIdInvestidor(idInvestidor);
+        }
+        if (dto.getIdProjeto() == null) {
+            dto.setIdProjeto(idProjecto);
+        }
+        if (dto.getIdsLote() == null) {
+            dto.setIdsLote(idsLote);
+        }
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.ok("Solicitacao submetida com sucesso", service.submeter(dto, authorization)));
     }

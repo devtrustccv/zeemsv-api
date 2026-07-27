@@ -80,4 +80,42 @@ public interface ZeeTLoteRepository extends JpaRepository<ZeeTLoteEntity, Intege
         order by lp.dateCreate desc, lp.id desc
         """)
     List<LoteInvestidorProjection> findProjetoByInvestidorId(@Param("idInvestidor") Integer idInvestidor);
+
+    @Query("""
+        select
+            l.id as idLote,
+            l.refLote as refLote,
+            l.nip as nip,
+            l.dmSituacaoCd as dmSituacaoCd,
+            l.estado as estado,
+            l.idZona as idZona,
+            z.nome as zona,
+            l.area as area,
+            l.areaInicial as areaInicial,
+            proj.idInvestidor as idInvestidor,
+            lp.id as idAssociacao,
+            proj.id as idProjeto,
+            null as origemAssociacao,
+            lp.dmEstado as dmEstadoAssociacao,
+            lp.dateCreate as dataAssociacao,
+            str(lp.userCreate) as utilizadorAssociacao,
+            ze.dmEnquadramento as dmEnquadramento,
+            proj.denominacao as projetoDenominacao,
+            proj.dmRegime as projetoDmRegime,
+            proj.dmProdutoServico as projetoDmProdutoServico,
+            proj.dmEstadoProc as projetoDmEstadoProc,
+            proj.dmSituacao as projetoDmSituacao,
+            proj.dmEstadoProj as projetoDmEstadoProj,
+            proj.dateCreate as projetoDateCreate
+        from ZeeTLoteProjEntity lp
+        join ZeeTProjInvestEntity proj on proj.id = lp.idProj
+        join ZeeTLoteEntity l on l.id = lp.idLote
+        left join ZeeTZonaEntity z on z.id = l.idZona
+        left join ZeeTProjLoteEnquadEntity ple on ple.idProjLote = lp.id
+        left join ZeeTLoteEnquadEntity le on le.id = ple.idLoteEnquadr
+        left join ZeeTZonaEnquadEntity ze on ze.id = le.idZonaEnquad
+        where lp.idProj = :idProjecto
+        order by lp.dateCreate desc, lp.id desc
+        """)
+    List<LoteInvestidorProjection> findByProjectoId(@Param("idProjecto") Integer idProjecto);
 }

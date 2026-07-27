@@ -6,6 +6,7 @@ import cv.zeemsv.api.application.lote.dto.LoteRequestDTO;
 import cv.zeemsv.api.application.lote.dto.LoteResponseDTO;
 import cv.zeemsv.api.application.lote.mapper.LoteDtoMapper;
 import cv.zeemsv.api.domain.lote.business.LoteBus;
+import cv.zeemsv.api.exceptions.BusinessException;
 import cv.zeemsv.api.infrastructure.repository.ZeeTLoteRepository;
 import cv.zeemsv.api.infrastructure.repository.projection.LoteInvestidorProjection;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +51,22 @@ public class LoteServiceImpl implements LoteService {
                 proprietarios.stream().map(proprietario -> toInvestidorResponse(proprietario, "PROPRIETARIO")),
                 projetos.stream().map(projeto -> toInvestidorResponse(projeto, projeto.getDmEnquadramento()))
             )
+            .toList();
+    }
+
+    @Override @Transactional(readOnly = true)
+    public List<LoteInvestidorResponseDTO> findAssociados(Integer idInvestidor, Integer idProjecto) {
+        if ((idInvestidor == null && idProjecto == null) || (idInvestidor != null && idProjecto != null)) {
+            throw new BusinessException("Informe apenas um filtro: id_investidor ou id_projecto.");
+        }
+
+        if (idInvestidor != null) {
+            return findByInvestidorId(idInvestidor);
+        }
+
+        return loteRepository.findByProjectoId(idProjecto)
+            .stream()
+            .map(projeto -> toInvestidorResponse(projeto, projeto.getDmEnquadramento()))
             .toList();
     }
 
