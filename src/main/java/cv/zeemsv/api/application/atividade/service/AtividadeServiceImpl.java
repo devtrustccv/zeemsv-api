@@ -36,14 +36,18 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataAccessException;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import jakarta.persistence.criteria.Predicate;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -177,15 +181,34 @@ public class AtividadeServiceImpl implements AtividadeService {
             throw new BusinessException("Informe pelo menos um filtro: id_user, id_investidor ou email.");
         }
 
-        return repository.findInteracoes(
-                TIPO_ATIVIDADE_INTERACAO,
-                idUser,
-                toBigDecimal(idInvestidor),
-                emailFilter
+        return repository.findAll(
+                buildInteracoesSpec(idUser, idInvestidor, emailFilter),
+                Sort.by(Sort.Order.desc("dataCreate"), Sort.Order.desc("id"))
             )
             .stream()
             .map(this::toInteracaoResponse)
             .toList();
+    }
+
+    private Specification<ZeeTAtividadeEntity> buildInteracoesSpec(Integer idUser, Integer idInvestidor, String email) {
+        return (root, query, cb) -> {
+            List<Predicate> filters = new ArrayList<>();
+            filters.add(cb.equal(cb.upper(root.get("dmTipoAtividade")), TIPO_ATIVIDADE_INTERACAO));
+
+            List<Predicate> ownerFilters = new ArrayList<>();
+            if (idUser != null) {
+                ownerFilters.add(cb.equal(root.get("idUser"), idUser));
+            }
+            if (idInvestidor != null) {
+                ownerFilters.add(cb.equal(root.get("idInvestidor"), toBigDecimal(idInvestidor)));
+            }
+            if (StringUtils.hasText(email)) {
+                ownerFilters.add(cb.equal(cb.lower(root.get("email")), email.toLowerCase()));
+            }
+
+            filters.add(cb.or(ownerFilters.toArray(Predicate[]::new)));
+            return cb.and(filters.toArray(Predicate[]::new));
+        };
     }
 
     @Override
