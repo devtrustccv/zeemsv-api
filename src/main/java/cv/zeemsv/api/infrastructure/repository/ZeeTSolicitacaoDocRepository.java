@@ -9,6 +9,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface ZeeTSolicitacaoDocRepository extends JpaRepository<ZeeTSolicitacaoDocEntity, Integer>, JpaSpecificationExecutor<ZeeTSolicitacaoDocEntity> {
+    List<ZeeTSolicitacaoDocEntity> findByIdSolicitacaoAndIdTpSolicTpDocOrderByIdDesc(Integer idSolicitacao, Integer idTpSolicTpDoc);
+
+    List<ZeeTSolicitacaoDocEntity> findByIdSolicitacaoOrderByIdDesc(Integer idSolicitacao);
+
+    boolean existsByIdSolicitacaoAndIdTpSolicTpDoc(Integer idSolicitacao, Integer idTpSolicTpDoc);
+
+    void deleteByIdSolicitacaoAndIdTpSolicTpDoc(Integer idSolicitacao, Integer idTpSolicTpDoc);
+
     @Query("""
         select
             sd.id as id,

@@ -6,6 +6,7 @@ import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDocResponseDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDetailResponseDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDocumentosRequisitosResponseDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDocumentoRequestDTO;
+import cv.zeemsv.api.application.solicitacao.dto.CorrigirSolicitacaoRequestDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoRequestDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoRequisitoRequestDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoRequisitoResponseDTO;
@@ -169,6 +170,18 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         saveDocumentos(dto.getDocumentos(), solicitacao, idProcesso, idEtapaDoc);
         saveRequisitos(dto.getRequisitos(), solicitacao, idProcesso, idEtapaDoc);
         notifyAfterCommit(dto, solicitacao, pedido, processo, tpSolicitacao);
+
+        return enrich(mapper.toResponse(bus.findById(solicitacao.getId())));
+    }
+
+    @Override
+    @Transactional
+    public SolicitacaoResponseDTO corrigir(Integer id, CorrigirSolicitacaoRequestDTO dto) {
+        ZeeTSolicitacaoEntity solicitacao = solicitacaoRepository.findById(id)
+            .orElseThrow(() -> new BusinessException("Solicitacao nao encontrada: " + id));
+
+        corrigirDocumentos(dto.getDocumentos(), solicitacao);
+        corrigirRequisitos(dto.getRequisitos(), solicitacao);
 
         return enrich(mapper.toResponse(bus.findById(solicitacao.getId())));
     }
@@ -740,6 +753,128 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
             solicitacaoDoc.setIdTpSolicTpDoc(tpSolicTpDoc.getId());
             solicitacaoDocRepository.save(solicitacaoDoc);
         }
+    }
+
+    private void corrigirDocumentos(
+        List<SolicitacaoDocumentoRequestDTO> documentos,
+        ZeeTSolicitacaoEntity solicitacao
+    ) {
+        if (documentos == null || documentos.isEmpty()) {
+            return;
+        }
+
+        for (SolicitacaoDocumentoRequestDTO documento : documentos) {
+            if (documento.getFicheiro() == null || documento.getFicheiro().isEmpty()) {
+                continue;
+            }
+
+            ZeeTTpSolicTpDocEntity tpSolicTpDoc = loadDocumentoConfig(documento.getIdTpSolicTpDoc(), solicitacao);
+            ZeeTDocRelacaoEntity docRelacao = new ZeeTDocRelacaoEntity();
+            docRelacao.setTipoRelacao(TIPO_RELACAO_SOLICITACAO);
+            docRelacao.setIdRelacao(BigDecimal.valueOf(solicitacao.getId()));
+            docRelacao.setIdTpDoc(tpSolicTpDoc.getIdTpDoc());
+            docRelacao.setDescricao(tpSolicTpDoc.getRequisito());
+
+            String filename = resolveDocumentoFilename(tpSolicTpDoc, documento);
+            UploadDTO upload = new UploadDTO(
+                documento.getFicheiro(),
+                filename,
+                DocumentoBus.getBasePathForModuloOrObject(TIPO_RELACAO_SOLICITACAO, solicitacao.getId().toString()),
+                docRelacao
+            );
+            documentoBus.saveOrUpdate(upload, solicitacao.getUserSolic());
+            upsertSolicitacaoDocPath(solicitacao, tpSolicTpDoc.getId(), upload.getZeeTDocRelacao().getPath());
+        }
+    }
+
+    private void corrigirRequisitos(
+        List<SolicitacaoRequisitoRequestDTO> requisitos,
+        ZeeTSolicitacaoEntity solicitacao
+    ) {
+        if (requisitos == null || requisitos.isEmpty()) {
+            return;
+        }
+
+        for (SolicitacaoRequisitoRequestDTO requisito : requisitos) {
+            ZeeTTpSolicTpDocEntity tpSolicTpDoc = loadRequisitoConfig(requisito.getIdTpSolicTpDoc(), solicitacao);
+            if (isSim(requisito.getCumpre())) {
+                insertSolicitacaoDocIfMissing(solicitacao, tpSolicTpDoc.getId());
+            } else {
+                solicitacaoDocRepository.deleteByIdSolicitacaoAndIdTpSolicTpDoc(solicitacao.getId(), tpSolicTpDoc.getId());
+            }
+        }
+    }
+
+    private ZeeTTpSolicTpDocEntity loadDocumentoConfig(Integer idTpSolicTpDoc, ZeeTSolicitacaoEntity solicitacao) {
+        if (idTpSolicTpDoc == null) {
+            throw new BusinessException("Documento sem configuracao informada.");
+        }
+        ZeeTTpSolicTpDocEntity tpSolicTpDoc = tpSolicTpDocRepository.findById(idTpSolicTpDoc)
+            .orElseThrow(() -> new BusinessException("Documento configurado nao encontrado: " + idTpSolicTpDoc));
+        if (!Objects.equals(tpSolicTpDoc.getIdTpSolic(), solicitacao.getIdTpSolicitacao())) {
+            throw new BusinessException("Documento nao pertence ao tipo de solicitacao informado.");
+        }
+        if (tpSolicTpDoc.getIdTpDoc() == null) {
+            throw new BusinessException("Configuracao informada nao e um documento: " + idTpSolicTpDoc);
+        }
+        if (!ESTADO_ATIVO.equalsIgnoreCase(tpSolicTpDoc.getDmEstado()) || !"PEDIDO".equalsIgnoreCase(tpSolicTpDoc.getPedResp())) {
+            throw new BusinessException("Documento nao esta disponivel para envio pelo utilizador: " + idTpSolicTpDoc);
+        }
+        return tpSolicTpDoc;
+    }
+
+    private ZeeTTpSolicTpDocEntity loadRequisitoConfig(Integer idTpSolicTpDoc, ZeeTSolicitacaoEntity solicitacao) {
+        if (idTpSolicTpDoc == null) {
+            throw new BusinessException("Requisito sem configuracao informada.");
+        }
+        ZeeTTpSolicTpDocEntity tpSolicTpDoc = tpSolicTpDocRepository.findById(idTpSolicTpDoc)
+            .orElseThrow(() -> new BusinessException("Requisito configurado nao encontrado: " + idTpSolicTpDoc));
+        if (!Objects.equals(tpSolicTpDoc.getIdTpSolic(), solicitacao.getIdTpSolicitacao())) {
+            throw new BusinessException("Requisito nao pertence ao tipo de solicitacao informado.");
+        }
+        if (!hasText(tpSolicTpDoc.getRequisito())) {
+            throw new BusinessException("Configuracao informada nao e um requisito: " + idTpSolicTpDoc);
+        }
+        if (!ESTADO_ATIVO.equalsIgnoreCase(tpSolicTpDoc.getDmEstado())) {
+            throw new BusinessException("Requisito nao esta ativo: " + idTpSolicTpDoc);
+        }
+        return tpSolicTpDoc;
+    }
+
+    private void upsertSolicitacaoDocPath(ZeeTSolicitacaoEntity solicitacao, Integer idTpSolicTpDoc, String path) {
+        List<ZeeTSolicitacaoDocEntity> rows = solicitacaoDocRepository
+            .findByIdSolicitacaoAndIdTpSolicTpDocOrderByIdDesc(solicitacao.getId(), idTpSolicTpDoc);
+        ZeeTSolicitacaoDocEntity solicitacaoDoc = rows.isEmpty()
+            ? newSolicitacaoDoc(solicitacao, idTpSolicTpDoc)
+            : rows.get(0);
+        solicitacaoDoc.setPath(path);
+        solicitacaoDocRepository.save(solicitacaoDoc);
+    }
+
+    private void insertSolicitacaoDocIfMissing(ZeeTSolicitacaoEntity solicitacao, Integer idTpSolicTpDoc) {
+        if (solicitacaoDocRepository.existsByIdSolicitacaoAndIdTpSolicTpDoc(solicitacao.getId(), idTpSolicTpDoc)) {
+            return;
+        }
+        solicitacaoDocRepository.save(newSolicitacaoDoc(solicitacao, idTpSolicTpDoc));
+    }
+
+    private ZeeTSolicitacaoDocEntity newSolicitacaoDoc(ZeeTSolicitacaoEntity solicitacao, Integer idTpSolicTpDoc) {
+        ZeeTSolicitacaoDocEntity solicitacaoDoc = new ZeeTSolicitacaoDocEntity();
+        solicitacaoDoc.setIdEtapa(resolveIdEtapaForCorrection(solicitacao.getId()));
+        solicitacaoDoc.setIdProcesso(solicitacao.getIdProcesso());
+        solicitacaoDoc.setDataRegisto(LocalDate.now());
+        solicitacaoDoc.setUserRegisto(firstText(solicitacao.getUserSolic(), "system"));
+        solicitacaoDoc.setIdSolicitacao(solicitacao.getId());
+        solicitacaoDoc.setIdTpSolicTpDoc(idTpSolicTpDoc);
+        return solicitacaoDoc;
+    }
+
+    private BigDecimal resolveIdEtapaForCorrection(Integer idSolicitacao) {
+        return solicitacaoDocRepository.findByIdSolicitacaoOrderByIdDesc(idSolicitacao).stream()
+            .map(ZeeTSolicitacaoDocEntity::getIdEtapa)
+            .filter(Objects::nonNull)
+            .findFirst()
+            .orElse(BigDecimal.ZERO);
     }
 
     private static String firstText(String... values) {

@@ -1,6 +1,7 @@
 package cv.zeemsv.api.web.solicitacao;
 
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDocumentosRequisitosResponseDTO;
+import cv.zeemsv.api.application.solicitacao.dto.CorrigirSolicitacaoRequestDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDetailResponseDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoRequestDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoResponseDTO;
@@ -53,6 +54,14 @@ public class SolicitacaoController {
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<SolicitacaoResponseDTO>> update(@PathVariable Integer id, @Valid @RequestBody SolicitacaoRequestDTO dto) {
         return ResponseEntity.ok(ApiResponse.ok("Registo atualizado com sucesso", service.update(id, dto)));
+    }
+
+    @PutMapping(value = "/{id}/correcao", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<SolicitacaoResponseDTO>> corrigir(
+        @PathVariable Integer id,
+        @ModelAttribute CorrigirSolicitacaoRequestDTO dto
+    ) {
+        return ResponseEntity.ok(ApiResponse.ok("Solicitacao corrigida com sucesso", service.corrigir(id, dto)));
     }
 
     @GetMapping("/{id}")
