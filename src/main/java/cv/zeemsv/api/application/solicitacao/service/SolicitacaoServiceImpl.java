@@ -41,12 +41,12 @@ import cv.zeemsv.api.infrastructure.repository.TNotificacaoRelacaoRepository;
 import cv.zeemsv.api.infrastructure.repository.TNotificacaoRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTConfigTemplateNotifRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTEmailsRepository;
-import cv.zeemsv.api.infrastructure.repository.ZeeTInfProjetoRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTInvestidorRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTLeadPromotorRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTLoteRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTParamReportRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTPagamentoRepository;
+import cv.zeemsv.api.infrastructure.repository.ZeeTProjInvestRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTSolicitacaoDocRepository;
 import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicTaxaEntity;
 import cv.zeemsv.api.infrastructure.repository.ZeeTSolicitacaoLoteRepository;
@@ -64,19 +64,22 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -98,9 +101,9 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     private static final String ORIGEM_PORTAL = "PORTAL";
     private static final String RECIBO_PEDIDO_DESCRICAO = "Recibo Pedido";
     private static final String RECIBO_PEDIDO_MIMETYPE = "application/pdf";
-    private static final String RECIBO_PEDIDO_SENTENCE_PATTERN =
-        "(?is)\\s*(?:<p>)?Para\\s+aceder\\s+ao\\s+recibo\\s+do\\s+pedido\\s+clique\\s+no\\s+link\\s+Recibo\\s+Pedido\\.?\\s*(?:</p>)?";
     private static final String ETAPA_ANALISE_SOLICITACAO = "Análise Solicitação";
+    private static final int RECIBO_PATH_LOOKUP_ATTEMPTS = 5;
+    private static final long RECIBO_PATH_LOOKUP_DELAY_MS = 500L;
     private static final BigDecimal ID_ORGANICA_DEFAULT = BigDecimal.valueOf(4);
 
     private final SolicitacaoBus bus;
@@ -118,7 +121,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     private final TNotificacaoRelacaoRepository notificacaoRelacaoRepository;
     private final ZeeTParamReportRepository paramReportRepository;
     private final ZeeTEmailsRepository emailsRepository;
-    private final ZeeTInfProjetoRepository infProjetoRepository;
+    private final ZeeTProjInvestRepository projetoRepository;
     private final ZeeTInvestidorRepository investidorRepository;
     private final ZeeTLeadPromotorRepository leadPromotorRepository;
     private final ZeeTLoteRepository loteRepository;
@@ -129,6 +132,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     private final DocumentoBus documentoBus;
     private final ProcessStartService processStartService;
     private final EmailService emailService;
+    private final PlatformTransactionManager transactionManager;
 
     @Value("${application.reports.recibo-pdf-url-template:${application.reports.recibo-url-template:}}")
     private String reciboPdfUrlTemplate;
@@ -177,6 +181,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         ZeeTTpSolicitacaoEntity tpSolicitacao
     ) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            ensureReciboPedidoPath(solicitacao, pedido);
             notifyRequerente(dto, solicitacao, pedido, processo, tpSolicitacao);
             notifyTecnicos(solicitacao, pedido, tpSolicitacao);
             return;
@@ -185,10 +190,19 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                notifyRequerente(dto, solicitacao, pedido, processo, tpSolicitacao);
-                notifyTecnicos(solicitacao, pedido, tpSolicitacao);
+                runAfterCommitInNewTransaction(() -> {
+                    ensureReciboPedidoPath(solicitacao, pedido);
+                    notifyRequerente(dto, solicitacao, pedido, processo, tpSolicitacao);
+                });
+                runAfterCommitInNewTransaction(() -> notifyTecnicos(solicitacao, pedido, tpSolicitacao));
             }
         });
+    }
+
+    private void runAfterCommitInNewTransaction(Runnable action) {
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        transactionTemplate.executeWithoutResult(status -> action.run());
     }
 
     @Override @Transactional
@@ -382,6 +396,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         response.setNif(requerente.nif());
         response.setEmail(firstText(requerente.email(), pedido.getEmail()));
         response.setEndereco(requerente.endereco());
+        response.setLinkRecibo(documentViewerUrlService.toViewerUrl(pedido.getPathRecibo(), RECIBO_PEDIDO_MIMETYPE));
         response.setInstituicao(toInstituicao(paramReport));
         response.setDocumentos(solicitacaoDocRepository.findDetalheByIdSolicitacao(solicitacao.getId(), solicitacao.getIdTpSolicitacao()).stream()
             .map(this::toReciboDocumento)
@@ -543,7 +558,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         if (dto.getIdPromotor() != null && !leadPromotorRepository.existsById(dto.getIdPromotor())) {
             throw new BusinessException("Promotor nao encontrado: " + dto.getIdPromotor());
         }
-        if (dto.getIdProjeto() != null && !infProjetoRepository.existsById(dto.getIdProjeto())) {
+        if (dto.getIdProjeto() != null && !projetoRepository.existsById(dto.getIdProjeto())) {
             throw new BusinessException("Projeto nao encontrado: " + dto.getIdProjeto());
         }
         for (Integer idLote : parseIdsLote(dto.getIdsLote())) {
@@ -893,12 +908,8 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
             pedido.getIdProcesso() != null ? pedido.getIdProcesso().toString() : null
         ));
         String linkReciboValue = emptyIfNull(linkRecibo);
-        String linkReciboHtml = hasText(linkRecibo) ? buildHtmlLink(linkRecibo, "Recibo Pedido") : "";
-        value = replaceUrlPlaceholders(value, linkReciboValue, "LINK", "link", "linkRecibo", "LINK_RECIBO");
         value = replaceTemplateValue(value, processoNome, "processo", "nomeProcesso", "nome_processo", "processName", "PROCESS");
         value = replaceTemplateValue(value, nrProcesso, "nrProcesso", "nr_processo", "numeroProcesso", "numero_processo", "processInstanceId", "PROCESS_NUMBER");
-        value = replaceTemplateValue(value, linkReciboValue, "linkRecibo", "link_recibo", "recibo", "link", "LINK", "LINK_RECIBO", "RECIBO");
-        value = replaceTemplateValue(value, linkReciboHtml, "linkReciboHtml", "link_recibo_html", "reciboHtml", "recibo_html", "LINK_RECIBO_HTML", "RECIBO_HTML");
         value = replaceTemplateValue(value, emptyIfNull(pedido.getRequerente()), "requerente", "nomeRequerente", "nome_requerente");
         value = replaceTemplateValue(value, String.valueOf(pedido.getId()), "nrPedido", "nr_pedido", "numeroPedido", "numero_pedido", "idPedido", "id_pedido");
         value = replaceTemplateValue(
@@ -909,7 +920,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
             "solicitacaoId",
             "solicitacao_id"
         );
-        return applyReciboPedidoLink(value, linkRecibo);
+        return EmailTemplateLinkHelper.applyReciboPedidoLink(value, linkReciboValue);
     }
 
     private static String replaceTemplateValue(String template, String replacement, String... keys) {
@@ -929,35 +940,40 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         return value;
     }
 
-    private static String replaceUrlPlaceholders(String template, String replacement, String... keys) {
-        String value = template;
-        String safeReplacement = emptyIfNull(replacement);
-        for (String key : keys) {
-            value = value
-                .replace("http://${" + key + "}", safeReplacement)
-                .replace("https://${" + key + "}", safeReplacement)
-                .replace("http://{" + key + "}", safeReplacement)
-                .replace("https://{" + key + "}", safeReplacement)
-                .replace("http://$" + key + "$", safeReplacement)
-                .replace("https://$" + key + "$", safeReplacement)
-                .replace("http://#" + key + "#", safeReplacement)
-                .replace("https://#" + key + "#", safeReplacement);
+    private String gerarReciboPedidoPdfLink(ZeeTSolicitacaoEntity solicitacao, TPedidoEntity pedido) {
+        for (int attempt = 1; attempt <= RECIBO_PATH_LOOKUP_ATTEMPTS; attempt++) {
+            TPedidoEntity currentPedido = pedidoRepository.findById(pedido.getId()).orElse(pedido);
+            if (hasText(currentPedido.getPathRecibo())) {
+                pedido.setPathRecibo(currentPedido.getPathRecibo());
+                String viewerUrl = documentViewerUrlService.toViewerUrl(currentPedido.getPathRecibo(), RECIBO_PEDIDO_MIMETYPE);
+                log.info(
+                    "Link do recibo da solicitacao {} resolvido a partir de path_recibo {}. Viewer URL gerada? {}",
+                    solicitacao.getId(),
+                    currentPedido.getPathRecibo(),
+                    hasText(viewerUrl)
+                );
+                return viewerUrl != null ? viewerUrl : "";
+            }
+            waitBeforeNextReciboPathLookup(attempt);
         }
-        return value;
+        log.warn("Pedido {} da solicitacao {} sem path_recibo. Email sera enviado sem link do recibo.", pedido.getId(), solicitacao.getId());
+        return "";
     }
 
-    private String gerarReciboPedidoPdfLink(ZeeTSolicitacaoEntity solicitacao, TPedidoEntity pedido) {
-        if (hasText(pedido.getPathRecibo())) {
-            return documentViewerUrlService.toViewerUrl(pedido.getPathRecibo(), RECIBO_PEDIDO_MIMETYPE);
+    private void ensureReciboPedidoPath(ZeeTSolicitacaoEntity solicitacao, TPedidoEntity pedido) {
+        TPedidoEntity currentPedido = pedidoRepository.findById(pedido.getId()).orElse(pedido);
+        if (hasText(currentPedido.getPathRecibo())) {
+            pedido.setPathRecibo(currentPedido.getPathRecibo());
+            return;
         }
         if (!hasText(reciboPdfUrlTemplate)) {
             log.warn("Template de URL do recibo PDF nao configurado. Defina RECIBO_PDF_URL_TEMPLATE para gerar o recibo da solicitacao {}.", solicitacao.getId());
-            return "";
+            return;
         }
 
         try {
             String reciboUrl = buildReciboPedidoPdfUrl(solicitacao);
-            log.info("A gerar recibo PDF da solicitacao {} via Laravel: {}", solicitacao.getId(), reciboUrl);
+            log.info("A chamar servico Laravel para gerar recibo PDF da solicitacao {}. URL: {}", solicitacao.getId(), reciboUrl);
             byte[] pdf = downloadReciboPedidoPdf(reciboUrl);
             ZeeTDocRelacaoEntity docRelacao = new ZeeTDocRelacaoEntity();
             docRelacao.setTipoRelacao(TIPO_RELACAO_SOLICITACAO);
@@ -973,14 +989,12 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
                 docRelacao,
                 solicitacao.getUserSolic()
             );
+            currentPedido.setPathRecibo(saved.getPath());
+            pedidoRepository.saveAndFlush(currentPedido);
             pedido.setPathRecibo(saved.getPath());
-            pedidoRepository.save(pedido);
-            String viewerUrl = documentViewerUrlService.toViewerUrl(saved.getPath(), RECIBO_PEDIDO_MIMETYPE);
-            log.info("Recibo PDF da solicitacao {} guardado em {}. Viewer URL gerada? {}", solicitacao.getId(), saved.getPath(), hasText(viewerUrl));
-            return viewerUrl;
+            log.info("Recibo PDF da solicitacao {} guardado em {}.", solicitacao.getId(), saved.getPath());
         } catch (RuntimeException ex) {
-            log.error("Erro ao gerar recibo PDF da solicitacao {}.", solicitacao.getId(), ex);
-            return "";
+            log.error("Erro ao gerar/gravar recibo PDF da solicitacao {}.", solicitacao.getId(), ex);
         }
     }
 
@@ -1029,6 +1043,14 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
             .header("Accept", RECIBO_PEDIDO_MIMETYPE)
             .build();
         HttpResponse<byte[]> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofByteArray());
+        String contentType = response.headers().firstValue("Content-Type").orElse("");
+        int contentLength = response.body() != null ? response.body().length : 0;
+        log.info("Resposta do servico Laravel de recibo. URL: {}. HTTP: {}. Content-Type: {}. Bytes: {}",
+            url,
+            response.statusCode(),
+            contentType,
+            contentLength
+        );
         if (response.statusCode() / 100 != 2) {
             throw new IllegalStateException("Laravel retornou HTTP " + response.statusCode() + " ao gerar recibo.");
         }
@@ -1036,7 +1058,38 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         if (body == null || body.length == 0) {
             throw new IllegalStateException("Laravel retornou recibo vazio.");
         }
+        if (!isPdf(body)) {
+            throw new IllegalStateException("Laravel nao retornou PDF valido. Content-Type: " + contentType + ". Inicio da resposta: " + responsePreview(body));
+        }
         return body;
+    }
+
+    private static boolean isPdf(byte[] body) {
+        return body.length >= 5
+            && body[0] == '%'
+            && body[1] == 'P'
+            && body[2] == 'D'
+            && body[3] == 'F'
+            && body[4] == '-';
+    }
+
+    private static String responsePreview(byte[] body) {
+        int length = Math.min(body.length, 120);
+        return new String(body, 0, length, StandardCharsets.UTF_8)
+            .replace("\r", " ")
+            .replace("\n", " ")
+            .trim();
+    }
+
+    private static void waitBeforeNextReciboPathLookup(int attempt) {
+        if (attempt >= RECIBO_PATH_LOOKUP_ATTEMPTS) {
+            return;
+        }
+        try {
+            Thread.sleep(RECIBO_PATH_LOOKUP_DELAY_MS);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private boolean sendEmailSafely(String recipient, String subject, String body, Integer solicitacaoId) {
@@ -1133,21 +1186,6 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     private static String buildHtmlLink(String url, String label) {
         String safeUrl = escapeHtml(url);
         return "<a href=\"" + safeUrl + "\">" + escapeHtml(label) + "</a>";
-    }
-
-    private static String applyReciboPedidoLink(String value, String linkRecibo) {
-        if (!hasText(value)) {
-            return value;
-        }
-        if (!hasText(linkRecibo)) {
-            return value.replaceAll(RECIBO_PEDIDO_SENTENCE_PATTERN, "");
-        }
-        String htmlLink = buildHtmlLink(linkRecibo, "Recibo Pedido");
-        String valueWithFixedAnchors = value.replaceAll("(?is)<a\\b[^>]*>\\s*Recibo Pedido\\s*</a>", htmlLink);
-        if (!valueWithFixedAnchors.equals(value)) {
-            return valueWithFixedAnchors;
-        }
-        return value.replace("Recibo Pedido", htmlLink);
     }
 
     private static String escapeHtml(String value) {

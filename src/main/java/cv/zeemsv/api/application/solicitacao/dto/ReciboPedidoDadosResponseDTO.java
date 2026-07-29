@@ -25,6 +25,7 @@ public class ReciboPedidoDadosResponseDTO {
     private String nif;
     private String email;
     private String endereco;
+    private String linkRecibo;
     private InstituicaoDTO instituicao;
     private List<DocumentoDTO> documentos;
     private List<RequisitoDTO> requisitos;

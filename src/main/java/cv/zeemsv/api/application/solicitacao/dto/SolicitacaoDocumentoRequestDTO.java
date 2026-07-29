@@ -9,4 +9,8 @@ import org.springframework.web.multipart.MultipartFile;
 public class SolicitacaoDocumentoRequestDTO {
     private Integer idTpSolicTpDoc;
     private MultipartFile ficheiro;
+
+    public void setId_tp_solic_tp_doc(Integer idTpSolicTpDoc) {
+        this.idTpSolicTpDoc = idTpSolicTpDoc;
+    }
 }
