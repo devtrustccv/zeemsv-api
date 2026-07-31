@@ -180,6 +180,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         ZeeTSolicitacaoEntity solicitacao = solicitacaoRepository.findById(id)
             .orElseThrow(() -> new BusinessException("Solicitacao nao encontrada: " + id));
 
+        corrigirDadosPedido(dto, solicitacao);
         corrigirDocumentos(dto.getDocumentos(), solicitacao);
         corrigirRequisitos(dto.getRequisitos(), solicitacao);
 
@@ -785,6 +786,51 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
             documentoBus.saveOrUpdate(upload, solicitacao.getUserSolic());
             upsertSolicitacaoDocPath(solicitacao, tpSolicTpDoc.getId(), upload.getZeeTDocRelacao().getPath());
         }
+    }
+
+    private void corrigirDadosPedido(CorrigirSolicitacaoRequestDTO dto, ZeeTSolicitacaoEntity solicitacao) {
+        boolean changed = false;
+        if (dto.getExposicao() != null) {
+            solicitacao.setExposicao(firstText(dto.getExposicao()));
+            changed = true;
+        }
+        if (dto.getIdProjeto() != null) {
+            if (!projetoRepository.existsById(dto.getIdProjeto())) {
+                throw new BusinessException("Projeto nao encontrado: " + dto.getIdProjeto());
+            }
+            solicitacao.setIdProjeto(dto.getIdProjeto());
+            changed = true;
+        }
+        if (dto.getIdsLote() != null) {
+            replaceLotes(dto.getIdsLote(), solicitacao);
+        }
+        if (changed) {
+            solicitacaoRepository.save(solicitacao);
+        }
+    }
+
+    private void replaceLotes(String idsLote, ZeeTSolicitacaoEntity solicitacao) {
+        List<Integer> lotes = parseIdsLote(idsLote);
+        for (Integer idLote : lotes) {
+            if (!loteRepository.existsById(idLote)) {
+                throw new BusinessException("Lote nao encontrado: " + idLote);
+            }
+        }
+
+        solicitacaoLoteRepository.deleteByIdSolicitacao(solicitacao.getId());
+        if (lotes.isEmpty()) {
+            return;
+        }
+
+        List<ZeeTSolicitacaoLoteEntity> entities = lotes.stream()
+            .map(idLote -> {
+                ZeeTSolicitacaoLoteEntity entity = new ZeeTSolicitacaoLoteEntity();
+                entity.setIdSolicitacao(solicitacao.getId());
+                entity.setIdLote(idLote);
+                return entity;
+            })
+            .toList();
+        solicitacaoLoteRepository.saveAll(entities);
     }
 
     private void corrigirRequisitos(

@@ -59,8 +59,17 @@ public class SolicitacaoController {
     @PutMapping(value = "/{id}/correcao", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<SolicitacaoResponseDTO>> corrigir(
         @PathVariable Integer id,
-        @ModelAttribute CorrigirSolicitacaoRequestDTO dto
+        @ModelAttribute CorrigirSolicitacaoRequestDTO dto,
+        @RequestParam(name = "id_projeto", required = false) Integer idProjeto,
+        @RequestParam(name = "id_projecto", required = false) Integer idProjecto,
+        @RequestParam(name = "ids_lote", required = false) String idsLote
     ) {
+        if (dto.getIdProjeto() == null) {
+            dto.setIdProjeto(idProjeto != null ? idProjeto : idProjecto);
+        }
+        if (dto.getIdsLote() == null) {
+            dto.setIdsLote(idsLote);
+        }
         return ResponseEntity.ok(ApiResponse.ok("Solicitacao corrigida com sucesso", service.corrigir(id, dto)));
     }
 

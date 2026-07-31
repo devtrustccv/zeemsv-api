@@ -87,13 +87,16 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
             entity.setEndereco(trim(dto.getEndereco()));
         }
         boolean emailChanged = false;
+        UserModel previousUser = null;
+        UserModel newUser = null;
         if (StringUtils.hasText(dto.getEmail()) && !trim(dto.getEmail()).equalsIgnoreCase(trim(entity.getEmail()))) {
             String newEmail = normalizeEmail(dto.getEmail());
             validateUpdateEmailAvailable(newEmail, entity);
             validateEmailChangeOtp(newEmail, dto.getOtp());
-            UserModel user = resolveUpdateUserByEmail(newEmail, entity);
+            previousUser = entity.getIdUser() != null ? userBus.findById(entity.getIdUser()).orElse(null) : null;
+            newUser = resolveUpdateUserByEmail(newEmail, entity, previousUser);
             entity.setEmail(newEmail);
-            entity.setIdUser(user.getId());
+            entity.setIdUser(newUser.getId());
             emailChanged = true;
         }
         if (foto != null && !foto.isEmpty()) {
@@ -104,6 +107,7 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
         }
         ZeeTSocioRepresEntity saved = repository.save(entity);
         if (emailChanged) {
+            deactivatePreviousUser(previousUser, newUser);
             notifyEmailAssociado(saved);
         }
         return toResponse(saved);
@@ -156,7 +160,7 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
         return userBus.save(user);
     }
 
-    private UserModel resolveUpdateUserByEmail(String email, ZeeTSocioRepresEntity currentSocioRepres) {
+    private UserModel resolveUpdateUserByEmail(String email, ZeeTSocioRepresEntity currentSocioRepres, UserModel previousUser) {
         String normalizedEmail = normalizeEmail(email);
         repository.findByEmailIgnoreCase(normalizedEmail).stream()
             .filter(socioRepres -> !Objects.equals(socioRepres.getId(), currentSocioRepres.getId()))
@@ -173,27 +177,34 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
                 .ifPresent(socioRepres -> {
                     throw new BusinessException("Este email pertence a um outro socio/representante.");
                 });
-            return user;
+            user.setName(StringUtils.hasText(user.getName()) ? user.getName() : currentSocioRepres.getNome());
+            user.setProvider(StringUtils.hasText(user.getProvider()) ? user.getProvider() : LoginProvider.LOCAL.name());
+        } else {
+            user = UserModel.builder()
+                .email(normalizedEmail)
+                .name(currentSocioRepres.getNome())
+                .provider(LoginProvider.LOCAL.name())
+                .build();
         }
 
-        UserModel currentUser = currentSocioRepres.getIdUser() != null
-            ? userBus.findById(currentSocioRepres.getIdUser()).orElse(null)
-            : null;
-
-        return userBus.save(UserModel.builder()
-            .email(normalizedEmail)
-            .name(currentSocioRepres.getNome())
-            .provider(LoginProvider.LOCAL.name())
-            .status(UserStatus.PENDENTE)
-            .passwordHash(resolvePasswordHashForEmailChange(currentUser))
-            .build());
+        user.setStatus(UserStatus.ATIVO);
+        String previousPasswordHash = resolvePasswordHashForEmailChange(previousUser);
+        if (StringUtils.hasText(previousPasswordHash)) {
+            user.setPasswordHash(previousPasswordHash);
+        }
+        return userBus.save(user);
     }
 
-    private String resolvePasswordHashForEmailChange(UserModel currentUser) {
-        if (currentUser == null || !LoginProvider.LOCAL.name().equalsIgnoreCase(currentUser.getProvider())) {
-            return null;
+    private void deactivatePreviousUser(UserModel previousUser, UserModel newUser) {
+        if (previousUser == null || newUser == null || Objects.equals(previousUser.getId(), newUser.getId())) {
+            return;
         }
-        return currentUser.getPasswordHash();
+        previousUser.setStatus(UserStatus.PENDENTE);
+        userBus.save(previousUser);
+    }
+
+    private String resolvePasswordHashForEmailChange(UserModel previousUser) {
+        return previousUser != null && StringUtils.hasText(previousUser.getPasswordHash()) ? previousUser.getPasswordHash() : null;
     }
 
     private void validateUpdateEmailAvailable(String normalizedEmail, ZeeTSocioRepresEntity currentSocioRepres) {
