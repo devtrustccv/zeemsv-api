@@ -409,7 +409,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         response.setNif(requerente.nif());
         response.setEmail(firstText(requerente.email(), pedido.getEmail()));
         response.setEndereco(requerente.endereco());
-        response.setLinkRecibo(documentViewerUrlService.toViewerUrl(pedido.getPathRecibo(), RECIBO_PEDIDO_MIMETYPE));
+        response.setLinkRecibo(documentViewerUrlService.toViewerUrl(resolveReciboPedidoPath(solicitacao, pedido), RECIBO_PEDIDO_MIMETYPE));
         response.setInstituicao(toInstituicao(paramReport));
         response.setDocumentos(solicitacaoDocRepository.findDetalheByIdSolicitacao(solicitacao.getId(), solicitacao.getIdTpSolicitacao()).stream()
             .map(this::toReciboDocumento)
@@ -1115,11 +1115,10 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
             docRelacao.setIdRelacao(BigDecimal.valueOf(solicitacao.getId()));
             docRelacao.setDescricao(RECIBO_PEDIDO_DESCRICAO);
 
-            String filename = "recibo-pedido-" + solicitacao.getId() + ".pdf";
             ZeeTDocRelacaoEntity saved = documentoBus.saveGeneratedDocument(
                 pdf,
-                filename,
-                DocumentoBus.getBasePathForModuloOrObject(TIPO_RELACAO_SOLICITACAO, solicitacao.getId().toString()),
+                buildReciboPedidoFilename(solicitacao),
+                buildReciboPedidoBasePath(solicitacao),
                 RECIBO_PEDIDO_MIMETYPE,
                 docRelacao,
                 solicitacao.getUserSolic()
@@ -1131,6 +1130,21 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         } catch (RuntimeException ex) {
             log.error("Erro ao gerar/gravar recibo PDF da solicitacao {}.", solicitacao.getId(), ex);
         }
+    }
+
+    private String resolveReciboPedidoPath(ZeeTSolicitacaoEntity solicitacao, TPedidoEntity pedido) {
+        if (pedido != null && hasText(pedido.getPathRecibo())) {
+            return pedido.getPathRecibo();
+        }
+        return DocumentoBus.addSlashToBasePath(buildReciboPedidoBasePath(solicitacao)) + buildReciboPedidoFilename(solicitacao);
+    }
+
+    private String buildReciboPedidoBasePath(ZeeTSolicitacaoEntity solicitacao) {
+        return DocumentoBus.getBasePathForModuloOrObject(TIPO_RELACAO_SOLICITACAO, solicitacao.getId().toString());
+    }
+
+    private String buildReciboPedidoFilename(ZeeTSolicitacaoEntity solicitacao) {
+        return "recibo-pedido-" + solicitacao.getId() + ".pdf";
     }
 
     private String buildReciboPedidoPdfUrl(ZeeTSolicitacaoEntity solicitacao) {
