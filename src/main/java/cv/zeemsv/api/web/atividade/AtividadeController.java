@@ -2,6 +2,7 @@ package cv.zeemsv.api.web.atividade;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import cv.zeemsv.api.application.atividade.dto.AtividadeBadgesResponseDTO;
 import cv.zeemsv.api.application.atividade.dto.AtividadeResponseDTO;
 import cv.zeemsv.api.application.atividade.dto.InteracaoRequestDTO;
 import cv.zeemsv.api.application.atividade.dto.InteracaoMensagemResponseDTO;
@@ -115,6 +116,11 @@ public class AtividadeController {
     @GetMapping("/investidor/{idInvestidor}/agendadas")
     public ResponseEntity<ApiResponse<List<AtividadeResponseDTO>>> findAgendadasByInvestidorId(@PathVariable Integer idInvestidor) {
         return ResponseEntity.ok(ApiResponse.ok("Atividades agendadas do investidor encontradas", service.findAgendadasByInvestidorId(idInvestidor)));
+    }
+
+    @GetMapping("/investidor/{idInvestidor}/badges")
+    public ResponseEntity<ApiResponse<AtividadeBadgesResponseDTO>> getBadgesByInvestidorId(@PathVariable Integer idInvestidor) {
+        return ResponseEntity.ok(ApiResponse.ok("Badges do investidor encontrados", service.getBadgesByInvestidorId(idInvestidor)));
     }
 
     private InteracaoRequestDTO parseInteracao(String interacao) {

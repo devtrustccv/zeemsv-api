@@ -25,6 +25,9 @@ public class ZeeTTpSolicitacaoEntity {
     @Column(name = "dm_tipo_solicitacao")
     private String dmTipoSolicitacao;
 
+    @Column(name = "dm_categoria", length = 20)
+    private String dmCategoria;
+
     @Column(name = "descricao")
     private String descricao;
 

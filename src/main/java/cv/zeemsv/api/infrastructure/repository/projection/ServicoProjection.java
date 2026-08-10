@@ -6,6 +6,7 @@ public interface ServicoProjection {
     Integer getId();
     String getNome();
     String getDmTipoSolicitacao();
+    String getDmCategoria();
     String getDescricao();
     String getMsgPedido();
     BigDecimal getPrazoDia();

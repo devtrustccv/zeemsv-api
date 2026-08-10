@@ -79,6 +79,8 @@ public class ServicoServiceImpl implements ServicoService {
         dto.setNome(entity.getNome());
         dto.setDmTipoSolicitacao(entity.getDmTipoSolicitacao());
         dto.setDmTipoSolicitacaoDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_SOLICITACAO, entity.getDmTipoSolicitacao()));
+        dto.setDmCategoria(entity.getDmCategoria());
+        dto.setDmCategoriaDesc(domainHelper.describe(DomainDescriptionHelper.CATEGORIA_SERVICO, entity.getDmCategoria()));
         dto.setDescricao(entity.getDescricao());
         dto.setMsgPedido(entity.getMsgPedido());
         dto.setPrazoDia(entity.getPrazoDia());

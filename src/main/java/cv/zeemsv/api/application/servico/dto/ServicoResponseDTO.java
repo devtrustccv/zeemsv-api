@@ -11,6 +11,8 @@ public class ServicoResponseDTO {
     private String nome;
     private String dmTipoSolicitacao;
     private String dmTipoSolicitacaoDesc;
+    private String dmCategoria;
+    private String dmCategoriaDesc;
     private String descricao;
     private String msgPedido;
     private BigDecimal prazoDia;

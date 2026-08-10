@@ -14,6 +14,6 @@ public interface InvestidorService {
     List<InvestidorResponseDTO> findAll();
     List<InvestidorUserResponseDTO> findByUserEmail(String email);
     List<InvestidorDocumentoResponseDTO> findDocumentosByInvestidorId(Integer idInvestidor);
-    InvestidorDashboardResponseDTO getDashboard(Integer idInvestidor);
+    InvestidorDashboardResponseDTO getDashboard(Integer idInvestidor, Integer ano, Integer mes);
     void delete(Integer id);
 }

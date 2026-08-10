@@ -1,6 +1,7 @@
 package cv.zeemsv.api.application.atividade.service;
 
 import cv.zeemsv.api.application.atividade.dto.AtividadeResponseDTO;
+import cv.zeemsv.api.application.atividade.dto.AtividadeBadgesResponseDTO;
 import cv.zeemsv.api.application.atividade.dto.InteracaoMensagemResponseDTO;
 import cv.zeemsv.api.application.atividade.dto.InteracaoRequestDTO;
 import cv.zeemsv.api.application.atividade.dto.InteracaoRespostaRequestDTO;
@@ -22,4 +23,5 @@ public interface AtividadeService {
     NotificacaoRespostaResponseDTO responderNotificacao(NotificacaoRespostaRequestDTO dto);
     void markNotificacaoAsRead(Integer idNotificacao, Integer idUser);
     List<AtividadeResponseDTO> findAgendadasByInvestidorId(Integer idInvestidor);
+    AtividadeBadgesResponseDTO getBadgesByInvestidorId(Integer idInvestidor);
 }

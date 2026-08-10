@@ -9,9 +9,11 @@ public class InvestidorDashboardResponseDTO {
     private Integer idInvestidor;
     private Long totalLote;
     private Long totalLoteReservado;
+    private String totalInvestimento;
     private Long totalProjeto;
     private List<DashboardCountDTO> projetoPorSituacao;
     private Long totalProcesso;
     private List<DashboardCountDTO> processoPorEstado;
     private List<DashboardCountDTO> processoPorEtapa;
+    private DashboardAlertasDTO alertas;
 }

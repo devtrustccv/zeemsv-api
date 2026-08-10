@@ -51,6 +51,7 @@ public class DomainDescriptionHelper {
     public static final String TIPO_TAXA = "TIPO_TAXA";
     public static final String TIPO_INVESTIDOR = "TIPO_INVESTIDOR";
     public static final String CLASSIFICACAO = "CLASSIFICACAO";
+    public static final String CATEGORIA_SERVICO = "CATEGORIA_SERVICO";
     public static final String RESULTADO_CHAMADA = "RESULTADO_CHAMADA";
 
     private static final String SQL = """

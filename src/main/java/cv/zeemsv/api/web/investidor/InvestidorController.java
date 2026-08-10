@@ -61,9 +61,11 @@ public class InvestidorController {
 
     @GetMapping("/{idInvestidor}/dashboard")
     public ResponseEntity<ApiResponse<InvestidorDashboardResponseDTO>> getDashboard(
-        @PathVariable Integer idInvestidor
+        @PathVariable Integer idInvestidor,
+        @RequestParam(required = false) Integer ano,
+        @RequestParam(required = false) Integer mes
     ) {
-        return ResponseEntity.ok(ApiResponse.ok("Dashboard do investidor encontrado", service.getDashboard(idInvestidor)));
+        return ResponseEntity.ok(ApiResponse.ok("Dashboard do investidor encontrado", service.getDashboard(idInvestidor, ano, mes)));
     }
 
     @GetMapping("/user/email/{email}")

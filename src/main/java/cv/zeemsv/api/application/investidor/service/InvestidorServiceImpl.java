@@ -1,6 +1,7 @@
 package cv.zeemsv.api.application.investidor.service;
 
 import cv.zeemsv.api.application.domain.DomainDescriptionHelper;
+import cv.zeemsv.api.application.investidor.dto.DashboardAlertasDTO;
 import cv.zeemsv.api.application.investidor.dto.DashboardCountDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorDashboardResponseDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorDocumentoResponseDTO;
@@ -20,6 +21,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -64,30 +68,33 @@ public class InvestidorServiceImpl implements InvestidorService {
 
     @Override
     @Transactional(readOnly = true)
-    public InvestidorDashboardResponseDTO getDashboard(Integer idInvestidor) {
+    public InvestidorDashboardResponseDTO getDashboard(Integer idInvestidor, Integer ano, Integer mes) {
         if (idInvestidor == null) {
             throw new BusinessException("Informe o id do investidor.");
         }
+        validateDashboardPeriod(ano, mes);
         bus.findById(idInvestidor);
 
         InvestidorDashboardResponseDTO dto = new InvestidorDashboardResponseDTO();
         dto.setIdInvestidor(idInvestidor);
-        dto.setTotalLote(defaultZero(dashboardRepository.countLotesAtivos(idInvestidor)));
-        dto.setTotalLoteReservado(defaultZero(dashboardRepository.countLotesReservados(idInvestidor)));
-        dto.setTotalProjeto(defaultZero(dashboardRepository.countProjetos(idInvestidor)));
+        dto.setTotalLote(defaultZero(dashboardRepository.countLotesAtivos(idInvestidor, ano, mes)));
+        dto.setTotalLoteReservado(defaultZero(dashboardRepository.countLotesReservados(idInvestidor, ano, mes)));
+        dto.setTotalInvestimento(formatCurrencyEcv(dashboardRepository.sumValorComercialLotesAtivos(idInvestidor, ano, mes)));
+        dto.setTotalProjeto(defaultZero(dashboardRepository.countProjetos(idInvestidor, ano, mes)));
         dto.setProjetoPorSituacao(toDashboardCounts(
-            dashboardRepository.countProjetosPorSituacao(idInvestidor),
+            dashboardRepository.countProjetosPorSituacao(idInvestidor, ano, mes),
             DomainDescriptionHelper.SITUACAO_PROJ
         ));
-        dto.setTotalProcesso(defaultZero(dashboardRepository.countProcessos(idInvestidor)));
+        dto.setTotalProcesso(defaultZero(dashboardRepository.countProcessos(idInvestidor, ano, mes)));
         dto.setProcessoPorEstado(toDashboardCounts(
-            dashboardRepository.countProcessosPorEstado(idInvestidor),
+            dashboardRepository.countProcessosPorEstado(idInvestidor, ano, mes),
             DomainDescriptionHelper.ESTADO_PROC_SOLICIT
         ));
         dto.setProcessoPorEtapa(toDashboardCounts(
-            dashboardRepository.countProcessosPorEtapa(idInvestidor),
+            dashboardRepository.countProcessosPorEtapa(idInvestidor, ano, mes),
             null
         ));
+        dto.setAlertas(toAlertas(idInvestidor, ano, mes));
         return dto;
     }
 
@@ -127,8 +134,38 @@ public class InvestidorServiceImpl implements InvestidorService {
             .toList();
     }
 
+    private DashboardAlertasDTO toAlertas(Integer idInvestidor, Integer ano, Integer mes) {
+        DashboardAlertasDTO dto = new DashboardAlertasDTO();
+        dto.setCritico(0L);
+        dto.setAtencao(defaultZero(dashboardRepository.countAgendamentosPendentes(idInvestidor, ano, mes)));
+        dto.setInformativos(defaultZero(dashboardRepository.countNotificacoesNaoLidas(idInvestidor, ano, mes)));
+        return dto;
+    }
+
+    private void validateDashboardPeriod(Integer ano, Integer mes) {
+        if (ano != null && ano < 1) {
+            throw new BusinessException("Informe um ano valido.");
+        }
+        if (mes != null && (mes < 1 || mes > 12)) {
+            throw new BusinessException("Informe um mes valido entre 1 e 12.");
+        }
+    }
+
     private Long defaultZero(Long value) {
         return value != null ? value : 0L;
+    }
+
+    private BigDecimal defaultZero(BigDecimal value) {
+        return value != null ? value : BigDecimal.ZERO;
+    }
+
+    private String formatCurrencyEcv(BigDecimal value) {
+        DecimalFormatSymbols symbols = new DecimalFormatSymbols();
+        symbols.setGroupingSeparator(' ');
+        symbols.setDecimalSeparator(',');
+
+        DecimalFormat formatter = new DecimalFormat("#,##0.00", symbols);
+        return formatter.format(defaultZero(value)) + " ECV";
     }
 
     private String resolveTipoRelacaoDesc(String tipoRelacao) {

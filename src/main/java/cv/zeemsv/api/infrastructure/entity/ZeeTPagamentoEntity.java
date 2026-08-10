@@ -23,6 +23,12 @@ public class ZeeTPagamentoEntity {
     @Column(name = "id_solicitacao")
     private Integer idSolicitacao;
 
+    @Column(name = "id_cobranca")
+    private Integer idCobranca;
+
+    @Column(name = "id_prestacao")
+    private Integer idPrestacao;
+
     @Column(name = "id_tp_solic_taxa")
     private Integer idTpSolicTaxa;
 
@@ -35,8 +41,14 @@ public class ZeeTPagamentoEntity {
     @Column(name = "id_projeto")
     private Integer idProjeto;
 
+    @Column(name = "id_processo")
+    private Integer idProcesso;
+
     @Column(name = "valor")
     private BigDecimal valor;
+
+    @Column(name = "valor_pago")
+    private String valorPago;
 
     @Column(name = "nr_processo")
     private String nrProcesso;
@@ -65,8 +77,26 @@ public class ZeeTPagamentoEntity {
     @Column(name = "forma_pagamento")
     private String formaPagamento;
 
+    @Column(name = "origem_pagamento")
+    private String origemPagamento;
+
+    @Column(name = "nr_cheque")
+    private String nrCheque;
+
     @Column(name = "num_cheque")
     private String numCheque;
+
+    @Column(name = "flag_integracao")
+    private String flagIntegracao;
+
+    @Column(name = "data_integracao")
+    private LocalDate dataIntegracao;
+
+    @Column(name = "user_integracao")
+    private String userIntegracao;
+
+    @Column(name = "dm_estado")
+    private String dmEstado;
 
     @Column(name = "banco")
     private String banco;

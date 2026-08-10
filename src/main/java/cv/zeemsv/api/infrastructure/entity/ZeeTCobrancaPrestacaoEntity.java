@@ -6,39 +6,37 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import lombok.Getter;
 import lombok.Setter;
 
 @Entity
-@Table(name = "zee_t_taxa", schema = "public")
+@Table(name = "zee_t_cobranca_prestacao", schema = "public")
 @Getter @Setter
-public class ZeeTTaxaEntity {
+public class ZeeTCobrancaPrestacaoEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Integer id;
 
-    @Column(name = "codigo", nullable = false)
-    private String codigo;
+    @Column(name = "id_cobranca")
+    private Integer idCobranca;
 
-    @Column(name = "ref_fin", nullable = false)
-    private String refFin;
-
-    @Column(name = "descricao")
-    private String descricao;
+    @Column(name = "nr_prestacao")
+    private String nrPrestacao;
 
     @Column(name = "valor")
-    private BigDecimal valor;
+    private String valor;
 
-    @Column(name = "tipo_taxa", nullable = false)
-    private String tipoTaxa;
+    @Column(name = "data_vencimento")
+    private LocalDate dataVencimento;
+
+    @Column(name = "dm_estado")
+    private String dmEstado;
 
     @Column(name = "user_registo")
     private String userRegisto;
 
     @Column(name = "data_registo")
     private LocalDate dataRegisto;
-
 }

@@ -1,6 +1,7 @@
 package cv.zeemsv.api.application.atividade.service;
 
 import cv.zeemsv.api.application.atividade.dto.AtividadeResponseDTO;
+import cv.zeemsv.api.application.atividade.dto.AtividadeBadgesResponseDTO;
 import cv.zeemsv.api.application.atividade.dto.InteracaoAnexoResponseDTO;
 import cv.zeemsv.api.application.atividade.dto.InteracaoMensagemResponseDTO;
 import cv.zeemsv.api.application.atividade.dto.InteracaoRequestDTO;
@@ -24,6 +25,7 @@ import cv.zeemsv.api.infrastructure.entity.ZeeTMensagemInteracaoEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTParamReportEntity;
 import cv.zeemsv.api.infrastructure.repository.TNotificacaoRepository;
 import cv.zeemsv.api.infrastructure.repository.TNotificacaoRelacaoRepository;
+import cv.zeemsv.api.infrastructure.repository.InvestidorDashboardRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTAtividadeRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTDocRelacaoRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTEmailsRepository;
@@ -80,6 +82,7 @@ public class AtividadeServiceImpl implements AtividadeService {
     private final ZeeTEmailsRepository emailsRepository;
     private final TNotificacaoRepository notificacaoRepository;
     private final TNotificacaoRelacaoRepository notificacaoRelacaoRepository;
+    private final InvestidorDashboardRepository dashboardRepository;
     private final DocumentoBus documentoBus;
     private final DocumentViewerUrlService documentViewerUrlService;
     private final EmailService emailService;
@@ -329,6 +332,21 @@ public class AtividadeServiceImpl implements AtividadeService {
             .toList();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public AtividadeBadgesResponseDTO getBadgesByInvestidorId(Integer idInvestidor) {
+        if (idInvestidor == null) {
+            throw new BusinessException("Informe o id do investidor.");
+        }
+        if (!investidorRepository.existsById(idInvestidor)) {
+            throw new BusinessException("Investidor nao encontrado.");
+        }
+        return new AtividadeBadgesResponseDTO(
+            defaultZero(dashboardRepository.countNotificacoesNaoLidas(idInvestidor, null, null)),
+            defaultZero(dashboardRepository.countAgendamentosPendentes(idInvestidor, null, null))
+        );
+    }
+
     private AtividadeResponseDTO toResponse(ZeeTAtividadeEntity entity) {
         AtividadeResponseDTO dto = new AtividadeResponseDTO();
         dto.setId(entity.getId());
@@ -533,6 +551,10 @@ public class AtividadeServiceImpl implements AtividadeService {
 
     private BigDecimal toBigDecimal(Integer value) {
         return value == null ? null : BigDecimal.valueOf(value);
+    }
+
+    private Long defaultZero(Long value) {
+        return value != null ? value : 0L;
     }
 
     private Integer toInteger(BigDecimal value) {
