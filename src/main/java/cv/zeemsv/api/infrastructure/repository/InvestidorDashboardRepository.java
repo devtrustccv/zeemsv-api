@@ -9,12 +9,23 @@ import org.springframework.data.repository.query.Param;
 
 public interface InvestidorDashboardRepository extends Repository<cv.zeemsv.api.infrastructure.entity.ZeeTInvestidorEntity, Integer> {
     @Query(value = """
-        select count(*)
-        from public.zee_t_lote_proprietario lp
-        where lp.id_investidor = :idInvestidor
-            and lp.dm_estado = 'A'
-            and (:ano is null or extract(year from lp.data_registo) = :ano)
-            and (:mes is null or extract(month from lp.data_registo) = :mes)
+        select count(distinct lote.id_lote)
+        from (
+            select lp.id_lote
+            from public.zee_t_lote_proprietario lp
+            where lp.id_investidor = :idInvestidor
+                and lp.dm_estado = 'A'
+                and (:ano is null or extract(year from lp.data_registo) = :ano)
+                and (:mes is null or extract(month from lp.data_registo) = :mes)
+            union
+            select lproj.id_lote
+            from public.zee_t_lote_proj lproj
+            join public.zee_t_proj_invest proj on proj.id = lproj.id_proj
+            where proj.id_investidor = :idInvestidor
+                and lproj.dm_estado = 'A'
+                and (:ano is null or extract(year from lproj.date_create) = :ano)
+                and (:mes is null or extract(month from lproj.date_create) = :mes)
+        ) lote
         """, nativeQuery = true)
     Long countLotesAtivos(@Param("idInvestidor") Integer idInvestidor, @Param("ano") Integer ano, @Param("mes") Integer mes);
 
@@ -34,12 +45,23 @@ public interface InvestidorDashboardRepository extends Repository<cv.zeemsv.api.
         select coalesce(sum(lote.valor_comercial), 0)
         from (
             select distinct l.id, l.valor_comercial
-            from public.zee_t_lote_proprietario lp
-            join public.zee_t_lote l on l.id = lp.id_lote
-            where lp.id_investidor = :idInvestidor
-                and lp.dm_estado = 'A'
-                and (:ano is null or extract(year from lp.data_registo) = :ano)
-                and (:mes is null or extract(month from lp.data_registo) = :mes)
+            from public.zee_t_lote l
+            join (
+                select lp.id_lote
+                from public.zee_t_lote_proprietario lp
+                where lp.id_investidor = :idInvestidor
+                    and lp.dm_estado = 'A'
+                    and (:ano is null or extract(year from lp.data_registo) = :ano)
+                    and (:mes is null or extract(month from lp.data_registo) = :mes)
+                union
+                select lproj.id_lote
+                from public.zee_t_lote_proj lproj
+                join public.zee_t_proj_invest proj on proj.id = lproj.id_proj
+                where proj.id_investidor = :idInvestidor
+                    and lproj.dm_estado = 'A'
+                    and (:ano is null or extract(year from lproj.date_create) = :ano)
+                    and (:mes is null or extract(month from lproj.date_create) = :mes)
+            ) lotes_investidor on lotes_investidor.id_lote = l.id
         ) lote
         """, nativeQuery = true)
     BigDecimal sumValorComercialLotesAtivos(@Param("idInvestidor") Integer idInvestidor, @Param("ano") Integer ano, @Param("mes") Integer mes);
