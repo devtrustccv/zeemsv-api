@@ -1,5 +1,7 @@
 package cv.zeemsv.api.web.investidor;
 
+import cv.zeemsv.api.application.cobranca.dto.CobrancaInvestidorResponseDTO;
+import cv.zeemsv.api.application.cobranca.service.CobrancaService;
 import cv.zeemsv.api.application.investidor.dto.AssociarRepresentanteRequestDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorDashboardResponseDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorDocumentoResponseDTO;
@@ -31,6 +33,7 @@ public class InvestidorController {
     private final AssociarRepresentanteService associarRepresentanteService;
     private final SocioRepresentanteService socioRepresentanteService;
     private final PesquisaNifService pesquisaNifService;
+    private final CobrancaService cobrancaService;
 
     @PostMapping
     public ResponseEntity<ApiResponse<InvestidorResponseDTO>> create(@Valid @RequestBody InvestidorRequestDTO dto) {
@@ -66,6 +69,13 @@ public class InvestidorController {
         @RequestParam(required = false) Integer mes
     ) {
         return ResponseEntity.ok(ApiResponse.ok("Dashboard do investidor encontrado", service.getDashboard(idInvestidor, ano, mes)));
+    }
+
+    @GetMapping("/{idInvestidor}/cobrancas")
+    public ResponseEntity<ApiResponse<List<CobrancaInvestidorResponseDTO>>> findCobrancasByInvestidor(
+        @PathVariable Integer idInvestidor
+    ) {
+        return ResponseEntity.ok(ApiResponse.ok("Cobrancas do investidor encontradas", cobrancaService.findByInvestidorId(idInvestidor)));
     }
 
     @GetMapping("/user/email/{email}")

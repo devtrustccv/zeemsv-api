@@ -7,4 +7,8 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 public interface ZeeTPagamentoRepository extends JpaRepository<ZeeTPagamentoEntity, Integer>, JpaSpecificationExecutor<ZeeTPagamentoEntity> {
     List<ZeeTPagamentoEntity> findByIdSolicitacao(Integer idSolicitacao);
+
+    List<ZeeTPagamentoEntity> findByIdCobrancaInOrderByIdCobrancaAscDataPagamentoDescIdDesc(List<Integer> idsCobranca);
+
+    List<ZeeTPagamentoEntity> findByIdPrestacaoInOrderByIdPrestacaoAscDataPagamentoDescIdDesc(List<Integer> idsPrestacao);
 }

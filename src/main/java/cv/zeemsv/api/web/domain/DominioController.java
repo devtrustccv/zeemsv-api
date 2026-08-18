@@ -1,5 +1,6 @@
 package cv.zeemsv.api.web.domain;
 
+import cv.zeemsv.api.application.domain.dto.CategoriaServicoResponseDTO;
 import cv.zeemsv.api.application.domain.dto.DominioResponseDTO;
 import cv.zeemsv.api.application.domain.dto.DominioValorResponseDTO;
 import cv.zeemsv.api.application.domain.dto.DominioValoresResponseDTO;
@@ -35,5 +36,10 @@ public class DominioController {
     public ResponseEntity<ApiResponse<List<DominioValoresResponseDTO>>> findValoresByDominios(
             @RequestParam List<String> dominios) {
         return ResponseEntity.ok(ApiResponse.ok("Valores dos dominios encontrados", service.findValoresByDominios(dominios)));
+    }
+
+    @GetMapping("/categorias-servico")
+    public ResponseEntity<ApiResponse<List<CategoriaServicoResponseDTO>>> findCategoriasServico() {
+        return ResponseEntity.ok(ApiResponse.ok("Categorias de servico encontradas", service.findCategoriasServico()));
     }
 }

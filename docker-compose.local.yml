@@ -1,0 +1,8 @@
+services:
+  zeemsv-api:
+    ports:
+      - "8086:8080"
+
+  postgres:
+    ports:
+      - "5434:5432"

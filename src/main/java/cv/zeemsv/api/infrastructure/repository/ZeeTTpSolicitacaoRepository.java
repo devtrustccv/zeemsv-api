@@ -2,6 +2,7 @@ package cv.zeemsv.api.infrastructure.repository;
 
 import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicitacaoEntity;
 import cv.zeemsv.api.infrastructure.repository.projection.ServicoProjection;
+import java.util.Collection;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -10,6 +11,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface ZeeTTpSolicitacaoRepository extends JpaRepository<ZeeTTpSolicitacaoEntity, Integer>, JpaSpecificationExecutor<ZeeTTpSolicitacaoEntity> {
     List<ZeeTTpSolicitacaoEntity> findAllByOrderByNomeAsc();
+
+    List<ZeeTTpSolicitacaoEntity> findByDmCategoriaIn(Collection<String> dmCategorias);
 
     @Query("""
         select
