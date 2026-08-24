@@ -6,10 +6,12 @@ import cv.zeemsv.api.application.servico.dto.ServicoResponseDTO;
 import cv.zeemsv.api.application.servico.dto.ServicoSolicitanteResponseDTO;
 import cv.zeemsv.api.infrastructure.entity.ZeeTSolicOnboardingEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicRelacaoEntity;
+import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicitacaoEntity;
 import cv.zeemsv.api.infrastructure.repository.ZeeTSolicOnboardingRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTTpSolicRelacaoRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTTpSolicitacaoRepository;
 import cv.zeemsv.api.infrastructure.repository.projection.ServicoProjection;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,6 +49,20 @@ public class ServicoServiceImpl implements ServicoService {
     @Transactional(readOnly = true)
     public List<ServicoResponseDTO> findPendentesEnvioCms() {
         return toResponseList(repository.findServicosPendentesEnvioCms());
+    }
+
+    @Override
+    @Transactional
+    public ServicoResponseDTO marcarEnviadoCms(Integer idTpSolicitacao) {
+        ZeeTTpSolicitacaoEntity servico = repository.findById(idTpSolicitacao)
+            .orElseThrow(() -> new EntityNotFoundException("Tipo de solicitacao nao encontrado: " + idTpSolicitacao));
+
+        servico.setSendedToCms(true);
+        repository.save(servico);
+
+        ServicoProjection projection = repository.findServicoById(idTpSolicitacao)
+            .orElseThrow(() -> new EntityNotFoundException("Tipo de solicitacao nao encontrado: " + idTpSolicitacao));
+        return toResponseList(List.of(projection)).get(0);
     }
 
     private List<ServicoResponseDTO> toResponseList(List<ServicoProjection> servicos) {

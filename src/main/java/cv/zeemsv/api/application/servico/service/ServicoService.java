@@ -8,4 +8,5 @@ public interface ServicoService {
     List<ServicoResponseDTO> findAll();
     List<ServicoResponseDTO> findByTipoRepresentante(String dmTpRepresentante);
     List<ServicoResponseDTO> findPendentesEnvioCms();
+    ServicoResponseDTO marcarEnviadoCms(Integer idTpSolicitacao);
 }

@@ -6,6 +6,7 @@ import cv.zeemsv.api.interfaces.dto.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -32,5 +33,12 @@ public class ServicoController {
     @GetMapping("/sended-to-cms/pendentes")
     public ResponseEntity<ApiResponse<List<ServicoResponseDTO>>> findPendentesEnvioCms() {
         return ResponseEntity.ok(ApiResponse.ok("Servicos pendentes de envio ao CMS encontrados", service.findPendentesEnvioCms()));
+    }
+
+    @PatchMapping("/sended-to-cms")
+    public ResponseEntity<ApiResponse<ServicoResponseDTO>> marcarEnviadoCms(
+        @RequestParam("id_tp_solicitacao") Integer idTpSolicitacao
+    ) {
+        return ResponseEntity.ok(ApiResponse.ok("Servico marcado como enviado ao CMS", service.marcarEnviadoCms(idTpSolicitacao)));
     }
 }

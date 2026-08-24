@@ -4,6 +4,7 @@ import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicitacaoEntity;
 import cv.zeemsv.api.infrastructure.repository.projection.ServicoProjection;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -64,6 +65,31 @@ public interface ZeeTTpSolicitacaoRepository extends JpaRepository<ZeeTTpSolicit
         order by s.nome
         """)
     List<ServicoProjection> findServicosPendentesEnvioCms();
+
+    @Query("""
+        select
+            s.id as id,
+            s.nome as nome,
+            s.dmTipoSolicitacao as dmTipoSolicitacao,
+            s.dmCategoria as dmCategoria,
+            s.descricao as descricao,
+            s.msgPedido as msgPedido,
+            s.prazoDia as prazoDia,
+            s.flagObrigatorio as flagObrigatorio,
+            s.codigo as codigo,
+            s.dmEstado as dmEstado,
+            s.idEntExterna as idEntExterna,
+            s.possuiTaxa as possuiTaxa,
+            s.possuiOnboarding as possuiOnboarding,
+            s.sendedToCms as sendedToCms,
+            e.denominacao as entidadeDenominacao,
+            e.sigla as entidadeSigla,
+            e.dmTipoEnt as entidadeDmTipoEnt
+        from ZeeTTpSolicitacaoEntity s
+        left join ZeeTEntidadeExternaEntity e on e.id = s.idEntExterna
+        where s.id = :idTpSolicitacao
+        """)
+    Optional<ServicoProjection> findServicoById(@Param("idTpSolicitacao") Integer idTpSolicitacao);
 
     @Query("""
         select distinct s
