@@ -13,7 +13,7 @@ import java.util.List;
 public interface SolicitacaoService {
     SolicitacaoResponseDTO create(SolicitacaoRequestDTO dto);
     SolicitacaoResponseDTO submeter(SubmeterSolicitacaoRequestDTO dto, String authorization);
-    SolicitacaoResponseDTO corrigir(Integer id, CorrigirSolicitacaoRequestDTO dto);
+    SolicitacaoResponseDTO corrigir(Integer id, CorrigirSolicitacaoRequestDTO dto, String authorization);
     SolicitacaoResponseDTO update(Integer id, SolicitacaoRequestDTO dto);
     SolicitacaoResponseDTO findById(Integer id);
     SolicitacaoDetailResponseDTO findDetailById(Integer id);

@@ -39,8 +39,8 @@ public class AutentikaBus {
     private String firebaseConfigBase64;
 
     public AuthenticatedUserInfo getUserInfo(String accessToken, LoginProvider loginProvider) {
-        if (LoginProvider.GOOGLE.equals(loginProvider)) {
-            return getGoogleUserInfo(accessToken);
+        if (LoginProvider.GOOGLE.equals(loginProvider) || LoginProvider.APPLE.equals(loginProvider)) {
+            return getFirebaseUserInfo(accessToken, loginProvider);
         }
         return getAutentikaUserInfo(accessToken);
     }
@@ -72,7 +72,7 @@ public class AutentikaBus {
         return userInfo;
     }
 
-    private AuthenticatedUserInfo getGoogleUserInfo(String accessToken) {
+    private AuthenticatedUserInfo getFirebaseUserInfo(String accessToken, LoginProvider loginProvider) {
         try {
             initializeFirebaseIfNecessary();
             FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(accessToken);
@@ -82,7 +82,7 @@ public class AutentikaBus {
                 .name(decodedToken.getName())
                 .build();
         } catch (FirebaseAuthException e) {
-            throw new ExternalApiException("Token Google invalido ou expirado.", HttpStatus.UNAUTHORIZED);
+            throw new ExternalApiException("Token " + loginProvider.name() + " invalido ou expirado.", HttpStatus.UNAUTHORIZED);
         }
     }
 

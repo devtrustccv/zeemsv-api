@@ -16,6 +16,7 @@ public interface ServicoProjection {
     Integer getIdEntExterna();
     String getPossuiTaxa();
     Boolean getPossuiOnboarding();
+    Boolean getSendedToCms();
     String getEntidadeDenominacao();
     String getEntidadeSigla();
     String getEntidadeDmTipoEnt();

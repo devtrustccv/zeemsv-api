@@ -43,6 +43,30 @@ public class ProcessStartService {
         return start("correcao", bearerOrNull, rawJsonOrNull);
     }
 
+    public void advanceTaskCorrecao(String taskNumber, String bearerOrNull) {
+        try {
+            final String url = buildAdvanceTaskCorrecaoUrl(taskNumber);
+            final String bearer = resolveBearer(bearerOrNull);
+
+            if (log.isDebugEnabled()) {
+                log.debug("[ProcessAdvance] POST {} | bearer? {}", url, bearer != null && !bearer.isBlank());
+            }
+
+            sendRequest(url, bearer, null);
+            log.info("[ProcessAdvance] taskCorrecao advanced taskNumber={}", taskNumber);
+        } catch (ProcessStartException e) {
+            log.error("ProcessStartException: {}", e.getMessage());
+            throw e;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Thread interrompida ao avancar o processo. IGRP API nao respondeu.", e);
+        } catch (IOException e) {
+            throw new java.io.UncheckedIOException("Falha de I/O ao avancar o processo. IGRP API nao respondeu.", e);
+        } catch (Exception e) {
+            throw new RuntimeException("Erro ao avancar o processo. IGRP API nao respondeu.", e);
+        }
+    }
+
     public StartProcessResponse start(String processKey, String bearerOrNull, String rawJsonOrNull) {
         try {
             final String url = buildUrl(processKey);
@@ -88,6 +112,16 @@ public class ProcessStartService {
             throw new ProcessStartException("Chave do processo IGRP nao informada.");
         }
         return baseUrl.replaceAll("/+$", "") + "/services/process/start/" + processKey.trim();
+    }
+
+    private String buildAdvanceTaskCorrecaoUrl(String taskNumber) {
+        if (!StringUtils.hasText(baseUrl)) {
+            throw new ProcessStartException("Base URL do gateway IGRP nao configurada.");
+        }
+        if (!StringUtils.hasText(taskNumber)) {
+            throw new ProcessStartException("Numero da task de correcao nao informado.");
+        }
+        return baseUrl.replaceAll("/+$", "") + "/services/process/advance/taskCorrecao" + taskNumber.trim();
     }
 
     private String resolveBearer(String bearerOrNull) {

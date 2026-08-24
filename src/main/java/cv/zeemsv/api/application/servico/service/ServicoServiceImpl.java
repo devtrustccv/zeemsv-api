@@ -43,6 +43,12 @@ public class ServicoServiceImpl implements ServicoService {
         return toResponseList(repository.findServicosByTipoRepresentante(dmTpRepresentante.trim()));
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<ServicoResponseDTO> findPendentesEnvioCms() {
+        return toResponseList(repository.findServicosPendentesEnvioCms());
+    }
+
     private List<ServicoResponseDTO> toResponseList(List<ServicoProjection> servicos) {
         List<Integer> ids = servicos.stream()
             .map(ServicoProjection::getId)
@@ -91,6 +97,7 @@ public class ServicoServiceImpl implements ServicoService {
         dto.setIdEntExterna(entity.getIdEntExterna());
         dto.setPossuiTaxa(entity.getPossuiTaxa());
         dto.setPossuiOnboarding(entity.getPossuiOnboarding());
+        dto.setSendedToCms(entity.getSendedToCms());
         dto.setEntidadeDenominacao(entity.getEntidadeDenominacao());
         dto.setEntidadeSigla(entity.getEntidadeSigla());
         dto.setEntidadeDmTipoEnt(entity.getEntidadeDmTipoEnt());

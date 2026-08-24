@@ -11,6 +11,7 @@ public class CorrigirSolicitacaoRequestDTO {
     private String exposicao;
     private String idsLote;
     private Integer idProjeto;
+    private String userName;
     private List<SolicitacaoDocumentoRequestDTO> documentos = new ArrayList<>();
     private List<SolicitacaoRequisitoRequestDTO> requisitos = new ArrayList<>();
 
@@ -24,5 +25,9 @@ public class CorrigirSolicitacaoRequestDTO {
 
     public void setId_projecto(Integer idProjeto) {
         this.idProjeto = idProjeto;
+    }
+
+    public void setUser_name(String userName) {
+        this.userName = userName;
     }
 }

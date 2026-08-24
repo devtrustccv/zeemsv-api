@@ -29,6 +29,7 @@ public interface ZeeTTpSolicitacaoRepository extends JpaRepository<ZeeTTpSolicit
             s.idEntExterna as idEntExterna,
             s.possuiTaxa as possuiTaxa,
             s.possuiOnboarding as possuiOnboarding,
+            s.sendedToCms as sendedToCms,
             e.denominacao as entidadeDenominacao,
             e.sigla as entidadeSigla,
             e.dmTipoEnt as entidadeDmTipoEnt
@@ -37,6 +38,32 @@ public interface ZeeTTpSolicitacaoRepository extends JpaRepository<ZeeTTpSolicit
         order by s.nome
         """)
     List<ServicoProjection> findAllServicos();
+
+    @Query("""
+        select
+            s.id as id,
+            s.nome as nome,
+            s.dmTipoSolicitacao as dmTipoSolicitacao,
+            s.dmCategoria as dmCategoria,
+            s.descricao as descricao,
+            s.msgPedido as msgPedido,
+            s.prazoDia as prazoDia,
+            s.flagObrigatorio as flagObrigatorio,
+            s.codigo as codigo,
+            s.dmEstado as dmEstado,
+            s.idEntExterna as idEntExterna,
+            s.possuiTaxa as possuiTaxa,
+            s.possuiOnboarding as possuiOnboarding,
+            s.sendedToCms as sendedToCms,
+            e.denominacao as entidadeDenominacao,
+            e.sigla as entidadeSigla,
+            e.dmTipoEnt as entidadeDmTipoEnt
+        from ZeeTTpSolicitacaoEntity s
+        left join ZeeTEntidadeExternaEntity e on e.id = s.idEntExterna
+        where s.sendedToCms = false
+        order by s.nome
+        """)
+    List<ServicoProjection> findServicosPendentesEnvioCms();
 
     @Query("""
         select distinct s
@@ -62,6 +89,7 @@ public interface ZeeTTpSolicitacaoRepository extends JpaRepository<ZeeTTpSolicit
             s.idEntExterna as idEntExterna,
             s.possuiTaxa as possuiTaxa,
             s.possuiOnboarding as possuiOnboarding,
+            s.sendedToCms as sendedToCms,
             e.denominacao as entidadeDenominacao,
             e.sigla as entidadeSigla,
             e.dmTipoEnt as entidadeDmTipoEnt

@@ -28,4 +28,9 @@ public class ServicoController {
             : service.findAll();
         return ResponseEntity.ok(ApiResponse.ok("Servicos encontrados", servicos));
     }
+
+    @GetMapping("/sended-to-cms/pendentes")
+    public ResponseEntity<ApiResponse<List<ServicoResponseDTO>>> findPendentesEnvioCms() {
+        return ResponseEntity.ok(ApiResponse.ok("Servicos pendentes de envio ao CMS encontrados", service.findPendentesEnvioCms()));
+    }
 }

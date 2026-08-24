@@ -62,7 +62,8 @@ public class SolicitacaoController {
         @ModelAttribute CorrigirSolicitacaoRequestDTO dto,
         @RequestParam(name = "id_projeto", required = false) Integer idProjeto,
         @RequestParam(name = "id_projecto", required = false) Integer idProjecto,
-        @RequestParam(name = "ids_lote", required = false) String idsLote
+        @RequestParam(name = "ids_lote", required = false) String idsLote,
+        @RequestHeader(name = "Authorization", required = false) String authorization
     ) {
         if (dto.getIdProjeto() == null) {
             dto.setIdProjeto(idProjeto != null ? idProjeto : idProjecto);
@@ -70,7 +71,7 @@ public class SolicitacaoController {
         if (dto.getIdsLote() == null) {
             dto.setIdsLote(idsLote);
         }
-        return ResponseEntity.ok(ApiResponse.ok("Solicitacao corrigida com sucesso", service.corrigir(id, dto)));
+        return ResponseEntity.ok(ApiResponse.ok("Solicitacao corrigida com sucesso", service.corrigir(id, dto, authorization)));
     }
 
     @GetMapping("/{id}")

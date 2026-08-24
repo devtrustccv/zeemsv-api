@@ -103,6 +103,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     private static final String RECIBO_PEDIDO_DESCRICAO = "Recibo Pedido";
     private static final String RECIBO_PEDIDO_MIMETYPE = "application/pdf";
     private static final String ETAPA_ANALISE_SOLICITACAO = "Análise Solicitação";
+    private static final String COD_ETAPA_ANALISE_SOLICITACAO = "analise_solicitacao";
     private static final int RECIBO_PATH_LOOKUP_ATTEMPTS = 5;
     private static final long RECIBO_PATH_LOOKUP_DELAY_MS = 500L;
     private static final BigDecimal ID_ORGANICA_DEFAULT = BigDecimal.valueOf(4);
@@ -176,13 +177,14 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
 
     @Override
     @Transactional
-    public SolicitacaoResponseDTO corrigir(Integer id, CorrigirSolicitacaoRequestDTO dto) {
+    public SolicitacaoResponseDTO corrigir(Integer id, CorrigirSolicitacaoRequestDTO dto, String authorization) {
         ZeeTSolicitacaoEntity solicitacao = solicitacaoRepository.findById(id)
             .orElseThrow(() -> new BusinessException("Solicitacao nao encontrada: " + id));
 
         corrigirDadosPedido(dto, solicitacao);
         corrigirDocumentos(dto.getDocumentos(), solicitacao);
         corrigirRequisitos(dto.getRequisitos(), solicitacao);
+        atualizarEstadoCorrecaoEAvancarProcesso(dto, solicitacao, authorization);
 
         return enrich(mapper.toResponse(bus.findById(solicitacao.getId())));
     }
@@ -807,6 +809,33 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         if (changed) {
             solicitacaoRepository.save(solicitacao);
         }
+    }
+
+    private void atualizarEstadoCorrecaoEAvancarProcesso(
+        CorrigirSolicitacaoRequestDTO dto,
+        ZeeTSolicitacaoEntity solicitacao,
+        String authorization
+    ) {
+        solicitacao.setEtapaAtual(ETAPA_ANALISE_SOLICITACAO);
+        solicitacao.setDataCorrecao(LocalDate.now());
+        solicitacao.setUserCorecao(firstText(dto.getUserName(), solicitacao.getUserSolic(), "system"));
+        solicitacaoRepository.save(solicitacao);
+
+        if (solicitacao.getIdPedido() == null) {
+            return;
+        }
+
+        TPedidoEntity pedido = pedidoRepository.findById(solicitacao.getIdPedido())
+            .orElseThrow(() -> new BusinessException("Pedido nao encontrado: " + solicitacao.getIdPedido()));
+        pedido.setEtapaAtual(ETAPA_ANALISE_SOLICITACAO);
+        pedido.setCodEtapaAtual(COD_ETAPA_ANALISE_SOLICITACAO);
+        pedidoRepository.save(pedido);
+
+        String taskNumber = firstText(pedido.getIdEtapa(), pedido.getIdEtapaAtual());
+        if (taskNumber == null) {
+            throw new BusinessException("Pedido sem etapa/task para avancar processo: " + pedido.getId());
+        }
+        processStartService.advanceTaskCorrecao(taskNumber, authorization);
     }
 
     private void replaceLotes(String idsLote, ZeeTSolicitacaoEntity solicitacao) {

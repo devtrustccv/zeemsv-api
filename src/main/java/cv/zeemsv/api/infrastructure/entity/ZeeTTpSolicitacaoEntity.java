@@ -55,4 +55,7 @@ public class ZeeTTpSolicitacaoEntity {
     @Column(name = "possui_onboarding")
     private Boolean possuiOnboarding;
 
+    @Column(name = "sended_to_cms")
+    private Boolean sendedToCms;
+
 }

@@ -23,6 +23,7 @@ public class ServicoResponseDTO {
     private Integer idEntExterna;
     private String possuiTaxa;
     private Boolean possuiOnboarding;
+    private Boolean sendedToCms;
     private String entidadeDenominacao;
     private String entidadeSigla;
     private String entidadeDmTipoEnt;

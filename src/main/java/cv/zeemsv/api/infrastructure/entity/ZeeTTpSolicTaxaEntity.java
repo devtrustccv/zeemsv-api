@@ -31,6 +31,9 @@ public class ZeeTTpSolicTaxaEntity {
     @Column(name = "tipo_taxa", nullable = false)
     private String tipoTaxa;
 
+    @Column(name = "dm_momento_pag")
+    private String dmMomentoPag;
+
     @Column(name = "id_taxa", nullable = false)
     private Integer idTaxa;
 
