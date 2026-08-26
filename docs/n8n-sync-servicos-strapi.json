@@ -1,0 +1,185 @@
+{
+  "name": "Sync Servicos ZEEMSV para Strapi",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "a5f95995-c19e-453f-bb57-20b1e7a2d9de",
+      "name": "Executar Manualmente",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        }
+      },
+      "id": "96e7fe33-b6ce-443b-a1b1-c21bacf5b341",
+      "name": "A cada 10 minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=http://zeemsv-api:8080/zeemsv-api/api/v1/servicos/sended-to-cms/pendentes",
+        "options": {}
+      },
+      "id": "ca7a302e-87a6-4f84-b087-6e87cb251b19",
+      "name": "GET servicos pendentes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        288,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst servicos = Array.isArray(response.data) ? response.data : [];\nconst firstDefined = (...values) => values.find((value) => value !== undefined);\nconst asArray = (value) => Array.isArray(value) ? value : [];\n\nreturn servicos.map((servico) => {\n  const id = firstDefined(servico.id, servico.id_tp_solicitacao);\n  const nome = firstDefined(servico.nome, servico.title);\n  const descricao = firstDefined(servico.descricao, servico.description);\n  const msgPedido = firstDefined(servico.msg_pedido, servico.msgPedido);\n  const quemRaw = asArray(firstDefined(servico.quem_deve_solicitar, servico.quemDeveSolicitar, []));\n  const onboardingRaw = asArray(firstDefined(servico.tipos_onboarding, servico.tiposOnboarding, []));\n  const representantesRaw = asArray(firstDefined(servico.dm_tp_representante, servico.dmTpRepresentante, []));\n\n  const title = nome || `Servico ${id}`;\n  const description = descricao || msgPedido || title;\n\n  const dmTpRepresentante = representantesRaw.length > 0\n    ? [...new Set(representantesRaw.filter(Boolean))]\n    : [...new Set(quemRaw.map((item) => firstDefined(item.dm_tp_representante, item.dmTpRepresentante)).filter(Boolean))];\n\n  const quemDeveSolicitar = quemRaw\n    .filter((item) => firstDefined(item.dm_objecto, item.dmObjecto))\n    .map((item) => ({\n      dm_objecto: firstDefined(item.dm_objecto, item.dmObjecto),\n      dm_objecto_desc: firstDefined(item.dm_objecto_desc, item.dmObjectoDesc) ?? null\n    }));\n\n  const tiposOnboarding = onboardingRaw\n    .filter((item) => firstDefined(item.dm_tipo_onboarding, item.dmTipoOnboarding))\n    .map((item) => ({\n      id_tipo_onboarding: firstDefined(item.id_tipo_onboarding, item.id) ?? null,\n      dm_tipo_onboarding: firstDefined(item.dm_tipo_onboarding, item.dmTipoOnboarding),\n      dm_tipo_onboarding_desc: firstDefined(item.dm_tipo_onboarding_desc, item.dmTipoOnboardingDesc) ?? null,\n      ordem: firstDefined(item.ordem) == null ? null : Number(item.ordem)\n    }));\n\n  const data = {\n    title,\n    description,\n    icon: null,\n    content: description,\n    requirements: [],\n    highlighted: false,\n    button_text: 'Ver +',\n    cms_categoria_servicos_digitai: null,\n    dm_tipo_solicitacao: firstDefined(servico.dm_tipo_solicitacao, servico.dmTipoSolicitacao) ?? null,\n    dm_tipo_solicitacao_desc: firstDefined(servico.dm_tipo_solicitacao_desc, servico.dmTipoSolicitacaoDesc) ?? null,\n    dm_tp_representante: dmTpRepresentante,\n    dm_categoria: firstDefined(servico.dm_categoria, servico.dmCategoria) ?? null,\n    dm_categoria_desc: firstDefined(servico.dm_categoria_desc, servico.dmCategoriaDesc) ?? null,\n    msg_pedido: msgPedido ?? null,\n    prazo_dia: firstDefined(servico.prazo_dia, servico.prazoDia) == null ? null : Number(firstDefined(servico.prazo_dia, servico.prazoDia)),\n    flag_obrigatorio: firstDefined(servico.flag_obrigatorio, servico.flagObrigatorio) ?? null,\n    codigo: servico.codigo ?? null,\n    dm_estado: firstDefined(servico.dm_estado, servico.dmEstado) ?? null,\n    dm_estado_desc: firstDefined(servico.dm_estado_desc, servico.dmEstadoDesc) ?? null,\n    id_ent_externa: firstDefined(servico.id_ent_externa, servico.idEntExterna) ?? null,\n    possui_taxa: firstDefined(servico.possui_taxa, servico.possuiTaxa) ?? null,\n    possui_onboarding: firstDefined(servico.possui_onboarding, servico.possuiOnboarding) ?? null,\n    entidade_denominacao: firstDefined(servico.entidade_denominacao, servico.entidadeDenominacao) ?? null,\n    entidade_sigla: firstDefined(servico.entidade_sigla, servico.entidadeSigla) ?? null,\n    entidade_dm_tipo_ent: firstDefined(servico.entidade_dm_tipo_ent, servico.entidadeDmTipoEnt) ?? null,\n    entidade_dm_tipo_ent_desc: firstDefined(servico.entidade_dm_tipo_ent_desc, servico.entidadeDmTipoEntDesc) ?? null,\n    quem_deve_solicitar: quemDeveSolicitar,\n    tipos_onboarding: tiposOnboarding\n  };\n\n  return {\n    json: {\n      id_tp_solicitacao: id,\n      servico,\n      strapiPayload: { data }\n    }\n  };\n});"
+      },
+      "id": "64c0043d-5413-4e8d-bf86-db1637aefd11",
+      "name": "Extrair servicos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://zeemsv-cms:1337/api/servicos-digitais?populate=*",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify($json.strapiPayload)}}",
+        "options": {}
+      },
+      "id": "69a6c029-c516-4f8c-9b97-93ee61ac15f3",
+      "name": "POST criar servico no Strapi",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        832,
+        112
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "Wqr2VNjakY5ouG7l",
+          "name": "Bearer Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=http://zeemsv-api:8080/zeemsv-api/api/v1/servicos/sended-to-cms?id_tp_solicitacao={{ $('Extrair servicos').item.json.id_tp_solicitacao }}",
+        "options": {}
+      },
+      "id": "ecb3e61e-a999-4ea7-9234-25fb96703fab",
+      "name": "PATCH marcar enviado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1104,
+        112
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Executar Manualmente": {
+      "main": [
+        [
+          {
+            "node": "GET servicos pendentes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A cada 10 minutos": {
+      "main": [
+        [
+          {
+            "node": "GET servicos pendentes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET servicos pendentes": {
+      "main": [
+        [
+          {
+            "node": "Extrair servicos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrair servicos": {
+      "main": [
+        [
+          {
+            "node": "POST criar servico no Strapi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST criar servico no Strapi": {
+      "main": [
+        [
+          {
+            "node": "PATCH marcar enviado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "c2aabaca-1365-4dda-80ed-d7b177b020b4",
+  "meta": {
+    "instanceId": "5ee46b501de59bdf1f4bdba2e46658390895d4e8fb8f80f9f7a16460217aa219"
+  },
+  "nodeGroups": [],
+  "id": "hmRfXR92sx5E1pEO",
+  "tags": []
+}
