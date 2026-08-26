@@ -3,6 +3,9 @@ package cv.zeemsv.api.application.investidor.service;
 import cv.zeemsv.api.application.domain.DomainDescriptionHelper;
 import cv.zeemsv.api.application.geografia.service.NacionalidadeResolver;
 import cv.zeemsv.api.application.generic.service.OTPService;
+import cv.zeemsv.api.application.audit.dto.AuditContext;
+import cv.zeemsv.api.application.audit.entity.ChangeLogsItem;
+import cv.zeemsv.api.application.audit.service.ChangeLogsService;
 import cv.zeemsv.api.application.investidor.dto.RepresentanteInvestidorResponseDTO;
 import cv.zeemsv.api.application.investidor.dto.SocioRepresentanteRequestDTO;
 import cv.zeemsv.api.application.investidor.dto.SocioRepresentanteResponseDTO;
@@ -14,6 +17,7 @@ import cv.zeemsv.api.domain.documento.dto.UploadDTO;
 import cv.zeemsv.api.domain.user.business.UserBus;
 import cv.zeemsv.api.domain.user.model.UserModel;
 import cv.zeemsv.api.exceptions.BusinessException;
+import cv.zeemsv.api.exceptions.OtpRequiredException;
 import cv.zeemsv.api.infrastructure.entity.ZeeTDocRelacaoEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTSocioRepresEntity;
 import cv.zeemsv.api.infrastructure.repository.ZeeTRepresInvestidorRepository;
@@ -27,6 +31,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -34,6 +39,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
+@Log4j2
 public class SocioRepresentanteServiceImpl implements SocioRepresentanteService {
     private static final String ESTADO_ATIVO = "A";
     private static final String ESTADO_PENDENTE = "PENDENTE";
@@ -50,6 +56,7 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
     private final DocumentViewerUrlService documentViewerUrlService;
     private final EmailService emailService;
     private final OTPService otpService;
+    private final ChangeLogsService changeLogsService;
 
     @Override
     @Transactional
@@ -73,6 +80,7 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
     public SocioRepresentanteResponseDTO update(Integer idSocioRepres, SocioRepresentanteUpdateRequestDTO dto, MultipartFile foto) {
         ZeeTSocioRepresEntity entity = repository.findById(idSocioRepres)
             .orElseThrow(() -> new BusinessException("Socio/representante nao encontrado."));
+        ZeeTSocioRepresEntity before = copySocioRepres(entity);
 
         if (dto.getTelefone() != null) {
             entity.setTelefone(dto.getTelefone());
@@ -110,6 +118,7 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
             deactivatePreviousUser(previousUser, newUser);
             notifyEmailAssociado(saved);
         }
+        auditSocioRepresentanteUpdate(before, saved);
         return toResponse(saved);
     }
 
@@ -227,7 +236,7 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
     private void validateEmailChangeOtp(String normalizedEmail, String otp) {
         if (!StringUtils.hasText(otp)) {
             otpService.sendOTP(normalizedEmail);
-            throw new BusinessException("OTP enviado para o novo email. Informe o OTP para confirmar a alteração.");
+            throw new OtpRequiredException("OTP enviado para o novo email. Informe o OTP para confirmar a alteração.");
         }
         if (!otpService.validateOtp(normalizedEmail, trim(otp))) {
             throw new BusinessException("OTP inválido ou expirado.");
@@ -366,5 +375,60 @@ public class SocioRepresentanteServiceImpl implements SocioRepresentanteService 
             + LocalDate.now().format(DATE_FORMATTER)
             + ".";
         emailService.sendText(socioRepres.getEmail(), subject, body);
+    }
+
+    private void auditSocioRepresentanteUpdate(ZeeTSocioRepresEntity before, ZeeTSocioRepresEntity after) {
+        try {
+            List<ChangeLogsItem> items = List.of(
+                logItem("telefone", before.getTelefone(), after.getTelefone()),
+                logItem("telemovel", before.getTelemovel(), after.getTelemovel()),
+                logItem("indicativo_pais", before.getIndicativoPais(), after.getIndicativoPais()),
+                logItem("endereco", before.getEndereco(), after.getEndereco()),
+                logItem("email", before.getEmail(), after.getEmail()),
+                logItem("id_user", before.getIdUser(), after.getIdUser()),
+                logItem("foto_path", before.getFotoPath(), after.getFotoPath())
+            ).stream().filter(this::hasChanged).toList();
+            if (items.isEmpty()) {
+                return;
+            }
+            changeLogsService.createLogsAsyncSafe(
+                items,
+                "UPDATE",
+                "zee_t_socio_repres",
+                String.valueOf(after.getId()),
+                "Atualizar socio/representante",
+                AuditContext.builder()
+                    .userId(after.getIdUser() != null ? String.valueOf(after.getIdUser()) : null)
+                    .userEmail(after.getEmail())
+                    .build()
+            );
+        } catch (RuntimeException ex) {
+            log.warn("Nao foi possivel gravar auditoria da atualizacao do socio/representante {}.", after.getId(), ex);
+        }
+    }
+
+    private ZeeTSocioRepresEntity copySocioRepres(ZeeTSocioRepresEntity source) {
+        ZeeTSocioRepresEntity copy = new ZeeTSocioRepresEntity();
+        copy.setId(source.getId());
+        copy.setTelefone(source.getTelefone());
+        copy.setTelemovel(source.getTelemovel());
+        copy.setIndicativoPais(source.getIndicativoPais());
+        copy.setEndereco(source.getEndereco());
+        copy.setEmail(source.getEmail());
+        copy.setIdUser(source.getIdUser());
+        copy.setFotoPath(source.getFotoPath());
+        return copy;
+    }
+
+    private ChangeLogsItem logItem(String column, Object oldValue, Object newValue) {
+        ChangeLogsItem item = new ChangeLogsItem();
+        item.setColumn(column);
+        item.setOldValue(oldValue);
+        item.setNewValue(newValue);
+        return item;
+    }
+
+    private boolean hasChanged(ChangeLogsItem item) {
+        return !Objects.equals(item.getOldValue(), item.getNewValue());
     }
 }

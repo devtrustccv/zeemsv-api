@@ -31,6 +31,7 @@ public class CobrancaInvestidorResponseDTO {
     private String userRegisto;
     private LocalDate dataRegisto;
     private CobrancaTaxaResponseDTO taxa;
+    private List<CobrancaTaxaResponseDTO> taxas;
     private List<CobrancaPrestacaoResponseDTO> prestacoes;
     private List<CobrancaPagamentoResponseDTO> pagamentos;
 }

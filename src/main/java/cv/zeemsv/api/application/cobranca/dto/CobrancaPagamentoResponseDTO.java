@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -45,4 +46,5 @@ public class CobrancaPagamentoResponseDTO {
     private Integer idSolicTaxa;
     private String userPagamento;
     private BigDecimal idTaxa;
+    private List<CobrancaTaxaResponseDTO> taxas;
 }

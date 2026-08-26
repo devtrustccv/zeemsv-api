@@ -2,6 +2,9 @@ package cv.zeemsv.api.application.solicitacao.service;
 
 import cv.zeemsv.api.application.domain.DomainDescriptionHelper;
 import cv.zeemsv.api.application.generic.service.EmailService;
+import cv.zeemsv.api.application.audit.dto.AuditContext;
+import cv.zeemsv.api.application.audit.entity.ChangeLogsItem;
+import cv.zeemsv.api.application.audit.service.ChangeLogsService;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDocResponseDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDetailResponseDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDocumentosRequisitosResponseDTO;
@@ -135,6 +138,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     private final ProcessStartService processStartService;
     private final EmailService emailService;
     private final PlatformTransactionManager transactionManager;
+    private final ChangeLogsService changeLogsService;
 
     @Value("${application.reports.recibo-pdf-url-template:${application.reports.recibo-url-template:}}")
     private String reciboPdfUrlTemplate;
@@ -180,11 +184,16 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     public SolicitacaoResponseDTO corrigir(Integer id, CorrigirSolicitacaoRequestDTO dto, String authorization) {
         ZeeTSolicitacaoEntity solicitacao = solicitacaoRepository.findById(id)
             .orElseThrow(() -> new BusinessException("Solicitacao nao encontrada: " + id));
+        ZeeTSolicitacaoEntity before = copySolicitacaoForAudit(solicitacao);
+        List<Integer> beforeLotes = solicitacaoLoteRepository.findByIdSolicitacao(solicitacao.getId()).stream()
+            .map(ZeeTSolicitacaoLoteEntity::getIdLote)
+            .toList();
 
         corrigirDadosPedido(dto, solicitacao);
         corrigirDocumentos(dto.getDocumentos(), solicitacao);
         corrigirRequisitos(dto.getRequisitos(), solicitacao);
         atualizarEstadoCorrecaoEAvancarProcesso(dto, solicitacao, authorization);
+        auditSolicitacaoCorrection(before, solicitacao, beforeLotes, dto);
 
         return enrich(mapper.toResponse(bus.findById(solicitacao.getId())));
     }
@@ -836,6 +845,78 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
             throw new BusinessException("Pedido sem etapa/task para avancar processo: " + pedido.getId());
         }
         processStartService.advanceTaskCorrecao(taskNumber, authorization);
+    }
+
+    private void auditSolicitacaoCorrection(
+        ZeeTSolicitacaoEntity before,
+        ZeeTSolicitacaoEntity after,
+        List<Integer> beforeLotes,
+        CorrigirSolicitacaoRequestDTO dto
+    ) {
+        try {
+            List<Integer> afterLotes = solicitacaoLoteRepository.findByIdSolicitacao(after.getId()).stream()
+                .map(ZeeTSolicitacaoLoteEntity::getIdLote)
+                .toList();
+            List<ChangeLogsItem> items = List.of(
+                logItem("exposicao", before.getExposicao(), after.getExposicao()),
+                logItem("id_projeto", before.getIdProjeto(), after.getIdProjeto()),
+                logItem("etapa_atual", before.getEtapaAtual(), after.getEtapaAtual()),
+                logItem("data_correcao", before.getDataCorrecao(), after.getDataCorrecao()),
+                logItem("user_corecao", before.getUserCorecao(), after.getUserCorecao()),
+                logItem("ids_lote", beforeLotes, afterLotes),
+                logItem("documentos_corrigidos", 0, countDocumentosCorrigidos(dto)),
+                logItem("requisitos_corrigidos", 0, dto.getRequisitos() == null ? 0 : dto.getRequisitos().size())
+            ).stream().filter(this::hasChanged).toList();
+            if (items.isEmpty()) {
+                return;
+            }
+            changeLogsService.createLogsAsyncSafe(
+                items,
+                "UPDATE",
+                "zee_t_solicitacao",
+                String.valueOf(after.getId()),
+                "Corrigir solicitacao",
+                AuditContext.builder()
+                    .userId(firstText(after.getUserCorecao(), after.getUserSolic()))
+                    .userEmail(firstText(dto.getUserName(), after.getUserCorecao(), after.getUserSolic()))
+                    .build()
+            );
+        } catch (RuntimeException ex) {
+            log.warn("Nao foi possivel gravar auditoria da correcao da solicitacao {}.", after.getId(), ex);
+        }
+    }
+
+    private int countDocumentosCorrigidos(CorrigirSolicitacaoRequestDTO dto) {
+        if (dto.getDocumentos() == null) {
+            return 0;
+        }
+        return (int) dto.getDocumentos().stream()
+            .filter(documento -> documento.getFicheiro() != null && !documento.getFicheiro().isEmpty())
+            .count();
+    }
+
+    private ZeeTSolicitacaoEntity copySolicitacaoForAudit(ZeeTSolicitacaoEntity source) {
+        ZeeTSolicitacaoEntity copy = new ZeeTSolicitacaoEntity();
+        copy.setId(source.getId());
+        copy.setExposicao(source.getExposicao());
+        copy.setIdProjeto(source.getIdProjeto());
+        copy.setEtapaAtual(source.getEtapaAtual());
+        copy.setDataCorrecao(source.getDataCorrecao());
+        copy.setUserCorecao(source.getUserCorecao());
+        copy.setUserSolic(source.getUserSolic());
+        return copy;
+    }
+
+    private ChangeLogsItem logItem(String column, Object oldValue, Object newValue) {
+        ChangeLogsItem item = new ChangeLogsItem();
+        item.setColumn(column);
+        item.setOldValue(oldValue);
+        item.setNewValue(newValue);
+        return item;
+    }
+
+    private boolean hasChanged(ChangeLogsItem item) {
+        return !Objects.equals(item.getOldValue(), item.getNewValue());
     }
 
     private void replaceLotes(String idsLote, ZeeTSolicitacaoEntity solicitacao) {
