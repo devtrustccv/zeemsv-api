@@ -28,6 +28,7 @@ public class ServicoResponseDTO {
     private String entidadeSigla;
     private String entidadeDmTipoEnt;
     private String entidadeDmTipoEntDesc;
+    private List<String> dmTpRepresentante;
     private List<ServicoSolicitanteResponseDTO> quemDeveSolicitar;
     private List<ServicoOnboardingResponseDTO> tiposOnboarding;
 }

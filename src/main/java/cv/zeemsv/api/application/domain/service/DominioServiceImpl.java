@@ -184,7 +184,7 @@ public class DominioServiceImpl implements DominioService {
     private ServicoSolicitanteResponseDTO toSolicitanteResponse(String dmObjecto) {
         ServicoSolicitanteResponseDTO dto = new ServicoSolicitanteResponseDTO();
         dto.setDmObjecto(dmObjecto);
-        dto.setDmObjectoDesc(domainHelper.describe(DomainDescriptionHelper.OBJECTO, dmObjecto));
+        dto.setDmObjectoDesc(domainHelper.describeObjecto(dmObjecto));
         return dto;
     }
 

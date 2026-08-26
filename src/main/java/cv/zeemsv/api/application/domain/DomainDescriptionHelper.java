@@ -84,6 +84,13 @@ public class DomainDescriptionHelper {
         return describe(dominio, valor ? "SIM" : "NAO");
     }
 
+    public String describeObjecto(String dmObjecto) {
+        String descricao = describe(OBJECTO, dmObjecto);
+        return StringUtils.hasText(descricao)
+            ? descricao
+            : describe(TIPO_OBJETO, dmObjecto);
+    }
+
     private Optional<String> findDescription(String dominio, String valor) {
         try {
             return Optional.ofNullable(jdbcTemplate.queryForObject(SQL, String.class, dominio, valor));

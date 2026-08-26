@@ -6,9 +6,11 @@ import cv.zeemsv.api.application.servico.dto.ServicoResponseDTO;
 import cv.zeemsv.api.application.servico.dto.ServicoSolicitanteResponseDTO;
 import cv.zeemsv.api.infrastructure.entity.ZeeTSolicOnboardingEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicRelacaoEntity;
+import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicRepreEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicitacaoEntity;
 import cv.zeemsv.api.infrastructure.repository.ZeeTSolicOnboardingRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTTpSolicRelacaoRepository;
+import cv.zeemsv.api.infrastructure.repository.ZeeTTpSolicRepreRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTTpSolicitacaoRepository;
 import cv.zeemsv.api.infrastructure.repository.projection.ServicoProjection;
 import jakarta.persistence.EntityNotFoundException;
@@ -27,6 +29,7 @@ import java.util.stream.Collectors;
 public class ServicoServiceImpl implements ServicoService {
     private final ZeeTTpSolicitacaoRepository repository;
     private final ZeeTTpSolicRelacaoRepository tpSolicRelacaoRepository;
+    private final ZeeTTpSolicRepreRepository tpSolicRepreRepository;
     private final ZeeTSolicOnboardingRepository solicOnboardingRepository;
     private final DomainDescriptionHelper domainHelper;
 
@@ -73,6 +76,10 @@ public class ServicoServiceImpl implements ServicoService {
             ? Collections.emptyMap()
             : tpSolicRelacaoRepository.findByIdTpSolicIn(ids).stream()
                 .collect(Collectors.groupingBy(ZeeTTpSolicRelacaoEntity::getIdTpSolic));
+        Map<Integer, List<ZeeTTpSolicRepreEntity>> representantesByTpSolic = ids.isEmpty()
+            ? Collections.emptyMap()
+            : tpSolicRepreRepository.findByIdTpSolicIn(ids).stream()
+                .collect(Collectors.groupingBy(ZeeTTpSolicRepreEntity::getIdTpSolic));
         List<Integer> idsComOnboarding = servicos.stream()
             .filter(servico -> Boolean.TRUE.equals(servico.getPossuiOnboarding()))
             .map(ServicoProjection::getId)
@@ -86,6 +93,7 @@ public class ServicoServiceImpl implements ServicoService {
             .map(servico -> toResponse(
                 servico,
                 relacoesByTpSolic.getOrDefault(servico.getId(), Collections.emptyList()),
+                representantesByTpSolic.getOrDefault(servico.getId(), Collections.emptyList()),
                 onboardingByTpSolic.getOrDefault(servico.getId(), Collections.emptyList())
             ))
             .toList();
@@ -94,6 +102,7 @@ public class ServicoServiceImpl implements ServicoService {
     private ServicoResponseDTO toResponse(
         ServicoProjection entity,
         List<ZeeTTpSolicRelacaoEntity> relacoes,
+        List<ZeeTTpSolicRepreEntity> representantes,
         List<ZeeTSolicOnboardingEntity> onboardings
     ) {
         ServicoResponseDTO dto = new ServicoResponseDTO();
@@ -118,6 +127,10 @@ public class ServicoServiceImpl implements ServicoService {
         dto.setEntidadeSigla(entity.getEntidadeSigla());
         dto.setEntidadeDmTipoEnt(entity.getEntidadeDmTipoEnt());
         dto.setEntidadeDmTipoEntDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_ENTIDADE, entity.getEntidadeDmTipoEnt()));
+        dto.setDmTpRepresentante(representantes.stream()
+            .map(ZeeTTpSolicRepreEntity::getDmTpRepresentante)
+            .distinct()
+            .toList());
         dto.setQuemDeveSolicitar(relacoes.stream()
             .map(this::toSolicitanteResponse)
             .toList());
@@ -130,7 +143,7 @@ public class ServicoServiceImpl implements ServicoService {
     private ServicoSolicitanteResponseDTO toSolicitanteResponse(ZeeTTpSolicRelacaoEntity entity) {
         ServicoSolicitanteResponseDTO dto = new ServicoSolicitanteResponseDTO();
         dto.setDmObjecto(entity.getDmObjecto());
-        dto.setDmObjectoDesc(domainHelper.describe(DomainDescriptionHelper.OBJECTO, entity.getDmObjecto()));
+        dto.setDmObjectoDesc(domainHelper.describeObjecto(entity.getDmObjecto()));
         return dto;
     }
 
