@@ -19,6 +19,7 @@ public class SolicitacaoTaxaResponseDTO {
     private String tipoTaxa;
     private BigDecimal valor;
     private BigDecimal valorConfigurado;
+    private Boolean instantPagamento;
     private Integer idPagamento;
     private String referenciaPagamento;
     private String duc;

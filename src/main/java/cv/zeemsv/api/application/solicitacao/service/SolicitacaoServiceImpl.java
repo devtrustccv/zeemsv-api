@@ -400,6 +400,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
             dto.setTipoTaxa(domainHelper.describe(DomainDescriptionHelper.TIPO_TAXA, taxaConfigurada.getTipoTaxa()));
             dto.setValor(taxaConfigurada.getValor());
             dto.setValorConfigurado(taxaConfigurada.getValor());
+            dto.setInstantPagamento(isTaxaPagamentoNoInicio(taxaConfigurada));
         }
         enrichPagamento(dto, pagamento);
         return dto;
@@ -1675,6 +1676,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         dto.setTipoTaxa(domainHelper.describe(DomainDescriptionHelper.TIPO_TAXA, entity.getTipoTaxa()));
         dto.setValor(entity.getValor());
         dto.setValorConfigurado(entity.getValor());
+        dto.setInstantPagamento(isTaxaPagamentoNoInicio(entity));
         return dto;
     }
 
