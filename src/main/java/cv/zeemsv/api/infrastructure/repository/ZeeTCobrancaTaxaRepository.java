@@ -7,4 +7,6 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 public interface ZeeTCobrancaTaxaRepository extends JpaRepository<ZeeTCobrancaTaxaEntity, Integer>, JpaSpecificationExecutor<ZeeTCobrancaTaxaEntity> {
     List<ZeeTCobrancaTaxaEntity> findByIdCobrancaInOrderByIdCobrancaAscIdAsc(List<Integer> idsCobranca);
+
+    List<ZeeTCobrancaTaxaEntity> findByIdCobrancaOrderByIdAsc(Integer idCobranca);
 }

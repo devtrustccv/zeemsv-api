@@ -4,6 +4,7 @@ import cv.zeemsv.api.application.cobranca.dto.CobrancaInvestidorResponseDTO;
 import cv.zeemsv.api.application.cobranca.dto.CobrancaPagamentoResponseDTO;
 import cv.zeemsv.api.application.cobranca.dto.CobrancaPrestacaoResponseDTO;
 import cv.zeemsv.api.application.cobranca.dto.CobrancaTaxaResponseDTO;
+import cv.zeemsv.api.application.cobranca.dto.CriarPagamentoRequestDTO;
 import cv.zeemsv.api.application.domain.DomainDescriptionHelper;
 import cv.zeemsv.api.exceptions.BusinessException;
 import cv.zeemsv.api.infrastructure.entity.ZeeTCobrancaEntity;
@@ -25,6 +26,8 @@ import cv.zeemsv.api.infrastructure.repository.ZeeTSolicitacaoCobrancaRepository
 import cv.zeemsv.api.infrastructure.repository.ZeeTSolicitacaoTaxaRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTTaxaRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTTpSolicTaxaRepository;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -41,6 +44,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class CobrancaServiceImpl implements CobrancaService {
+    private static final String ESTADO_ATIVO = "A";
+    private static final String ESTADO_PENDENTE = "PENDENTE";
+    private static final String ESTADO_PAGO = "PAGO";
+
     private final ZeeTCobrancaRepository cobrancaRepository;
     private final ZeeTCobrancaPrestacaoRepository prestacaoRepository;
     private final ZeeTCobrancaTaxaRepository cobrancaTaxaRepository;
@@ -52,6 +59,182 @@ public class CobrancaServiceImpl implements CobrancaService {
     private final ZeeTTaxaRepository taxaRepository;
     private final ZeeTInvestidorRepository investidorRepository;
     private final DomainDescriptionHelper domainHelper;
+
+    @Override
+    @Transactional
+    public CobrancaPagamentoResponseDTO criarPagamento(CriarPagamentoRequestDTO dto) {
+        ZeeTCobrancaEntity cobranca = cobrancaRepository.findById(dto.getIdCobranca())
+            .orElseThrow(() -> new BusinessException("Cobranca nao encontrada: " + dto.getIdCobranca()));
+        if (dto.getValor() == null || dto.getValor().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("O valor do pagamento deve ser maior que zero.");
+        }
+        BigDecimal dividaAtual = calcularDividaAtual(cobranca);
+        if (dto.getValor().compareTo(dividaAtual) > 0) {
+            throw new BusinessException("O valor do pagamento nao pode ser superior a divida atual da cobranca.");
+        }
+
+        List<ZeeTCobrancaTaxaEntity> cobrancaTaxas = cobrancaTaxaRepository.findByIdCobrancaOrderByIdAsc(cobranca.getId());
+        ZeeTSolicitacaoTaxaEntity solicTaxa = findSolicTaxa(cobranca.getIdSolicTaxa());
+        ZeeTPagamentoEntity pagamento = buildPagamento(dto, cobranca, solicTaxa, cobrancaTaxas);
+        pagamento = pagamentoRepository.save(pagamento);
+
+        List<ZeeTPagamentoTaxaEntity> pagamentoTaxas = createPagamentoTaxas(pagamento, cobrancaTaxas, dto);
+        atualizarCobrancaAposPagamento(cobranca, cobrancaTaxas);
+
+        Map<Integer, ZeeTTaxaEntity> taxasPorId = findTaxas(Collections.emptyMap(), Collections.emptyList(), pagamentoTaxas);
+        return toPagamentoResponse(pagamento, pagamentoTaxas, taxasPorId);
+    }
+
+    private ZeeTPagamentoEntity buildPagamento(
+        CriarPagamentoRequestDTO dto,
+        ZeeTCobrancaEntity cobranca,
+        ZeeTSolicitacaoTaxaEntity solicTaxa,
+        List<ZeeTCobrancaTaxaEntity> cobrancaTaxas
+    ) {
+        ZeeTPagamentoEntity pagamento = new ZeeTPagamentoEntity();
+        pagamento.setIdSolicitacao(cobranca.getIdSolicitacao());
+        pagamento.setIdCobranca(cobranca.getId());
+        pagamento.setIdPrestacao(dto.getIdPrestacao());
+        pagamento.setIdSolicTaxa(cobranca.getIdSolicTaxa());
+        pagamento.setIdTpSolicTaxa(solicTaxa != null ? solicTaxa.getIdTpSolicTaxa() : null);
+        pagamento.setIdInvestidor(cobranca.getIdInvestidor());
+        pagamento.setIdPromotor(solicTaxa != null ? solicTaxa.getIdPromotor() : null);
+        pagamento.setIdProjeto(cobranca.getIdProjeto());
+        pagamento.setIdProcesso(cobranca.getNrProcesso());
+        pagamento.setNrProcesso(cobranca.getNrProcesso() != null ? cobranca.getNrProcesso().toString() : null);
+        pagamento.setValor(dto.getValor());
+        pagamento.setValorPago(dto.getValor().toPlainString());
+        pagamento.setDataPagamento(dto.getDataPagamento() != null ? dto.getDataPagamento() : java.time.LocalDate.now());
+        pagamento.setDataRegisto(java.time.LocalDate.now());
+        pagamento.setUserRegisto(firstText(dto.getUserRegisto(), dto.getUserPagamento(), "system"));
+        pagamento.setUserPagamento(firstText(dto.getUserPagamento(), dto.getUserRegisto(), "system"));
+        pagamento.setDmEstadoPag(ESTADO_PAGO);
+        pagamento.setDmEstado(ESTADO_ATIVO);
+        pagamento.setEntidade(dto.getEntidade());
+        pagamento.setReferencia(dto.getReferencia());
+        pagamento.setDuc(dto.getDuc());
+        pagamento.setFormaPagamento(dto.getFormaPagamento());
+        pagamento.setOrigemPagamento(dto.getOrigemPagamento());
+        pagamento.setNrCheque(dto.getNrCheque());
+        pagamento.setNumCheque(dto.getNumCheque());
+        pagamento.setBanco(dto.getBanco());
+        pagamento.setLinkDuc(dto.getLinkDuc());
+        pagamento.setFlagIntegracao(dto.getFlagIntegracao());
+        pagamento.setDataIntegracao(dto.getDataIntegracao());
+        pagamento.setUserIntegracao(dto.getUserIntegracao());
+        pagamento.setIdTaxa(resolvePagamentoIdTaxa(cobrancaTaxas));
+        return pagamento;
+    }
+
+    private List<ZeeTPagamentoTaxaEntity> createPagamentoTaxas(
+        ZeeTPagamentoEntity pagamento,
+        List<ZeeTCobrancaTaxaEntity> cobrancaTaxas,
+        CriarPagamentoRequestDTO dto
+    ) {
+        BigDecimal totalTaxas = cobrancaTaxas.stream()
+            .map(ZeeTCobrancaTaxaEntity::getValor)
+            .filter(Objects::nonNull)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalAlocado = BigDecimal.ZERO;
+        List<ZeeTPagamentoTaxaEntity> pagamentoTaxas = new ArrayList<>();
+        for (int i = 0; i < cobrancaTaxas.size(); i++) {
+            ZeeTCobrancaTaxaEntity cobrancaTaxa = cobrancaTaxas.get(i);
+            BigDecimal valorTaxa = resolveValorPagamentoTaxa(dto.getValor(), cobrancaTaxa, totalTaxas, totalAlocado, i == cobrancaTaxas.size() - 1);
+            totalAlocado = totalAlocado.add(valorTaxa);
+            ZeeTPagamentoTaxaEntity pagamentoTaxa = new ZeeTPagamentoTaxaEntity();
+            pagamentoTaxa.setIdPagamento(pagamento.getId());
+            pagamentoTaxa.setIdTaxa(cobrancaTaxa.getIdTaxa());
+            pagamentoTaxa.setIdTaxaCond(cobrancaTaxa.getIdTaxaCond());
+            pagamentoTaxa.setValor(valorTaxa);
+            pagamentoTaxa.setDmEstado(ESTADO_PAGO);
+            pagamentoTaxa.setUserRegisto(firstText(dto.getUserRegisto(), dto.getUserPagamento(), "system"));
+            pagamentoTaxa.setDataRegisto(java.time.LocalDate.now());
+            pagamentoTaxas.add(pagamentoTaxaRepository.save(pagamentoTaxa));
+        }
+        return pagamentoTaxas;
+    }
+
+    private BigDecimal resolveValorPagamentoTaxa(
+        BigDecimal valorPagamento,
+        ZeeTCobrancaTaxaEntity cobrancaTaxa,
+        BigDecimal totalTaxas,
+        BigDecimal totalAlocado,
+        boolean ultimaTaxa
+    ) {
+        if (ultimaTaxa) {
+            return valorPagamento.subtract(totalAlocado);
+        }
+        if (totalTaxas.compareTo(BigDecimal.ZERO) == 0 || cobrancaTaxa.getValor() == null) {
+            return BigDecimal.ZERO;
+        }
+        return valorPagamento
+            .multiply(cobrancaTaxa.getValor())
+            .divide(totalTaxas, 2, RoundingMode.HALF_UP);
+    }
+
+    private void atualizarCobrancaAposPagamento(
+        ZeeTCobrancaEntity cobranca,
+        List<ZeeTCobrancaTaxaEntity> cobrancaTaxas
+    ) {
+        BigDecimal total = parseMoney(cobranca.getValorTotal());
+        BigDecimal pagoAtual = calcularTotalPago(cobranca.getId());
+        BigDecimal divida = total.subtract(pagoAtual).max(BigDecimal.ZERO);
+        boolean pago = divida.compareTo(BigDecimal.ZERO) == 0;
+
+        cobranca.setValorPago(pagoAtual.toPlainString());
+        cobranca.setValorDivida(divida.toPlainString());
+        cobranca.setDmEstado(pago ? ESTADO_PAGO : ESTADO_PENDENTE);
+        cobrancaRepository.save(cobranca);
+
+        if (pago && !cobrancaTaxas.isEmpty()) {
+            cobrancaTaxas.forEach(cobrancaTaxa -> cobrancaTaxa.setDmEstado(ESTADO_PAGO));
+            cobrancaTaxaRepository.saveAll(cobrancaTaxas);
+        }
+    }
+
+    private BigDecimal calcularDividaAtual(ZeeTCobrancaEntity cobranca) {
+        BigDecimal total = parseMoney(cobranca.getValorTotal());
+        return total.subtract(calcularTotalPago(cobranca.getId())).max(BigDecimal.ZERO);
+    }
+
+    private BigDecimal calcularTotalPago(Integer idCobranca) {
+        return pagamentoRepository.findByIdCobrancaInOrderByIdCobrancaAscDataPagamentoDescIdDesc(List.of(idCobranca))
+            .stream()
+            .map(this::resolveValorPago)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private ZeeTSolicitacaoTaxaEntity findSolicTaxa(Integer idSolicTaxa) {
+        if (idSolicTaxa == null) {
+            return null;
+        }
+        return solicitacaoTaxaRepository.findById(idSolicTaxa).orElse(null);
+    }
+
+    private BigDecimal resolveValorPago(ZeeTPagamentoEntity pagamento) {
+        if (pagamento.getValorPago() != null && !pagamento.getValorPago().isBlank()) {
+            return parseMoney(pagamento.getValorPago());
+        }
+        return pagamento.getValor() != null ? pagamento.getValor() : BigDecimal.ZERO;
+    }
+
+    private BigDecimal parseMoney(String value) {
+        if (value == null || value.isBlank()) {
+            return BigDecimal.ZERO;
+        }
+        try {
+            return new BigDecimal(value.trim().replace(",", "."));
+        } catch (NumberFormatException ex) {
+            throw new BusinessException("Valor monetario invalido: " + value);
+        }
+    }
+
+    private BigDecimal resolvePagamentoIdTaxa(List<ZeeTCobrancaTaxaEntity> cobrancaTaxas) {
+        if (cobrancaTaxas.size() != 1 || cobrancaTaxas.get(0).getIdTaxa() == null) {
+            return null;
+        }
+        return BigDecimal.valueOf(cobrancaTaxas.get(0).getIdTaxa());
+    }
 
     @Override
     @Transactional(readOnly = true)
