@@ -28,6 +28,8 @@ import cv.zeemsv.api.exceptions.BusinessException;
 import cv.zeemsv.api.infrastructure.entity.TNotificacaoEntity;
 import cv.zeemsv.api.infrastructure.entity.TNotificacaoRelacaoEntity;
 import cv.zeemsv.api.infrastructure.entity.TPedidoEntity;
+import cv.zeemsv.api.infrastructure.entity.ZeeTCobrancaEntity;
+import cv.zeemsv.api.infrastructure.entity.ZeeTCobrancaTaxaEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTDocRelacaoEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTEmailsEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTInvestidorEntity;
@@ -37,12 +39,15 @@ import cv.zeemsv.api.infrastructure.entity.ZeeTPagamentoEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTSolicitacaoDocEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTSolicitacaoEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTSolicitacaoLoteEntity;
+import cv.zeemsv.api.infrastructure.entity.ZeeTSolicitacaoCobrancaEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTSolicitacaoTaxaEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicTpDocEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicitacaoEntity;
 import cv.zeemsv.api.infrastructure.repository.TPedidoRepository;
 import cv.zeemsv.api.infrastructure.repository.TNotificacaoRelacaoRepository;
 import cv.zeemsv.api.infrastructure.repository.TNotificacaoRepository;
+import cv.zeemsv.api.infrastructure.repository.ZeeTCobrancaRepository;
+import cv.zeemsv.api.infrastructure.repository.ZeeTCobrancaTaxaRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTConfigTemplateNotifRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTEmailsRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTInvestidorRepository;
@@ -53,6 +58,7 @@ import cv.zeemsv.api.infrastructure.repository.ZeeTPagamentoRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTProjInvestRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTSolicitacaoDocRepository;
 import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicTaxaEntity;
+import cv.zeemsv.api.infrastructure.repository.ZeeTSolicitacaoCobrancaRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTSolicitacaoLoteRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTSolicitacaoRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTSolicitacaoTaxaRepository;
@@ -106,6 +112,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     private static final String RECIBO_PEDIDO_DESCRICAO = "Recibo Pedido";
     private static final String RECIBO_PEDIDO_MIMETYPE = "application/pdf";
     private static final String ETAPA_ANALISE_SOLICITACAO = "Análise Solicitação";
+    private static final String MOMENTO_PAGAMENTO_NO_INICIO = "NO_INICIO";
     private static final String COD_ETAPA_ANALISE_SOLICITACAO = "analise_solicitacao";
     private static final int RECIBO_PATH_LOOKUP_ATTEMPTS = 5;
     private static final long RECIBO_PATH_LOOKUP_DELAY_MS = 500L;
@@ -131,6 +138,9 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     private final ZeeTLeadPromotorRepository leadPromotorRepository;
     private final ZeeTLoteRepository loteRepository;
     private final ZeeTSolicitacaoLoteRepository solicitacaoLoteRepository;
+    private final ZeeTCobrancaRepository cobrancaRepository;
+    private final ZeeTCobrancaTaxaRepository cobrancaTaxaRepository;
+    private final ZeeTSolicitacaoCobrancaRepository solicitacaoCobrancaRepository;
     private final ZeeTSolicitacaoTaxaRepository solicitacaoTaxaRepository;
     private final ZeeTPagamentoRepository pagamentoRepository;
     private final DocumentViewerUrlService documentViewerUrlService;
@@ -171,6 +181,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         pedido.setIdRelacao(BigDecimal.valueOf(solicitacao.getId()));
         pedidoRepository.save(pedido);
 
+        gerarCobrancaNoInicio(tpSolicitacao, solicitacao);
         saveLotes(dto, solicitacao);
         saveDocumentos(dto.getDocumentos(), solicitacao, idProcesso, idEtapaDoc);
         saveRequisitos(dto.getRequisitos(), solicitacao, idProcesso, idEtapaDoc);
@@ -626,6 +637,72 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
             }
         }
         return List.copyOf(ids);
+    }
+
+    private void gerarCobrancaNoInicio(ZeeTTpSolicitacaoEntity tpSolicitacao, ZeeTSolicitacaoEntity solicitacao) {
+        List<ZeeTTpSolicTaxaEntity> taxasNoInicio = tpSolicTaxaRepository.findByIdTpSolic(tpSolicitacao.getId()).stream()
+            .filter(this::isTaxaPagamentoNoInicio)
+            .toList();
+        if (taxasNoInicio.isEmpty()) {
+            return;
+        }
+
+        List<ZeeTSolicitacaoTaxaEntity> solicitacaoTaxas = taxasNoInicio.stream()
+            .map(taxa -> buildSolicitacaoTaxa(taxa, solicitacao))
+            .map(solicitacaoTaxaRepository::save)
+            .toList();
+
+        BigDecimal total = taxasNoInicio.stream()
+            .map(ZeeTTpSolicTaxaEntity::getValor)
+            .filter(Objects::nonNull)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        ZeeTCobrancaEntity cobranca = new ZeeTCobrancaEntity();
+        cobranca.setIdSolicitacao(solicitacao.getId());
+        cobranca.setIdSolicTaxa(solicitacaoTaxas.get(0).getId());
+        cobranca.setIdInvestidor(solicitacao.getIdInvestidor());
+        cobranca.setIdProjeto(solicitacao.getIdProjeto());
+        cobranca.setNrProcesso(solicitacao.getIdProcesso() != null ? solicitacao.getIdProcesso().intValue() : null);
+        cobranca.setDataEmissao(LocalDate.now());
+        cobranca.setDataVencimento(LocalDate.now());
+        cobranca.setValorTotal(total.toPlainString());
+        cobranca.setValorPago(BigDecimal.ZERO.toPlainString());
+        cobranca.setValorDivida(total.toPlainString());
+        cobranca.setDmEstado(ESTADO_PENDENTE);
+        cobranca.setUserRegisto(solicitacao.getUserSolic());
+        cobranca.setDataRegisto(LocalDate.now());
+        cobranca = cobrancaRepository.save(cobranca);
+
+        ZeeTSolicitacaoCobrancaEntity solicitacaoCobranca = new ZeeTSolicitacaoCobrancaEntity();
+        solicitacaoCobranca.setIdSolicitacao(solicitacao.getId());
+        solicitacaoCobranca.setIdCobranca(cobranca.getId());
+        solicitacaoCobrancaRepository.save(solicitacaoCobranca);
+
+        for (ZeeTTpSolicTaxaEntity taxa : taxasNoInicio) {
+            ZeeTCobrancaTaxaEntity cobrancaTaxa = new ZeeTCobrancaTaxaEntity();
+            cobrancaTaxa.setIdCobranca(cobranca.getId());
+            cobrancaTaxa.setIdTaxa(taxa.getIdTaxa());
+            cobrancaTaxa.setValor(taxa.getValor());
+            cobrancaTaxa.setDmEstado(ESTADO_PENDENTE);
+            cobrancaTaxa.setUserRegisto(solicitacao.getUserSolic());
+            cobrancaTaxa.setDataRegisto(LocalDate.now());
+            cobrancaTaxaRepository.save(cobrancaTaxa);
+        }
+    }
+
+    private ZeeTSolicitacaoTaxaEntity buildSolicitacaoTaxa(ZeeTTpSolicTaxaEntity taxa, ZeeTSolicitacaoEntity solicitacao) {
+        ZeeTSolicitacaoTaxaEntity solicitacaoTaxa = new ZeeTSolicitacaoTaxaEntity();
+        solicitacaoTaxa.setIdSolicitacao(solicitacao.getId());
+        solicitacaoTaxa.setIdTpSolicTaxa(taxa.getId());
+        solicitacaoTaxa.setValor(taxa.getValor() != null ? taxa.getValor() : BigDecimal.ZERO);
+        solicitacaoTaxa.setIdInvestidor(solicitacao.getIdInvestidor());
+        solicitacaoTaxa.setIdPromotor(solicitacao.getIdPromotor());
+        solicitacaoTaxa.setIdProjeto(solicitacao.getIdProjeto());
+        return solicitacaoTaxa;
+    }
+
+    private boolean isTaxaPagamentoNoInicio(ZeeTTpSolicTaxaEntity taxa) {
+        return MOMENTO_PAGAMENTO_NO_INICIO.equalsIgnoreCase(taxa.getDmMomentoPag());
     }
 
     private TPedidoEntity buildPedido(

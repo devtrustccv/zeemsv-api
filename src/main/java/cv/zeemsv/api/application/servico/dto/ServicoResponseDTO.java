@@ -1,5 +1,6 @@
 package cv.zeemsv.api.application.servico.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.math.BigDecimal;
 import java.util.List;
 import lombok.Getter;
@@ -24,6 +25,10 @@ public class ServicoResponseDTO {
     private String possuiTaxa;
     private Boolean possuiOnboarding;
     private Boolean sendedToCms;
+    @JsonProperty("instant_pagamento")
+    private Boolean instantPagamento;
+    @JsonProperty("total_a_pagar")
+    private BigDecimal totalAPagar;
     private String entidadeDenominacao;
     private String entidadeSigla;
     private String entidadeDmTipoEnt;

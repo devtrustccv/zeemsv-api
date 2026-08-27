@@ -7,10 +7,12 @@ import cv.zeemsv.api.application.servico.dto.ServicoSolicitanteResponseDTO;
 import cv.zeemsv.api.infrastructure.entity.ZeeTSolicOnboardingEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicRelacaoEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicRepreEntity;
+import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicTaxaEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTTpSolicitacaoEntity;
 import cv.zeemsv.api.infrastructure.repository.ZeeTSolicOnboardingRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTTpSolicRelacaoRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTTpSolicRepreRepository;
+import cv.zeemsv.api.infrastructure.repository.ZeeTTpSolicTaxaRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTTpSolicitacaoRepository;
 import cv.zeemsv.api.infrastructure.repository.projection.ServicoProjection;
 import jakarta.persistence.EntityNotFoundException;
@@ -19,17 +21,22 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class ServicoServiceImpl implements ServicoService {
+    private static final String MOMENTO_PAGAMENTO_NO_INICIO = "NO_INICIO";
+
     private final ZeeTTpSolicitacaoRepository repository;
     private final ZeeTTpSolicRelacaoRepository tpSolicRelacaoRepository;
     private final ZeeTTpSolicRepreRepository tpSolicRepreRepository;
+    private final ZeeTTpSolicTaxaRepository tpSolicTaxaRepository;
     private final ZeeTSolicOnboardingRepository solicOnboardingRepository;
     private final DomainDescriptionHelper domainHelper;
 
@@ -80,6 +87,10 @@ public class ServicoServiceImpl implements ServicoService {
             ? Collections.emptyMap()
             : tpSolicRepreRepository.findByIdTpSolicIn(ids).stream()
                 .collect(Collectors.groupingBy(ZeeTTpSolicRepreEntity::getIdTpSolic));
+        Map<Integer, List<ZeeTTpSolicTaxaEntity>> taxasByTpSolic = ids.isEmpty()
+            ? Collections.emptyMap()
+            : tpSolicTaxaRepository.findByIdTpSolicIn(ids).stream()
+                .collect(Collectors.groupingBy(ZeeTTpSolicTaxaEntity::getIdTpSolic));
         List<Integer> idsComOnboarding = servicos.stream()
             .filter(servico -> Boolean.TRUE.equals(servico.getPossuiOnboarding()))
             .map(ServicoProjection::getId)
@@ -94,6 +105,7 @@ public class ServicoServiceImpl implements ServicoService {
                 servico,
                 relacoesByTpSolic.getOrDefault(servico.getId(), Collections.emptyList()),
                 representantesByTpSolic.getOrDefault(servico.getId(), Collections.emptyList()),
+                taxasByTpSolic.getOrDefault(servico.getId(), Collections.emptyList()),
                 onboardingByTpSolic.getOrDefault(servico.getId(), Collections.emptyList())
             ))
             .toList();
@@ -103,6 +115,7 @@ public class ServicoServiceImpl implements ServicoService {
         ServicoProjection entity,
         List<ZeeTTpSolicRelacaoEntity> relacoes,
         List<ZeeTTpSolicRepreEntity> representantes,
+        List<ZeeTTpSolicTaxaEntity> taxas,
         List<ZeeTSolicOnboardingEntity> onboardings
     ) {
         ServicoResponseDTO dto = new ServicoResponseDTO();
@@ -123,6 +136,14 @@ public class ServicoServiceImpl implements ServicoService {
         dto.setPossuiTaxa(entity.getPossuiTaxa());
         dto.setPossuiOnboarding(entity.getPossuiOnboarding());
         dto.setSendedToCms(entity.getSendedToCms());
+        List<ZeeTTpSolicTaxaEntity> taxasNoInicio = taxas.stream()
+            .filter(this::isTaxaPagamentoNoInicio)
+            .toList();
+        dto.setInstantPagamento(!taxasNoInicio.isEmpty());
+        dto.setTotalAPagar(taxasNoInicio.stream()
+            .map(ZeeTTpSolicTaxaEntity::getValor)
+            .filter(Objects::nonNull)
+            .reduce(BigDecimal.ZERO, BigDecimal::add));
         dto.setEntidadeDenominacao(entity.getEntidadeDenominacao());
         dto.setEntidadeSigla(entity.getEntidadeSigla());
         dto.setEntidadeDmTipoEnt(entity.getEntidadeDmTipoEnt());
@@ -138,6 +159,10 @@ public class ServicoServiceImpl implements ServicoService {
             ? onboardings.stream().map(this::toOnboardingResponse).toList()
             : Collections.emptyList());
         return dto;
+    }
+
+    private boolean isTaxaPagamentoNoInicio(ZeeTTpSolicTaxaEntity taxa) {
+        return MOMENTO_PAGAMENTO_NO_INICIO.equalsIgnoreCase(taxa.getDmMomentoPag());
     }
 
     private ServicoSolicitanteResponseDTO toSolicitanteResponse(ZeeTTpSolicRelacaoEntity entity) {
