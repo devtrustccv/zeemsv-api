@@ -1606,7 +1606,19 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
 
     private SolicitacaoResponseDTO enrich(SolicitacaoResponseDTO dto) {
         dto.setDmEstadoProcDesc(domainHelper.describe(DomainDescriptionHelper.ESTADO_PROC_SOLICIT, dto.getDmEstadoProc()));
+        dto.setIdCobranca(findIdCobrancaBySolicitacao(dto.getId()));
         return dto;
+    }
+
+    private Integer findIdCobrancaBySolicitacao(Integer idSolicitacao) {
+        if (idSolicitacao == null) {
+            return null;
+        }
+        return solicitacaoCobrancaRepository.findByIdSolicitacao(idSolicitacao).stream()
+            .map(ZeeTSolicitacaoCobrancaEntity::getIdCobranca)
+            .filter(Objects::nonNull)
+            .findFirst()
+            .orElse(null);
     }
 
     private SolicitacaoDocResponseDTO toDocumentoResponse(SolicitacaoDocProjection p) {

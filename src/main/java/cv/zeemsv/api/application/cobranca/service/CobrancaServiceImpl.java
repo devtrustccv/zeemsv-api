@@ -104,7 +104,7 @@ public class CobrancaServiceImpl implements CobrancaService {
         pagamento.setNrProcesso(cobranca.getNrProcesso() != null ? cobranca.getNrProcesso().toString() : null);
         pagamento.setValor(dto.getValor());
         pagamento.setValorPago(dto.getValor().toPlainString());
-        pagamento.setDataPagamento(dto.getDataPagamento() != null ? dto.getDataPagamento() : java.time.LocalDate.now());
+        pagamento.setDataPagamento(java.time.LocalDate.now());
         pagamento.setDataRegisto(java.time.LocalDate.now());
         pagamento.setUserRegisto(firstText(dto.getUserRegisto(), dto.getUserPagamento(), "system"));
         pagamento.setUserPagamento(firstText(dto.getUserPagamento(), dto.getUserRegisto(), "system"));

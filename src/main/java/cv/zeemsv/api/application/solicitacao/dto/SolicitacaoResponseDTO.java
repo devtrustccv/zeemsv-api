@@ -13,6 +13,7 @@ public class SolicitacaoResponseDTO {
     private String estado;
     private Integer idTpSolicitacao;
     private Integer idPedido;
+    private Integer idCobranca;
     private Integer idEntidade;
     private BigDecimal idOrganica;
     private BigDecimal idProcesso;

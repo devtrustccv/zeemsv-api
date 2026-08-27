@@ -22,7 +22,6 @@ public class CriarPagamentoRequestDTO {
     @DecimalMin(value = "0.01", message = "O campo valor deve ser maior que zero")
     private BigDecimal valor;
 
-    private LocalDate dataPagamento;
     private String entidade;
     private String referencia;
     private String duc;
