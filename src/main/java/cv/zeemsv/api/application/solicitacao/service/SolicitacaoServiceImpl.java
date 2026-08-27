@@ -305,7 +305,16 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         response.setRequisitos(tpSolicTpDocRepository.findRequisitosByIdTpSolicitacao(idTpSolicitacao).stream()
             .map(this::toRequisitoResponse)
             .toList());
-        response.setTaxas(tpSolicTaxaRepository.findByIdTpSolic(idTpSolicitacao).stream()
+        List<ZeeTTpSolicTaxaEntity> taxas = tpSolicTaxaRepository.findByIdTpSolic(idTpSolicitacao);
+        List<ZeeTTpSolicTaxaEntity> taxasNoInicio = taxas.stream()
+            .filter(this::isTaxaPagamentoNoInicio)
+            .toList();
+        response.setInstantPagamento(!taxasNoInicio.isEmpty());
+        response.setTotalAPagar(taxasNoInicio.stream()
+            .map(ZeeTTpSolicTaxaEntity::getValor)
+            .filter(Objects::nonNull)
+            .reduce(BigDecimal.ZERO, BigDecimal::add));
+        response.setTaxas(taxas.stream()
             .map(this::toTaxaResponse)
             .toList());
         return response;
