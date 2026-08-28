@@ -1,6 +1,7 @@
 package cv.zeemsv.api.infrastructure.repository;
 
 import cv.zeemsv.api.infrastructure.repository.projection.DashboardCountProjection;
+import cv.zeemsv.api.infrastructure.repository.projection.DashboardTaxaProjection;
 import java.math.BigDecimal;
 import java.util.List;
 import org.springframework.data.jpa.repository.Query;
@@ -164,4 +165,94 @@ public interface InvestidorDashboardRepository extends Repository<cv.zeemsv.api.
             )
         """, nativeQuery = true)
     Long countNotificacoesNaoLidas(@Param("idInvestidor") Integer idInvestidor, @Param("ano") Integer ano, @Param("mes") Integer mes);
+
+    @Query(value = """
+        select coalesce(sum(p.valor), 0)
+        from public.zee_t_pagamento p
+        where p.id_investidor = :idInvestidor
+            and (:ano is null or extract(year from coalesce(p.data_pagamento, p.data_registo)) = :ano)
+            and (:mes is null or extract(month from coalesce(p.data_pagamento, p.data_registo)) = :mes)
+        """, nativeQuery = true)
+    BigDecimal sumPagamentos(@Param("idInvestidor") Integer idInvestidor, @Param("ano") Integer ano, @Param("mes") Integer mes);
+
+    @Query(value = """
+        select count(*)
+        from public.zee_t_cobranca c
+        where c.id_investidor = :idInvestidor
+            and coalesce(upper(c.dm_estado), 'PENDENTE') <> 'PAGO'
+            and (:ano is null or extract(year from c.data_emissao) = :ano)
+            and (:mes is null or extract(month from c.data_emissao) = :mes)
+        """, nativeQuery = true)
+    Long countPagamentosPendentes(@Param("idInvestidor") Integer idInvestidor, @Param("ano") Integer ano, @Param("mes") Integer mes);
+
+    @Query(value = """
+        select coalesce(sum(nullif(replace(replace(c.valor_divida, ' ', ''), ',', '.'), '')::numeric), 0)
+        from public.zee_t_cobranca c
+        where c.id_investidor = :idInvestidor
+            and c.data_vencimento < current_date
+            and coalesce(upper(c.dm_estado), 'PENDENTE') <> 'PAGO'
+            and nullif(replace(replace(c.valor_divida, ' ', ''), ',', '.'), '')::numeric > 0
+            and (:ano is null or extract(year from c.data_vencimento) = :ano)
+            and (:mes is null or extract(month from c.data_vencimento) = :mes)
+        """, nativeQuery = true)
+    BigDecimal sumTaxasEmAtraso(@Param("idInvestidor") Integer idInvestidor, @Param("ano") Integer ano, @Param("mes") Integer mes);
+
+    @Query(value = """
+        with cobrancas_em_atraso as (
+            select
+                c.id,
+                nullif(replace(replace(c.valor_divida, ' ', ''), ',', '.'), '')::numeric as valor_divida
+            from public.zee_t_cobranca c
+            where c.id_investidor = :idInvestidor
+                and c.data_vencimento < current_date
+                and coalesce(upper(c.dm_estado), 'PENDENTE') <> 'PAGO'
+                and nullif(replace(replace(c.valor_divida, ' ', ''), ',', '.'), '')::numeric > 0
+                and (:ano is null or extract(year from c.data_vencimento) = :ano)
+                and (:mes is null or extract(month from c.data_vencimento) = :mes)
+        ),
+        totais_taxa as (
+            select
+                ct.id_cobranca,
+                sum(coalesce(ct.valor, 0)) as total_taxas
+            from public.zee_t_cobranca_taxa ct
+            join cobrancas_em_atraso c on c.id = ct.id_cobranca
+            group by ct.id_cobranca
+        )
+        select
+            coalesce(t.descricao, 'Taxa sem descricao') as descricao,
+            coalesce(sum(
+                case
+                    when tt.total_taxas > 0 then c.valor_divida * coalesce(ct.valor, 0) / tt.total_taxas
+                    else c.valor_divida
+                end
+            ), 0) as valor
+        from cobrancas_em_atraso c
+        left join public.zee_t_cobranca_taxa ct on ct.id_cobranca = c.id
+        left join totais_taxa tt on tt.id_cobranca = c.id
+        left join public.zee_t_taxa t on t.id = ct.id_taxa
+        group by coalesce(t.descricao, 'Taxa sem descricao')
+        order by valor desc, descricao
+        """, nativeQuery = true)
+    List<DashboardTaxaProjection> findTaxasEmAtraso(@Param("idInvestidor") Integer idInvestidor, @Param("ano") Integer ano, @Param("mes") Integer mes);
+
+    @Query(value = """
+        select cast(s.id as varchar)
+        from public.zee_t_solicitacao s
+        where s.id_investidor = :idInvestidor
+        """, nativeQuery = true)
+    List<String> findSolicitacaoAuditTableIds(@Param("idInvestidor") Integer idInvestidor);
+
+    @Query(value = """
+        select cast(p.id as varchar)
+        from public.zee_t_pagamento p
+        where p.id_investidor = :idInvestidor
+        """, nativeQuery = true)
+    List<String> findPagamentoAuditTableIds(@Param("idInvestidor") Integer idInvestidor);
+
+    @Query(value = """
+        select cast(c.id as varchar)
+        from public.zee_t_cobranca c
+        where c.id_investidor = :idInvestidor
+        """, nativeQuery = true)
+    List<String> findCobrancaAuditTableIds(@Param("idInvestidor") Integer idInvestidor);
 }

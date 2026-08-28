@@ -343,7 +343,8 @@ public class AtividadeServiceImpl implements AtividadeService {
         }
         return new AtividadeBadgesResponseDTO(
             defaultZero(dashboardRepository.countNotificacoesNaoLidas(idInvestidor, null, null)),
-            defaultZero(dashboardRepository.countAgendamentosPendentes(idInvestidor, null, null))
+            defaultZero(dashboardRepository.countAgendamentosPendentes(idInvestidor, null, null)),
+            defaultZero(dashboardRepository.countPagamentosPendentes(idInvestidor, null, null))
         );
     }
 

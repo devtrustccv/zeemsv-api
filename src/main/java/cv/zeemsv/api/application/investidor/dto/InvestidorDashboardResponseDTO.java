@@ -16,4 +16,7 @@ public class InvestidorDashboardResponseDTO {
     private List<DashboardCountDTO> processoPorEstado;
     private List<DashboardCountDTO> processoPorEtapa;
     private DashboardAlertasDTO alertas;
+    private DashboardTaxasDTO taxasEmAtraso;
+    private DashboardPagamentosDTO pagamentos;
+    private List<DashboardAuditoriaDTO> ultimasAuditorias;
 }

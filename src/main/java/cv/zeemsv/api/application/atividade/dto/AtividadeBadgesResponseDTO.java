@@ -9,4 +9,5 @@ import lombok.Setter;
 public class AtividadeBadgesResponseDTO {
     private Long notificacoes;
     private Long agendamentos;
+    private Long cobrancasPendentes;
 }

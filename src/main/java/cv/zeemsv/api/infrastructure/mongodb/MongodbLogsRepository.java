@@ -39,12 +39,18 @@ public abstract class MongodbLogsRepository<E> {
     }
 
     protected ArrayList<E> loadLogs(int limit, Bson filter, Class<E> aClass) {
+        return loadLogs(limit, filter, null, aClass);
+    }
+
+    protected ArrayList<E> loadLogs(int limit, Bson filter, Bson sort, Class<E> aClass) {
         int safeLimit = limit > 0 ? limit : 50;
         Bson safeFilter = filter == null ? new Document() : filter;
         ArrayList<E> result = new ArrayList<>();
-        mongoTemplate.getCollection(collectionName)
-            .find(safeFilter)
-            .limit(safeLimit)
+        var findIterable = mongoTemplate.getCollection(collectionName).find(safeFilter);
+        if (sort != null) {
+            findIterable.sort(sort);
+        }
+        findIterable.limit(safeLimit)
             .map(document -> mongoTemplate.getConverter().read(aClass, document))
             .into(result);
         return result;

@@ -71,6 +71,10 @@ public class ChangeLogsService extends MongodbLogsRepository<ChangeLogs> {
         return loadLogs(limit, filter, ChangeLogs.class);
     }
 
+    public List<ChangeLogs> filterLogs(int limit, Bson filter, Bson sort) {
+        return loadLogs(limit, filter, sort, ChangeLogs.class);
+    }
+
     public ChangeLogs findById(ObjectId id) {
         return findById(id, ChangeLogs.class);
     }

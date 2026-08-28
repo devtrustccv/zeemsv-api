@@ -1,5 +1,8 @@
 package cv.zeemsv.api.application.cobranca.service;
 
+import cv.zeemsv.api.application.audit.dto.AuditContext;
+import cv.zeemsv.api.application.audit.entity.ChangeLogsItem;
+import cv.zeemsv.api.application.audit.service.ChangeLogsService;
 import cv.zeemsv.api.application.cobranca.dto.CobrancaInvestidorResponseDTO;
 import cv.zeemsv.api.application.cobranca.dto.CobrancaPagamentoResponseDTO;
 import cv.zeemsv.api.application.cobranca.dto.CobrancaPrestacaoResponseDTO;
@@ -59,6 +62,7 @@ public class CobrancaServiceImpl implements CobrancaService {
     private final ZeeTTaxaRepository taxaRepository;
     private final ZeeTInvestidorRepository investidorRepository;
     private final DomainDescriptionHelper domainHelper;
+    private final ChangeLogsService changeLogsService;
 
     @Override
     @Transactional
@@ -80,6 +84,7 @@ public class CobrancaServiceImpl implements CobrancaService {
 
         List<ZeeTPagamentoTaxaEntity> pagamentoTaxas = createPagamentoTaxas(pagamento, cobrancaTaxas, dto);
         atualizarCobrancaAposPagamento(cobranca, cobrancaTaxas);
+        auditPagamentoCriado(pagamento, dto);
 
         Map<Integer, ZeeTTaxaEntity> taxasPorId = findTaxas(Collections.emptyMap(), Collections.emptyList(), pagamentoTaxas);
         return toPagamentoResponse(pagamento, pagamentoTaxas, taxasPorId);
@@ -234,6 +239,33 @@ public class CobrancaServiceImpl implements CobrancaService {
             return null;
         }
         return BigDecimal.valueOf(cobrancaTaxas.get(0).getIdTaxa());
+    }
+
+    private void auditPagamentoCriado(ZeeTPagamentoEntity pagamento, CriarPagamentoRequestDTO dto) {
+        changeLogsService.createLogsAsyncSafe(
+            List.of(
+                logItem("id_cobranca", null, pagamento.getIdCobranca()),
+                logItem("valor", null, pagamento.getValor()),
+                logItem("referencia", null, pagamento.getReferencia()),
+                logItem("duc", null, pagamento.getDuc())
+            ),
+            "CREATE",
+            "zee_t_pagamento",
+            String.valueOf(pagamento.getId()),
+            "Pagamento registado",
+            AuditContext.builder()
+                .userId(firstText(dto.getUserPagamento(), dto.getUserRegisto()))
+                .userEmail(firstText(dto.getUserPagamento(), dto.getUserRegisto()))
+                .build()
+        );
+    }
+
+    private ChangeLogsItem logItem(String column, Object oldValue, Object newValue) {
+        ChangeLogsItem item = new ChangeLogsItem();
+        item.setColumn(column);
+        item.setOldValue(oldValue);
+        item.setNewValue(newValue);
+        return item;
     }
 
     @Override

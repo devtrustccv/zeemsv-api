@@ -1,8 +1,16 @@
 package cv.zeemsv.api.application.investidor.service;
 
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.Sorts;
+import cv.zeemsv.api.application.audit.entity.ChangeLogs;
+import cv.zeemsv.api.application.audit.service.ChangeLogsService;
 import cv.zeemsv.api.application.domain.DomainDescriptionHelper;
 import cv.zeemsv.api.application.investidor.dto.DashboardAlertasDTO;
+import cv.zeemsv.api.application.investidor.dto.DashboardAuditoriaDTO;
 import cv.zeemsv.api.application.investidor.dto.DashboardCountDTO;
+import cv.zeemsv.api.application.investidor.dto.DashboardPagamentosDTO;
+import cv.zeemsv.api.application.investidor.dto.DashboardTaxaItemDTO;
+import cv.zeemsv.api.application.investidor.dto.DashboardTaxasDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorDashboardResponseDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorDocumentoResponseDTO;
 import cv.zeemsv.api.application.investidor.dto.InvestidorRequestDTO;
@@ -16,6 +24,7 @@ import cv.zeemsv.api.exceptions.BusinessException;
 import cv.zeemsv.api.infrastructure.repository.InvestidorDashboardRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTDocRelacaoRepository;
 import cv.zeemsv.api.infrastructure.repository.projection.DashboardCountProjection;
+import cv.zeemsv.api.infrastructure.repository.projection.DashboardTaxaProjection;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,7 +33,11 @@ import org.springframework.util.StringUtils;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.Month;
+import java.util.ArrayList;
 import java.util.List;
+import org.bson.conversions.Bson;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +48,7 @@ public class InvestidorServiceImpl implements InvestidorService {
     private final ZeeTDocRelacaoRepository docRelacaoRepository;
     private final InvestidorDashboardRepository dashboardRepository;
     private final DocumentViewerUrlService documentViewerUrlService;
+    private final ChangeLogsService changeLogsService;
 
     @Override @Transactional
     public InvestidorResponseDTO create(InvestidorRequestDTO dto) { return mapper.toResponse(bus.create(mapper.toModel(dto))); }
@@ -95,6 +109,9 @@ public class InvestidorServiceImpl implements InvestidorService {
             null
         ));
         dto.setAlertas(toAlertas(idInvestidor, ano, mes));
+        dto.setTaxasEmAtraso(toTaxasEmAtraso(idInvestidor, ano, mes));
+        dto.setPagamentos(toPagamentos(idInvestidor, ano, mes));
+        dto.setUltimasAuditorias(findUltimasAuditorias(idInvestidor, ano, mes));
         return dto;
     }
 
@@ -140,6 +157,91 @@ public class InvestidorServiceImpl implements InvestidorService {
         dto.setAtencao(defaultZero(dashboardRepository.countAgendamentosPendentes(idInvestidor, ano, mes)));
         dto.setInformativos(defaultZero(dashboardRepository.countNotificacoesNaoLidas(idInvestidor, ano, mes)));
         return dto;
+    }
+
+    private DashboardPagamentosDTO toPagamentos(Integer idInvestidor, Integer ano, Integer mes) {
+        DashboardPagamentosDTO dto = new DashboardPagamentosDTO();
+        dto.setTotalPagamentos(formatCurrencyEcv(dashboardRepository.sumPagamentos(idInvestidor, ano, mes)));
+        dto.setPagamentosPendentes(defaultZero(dashboardRepository.countPagamentosPendentes(idInvestidor, ano, mes)));
+        return dto;
+    }
+
+    private DashboardTaxasDTO toTaxasEmAtraso(Integer idInvestidor, Integer ano, Integer mes) {
+        DashboardTaxasDTO dto = new DashboardTaxasDTO();
+        dto.setTotalEmAtraso(formatCurrencyEcv(dashboardRepository.sumTaxasEmAtraso(idInvestidor, ano, mes)));
+        dto.setTaxas(dashboardRepository.findTaxasEmAtraso(idInvestidor, ano, mes).stream()
+            .map(this::toTaxaItem)
+            .toList());
+        return dto;
+    }
+
+    private DashboardTaxaItemDTO toTaxaItem(DashboardTaxaProjection projection) {
+        return new DashboardTaxaItemDTO(
+            firstText(projection.getDescricao(), "Taxa sem descricao"),
+            formatCurrencyEcv(projection.getValor())
+        );
+    }
+
+    private List<DashboardAuditoriaDTO> findUltimasAuditorias(Integer idInvestidor, Integer ano, Integer mes) {
+        List<Bson> relationFilters = new ArrayList<>();
+        relationFilters.add(Filters.and(
+            Filters.eq("tableName", "zee_t_investidor"),
+            Filters.eq("tableId", String.valueOf(idInvestidor))
+        ));
+        addTableIdFilter(relationFilters, "zee_t_solicitacao", dashboardRepository.findSolicitacaoAuditTableIds(idInvestidor));
+        addTableIdFilter(relationFilters, "zee_t_pagamento", dashboardRepository.findPagamentoAuditTableIds(idInvestidor));
+        addTableIdFilter(relationFilters, "zee_t_cobranca", dashboardRepository.findCobrancaAuditTableIds(idInvestidor));
+
+        List<Bson> filters = new ArrayList<>();
+        filters.add(Filters.or(relationFilters));
+        buildAuditPeriodFilter(ano, mes).stream().forEach(filters::add);
+
+        try {
+            return changeLogsService.filterLogs(5, Filters.and(filters), Sorts.descending("date")).stream()
+                .map(this::toAuditoria)
+                .toList();
+        } catch (RuntimeException ex) {
+            return List.of();
+        }
+    }
+
+    private void addTableIdFilter(List<Bson> filters, String tableName, List<String> ids) {
+        List<String> safeIds = ids == null ? List.of() : ids.stream()
+            .filter(StringUtils::hasText)
+            .distinct()
+            .toList();
+        if (!safeIds.isEmpty()) {
+            filters.add(Filters.and(
+                Filters.eq("tableName", tableName),
+                Filters.in("tableId", safeIds)
+            ));
+        }
+    }
+
+    private List<Bson> buildAuditPeriodFilter(Integer ano, Integer mes) {
+        if (ano == null) {
+            return List.of();
+        }
+        LocalDateTime start = mes == null
+            ? LocalDateTime.of(ano, Month.JANUARY, 1, 0, 0)
+            : LocalDateTime.of(ano, mes, 1, 0, 0);
+        LocalDateTime end = mes == null ? start.plusYears(1) : start.plusMonths(1);
+        return List.of(Filters.gte("date", start), Filters.lt("date", end));
+    }
+
+    private DashboardAuditoriaDTO toAuditoria(ChangeLogs log) {
+        return new DashboardAuditoriaDTO(
+            log.getDate(),
+            firstText(log.getUserEmail(), log.getUserId(), "Sistema"),
+            buildAcaoRealizada(log),
+            log.getAction(),
+            log.getTableName(),
+            log.getTableId()
+        );
+    }
+
+    private String buildAcaoRealizada(ChangeLogs log) {
+        return firstText(log.getObs(), log.getAction() + " " + log.getTableName(), "Atividade registada");
     }
 
     private void validateDashboardPeriod(Integer ano, Integer mes) {
