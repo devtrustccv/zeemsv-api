@@ -47,6 +47,12 @@ public class ZeeTProjInvestEntity {
     @Column(name = "user_create", nullable = false)
     private BigDecimal userCreate;
 
+    @Column(name = "date_update")
+    private LocalDate dateUpdate;
+
+    @Column(name = "user_update")
+    private BigDecimal userUpdate;
+
     @Column(name = "dm_doc_falta")
     private Boolean dmDocFalta;
 

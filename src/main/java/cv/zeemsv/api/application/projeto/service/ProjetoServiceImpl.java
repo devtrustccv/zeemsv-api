@@ -68,6 +68,8 @@ public class ProjetoServiceImpl implements ProjetoService {
         dto.setDmEstadoProc(projection.getDmEstadoProc());
         dto.setDateCreate(projection.getDateCreate());
         dto.setUserCreate(projection.getUserCreate());
+        dto.setDateUpdate(projection.getDateUpdate());
+        dto.setUserUpdate(projection.getUserUpdate());
         dto.setDmDocFalta(projection.getDmDocFalta());
         dto.setIdInvestidorCae(projection.getIdInvestidorCae());
         dto.setAtividadePrincipal(projection.getAtividadePrincipal());

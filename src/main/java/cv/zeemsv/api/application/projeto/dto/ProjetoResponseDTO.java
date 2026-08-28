@@ -25,6 +25,8 @@ public class ProjetoResponseDTO {
     private String dmEstadoProcDesc;
     private LocalDate dateCreate;
     private BigDecimal userCreate;
+    private LocalDate dateUpdate;
+    private BigDecimal userUpdate;
     private Boolean dmDocFalta;
     private String dmDocFaltaDesc;
     private Integer idInvestidorCae;

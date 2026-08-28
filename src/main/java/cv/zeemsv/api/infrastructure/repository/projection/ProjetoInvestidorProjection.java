@@ -14,6 +14,8 @@ public interface ProjetoInvestidorProjection {
     String getDmEstadoProc();
     LocalDate getDateCreate();
     BigDecimal getUserCreate();
+    LocalDate getDateUpdate();
+    BigDecimal getUserUpdate();
     Boolean getDmDocFalta();
     Integer getIdInvestidorCae();
     String getDmSituacao();

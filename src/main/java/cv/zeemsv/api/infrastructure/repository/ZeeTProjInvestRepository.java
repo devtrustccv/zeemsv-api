@@ -23,6 +23,8 @@ public interface ZeeTProjInvestRepository extends JpaRepository<ZeeTProjInvestEn
             p.dmEstadoProc as dmEstadoProc,
             p.dateCreate as dateCreate,
             p.userCreate as userCreate,
+            p.dateUpdate as dateUpdate,
+            p.userUpdate as userUpdate,
             p.dmDocFalta as dmDocFalta,
             p.idInvestidorCae as idInvestidorCae,
             p.dmSituacao as dmSituacao,

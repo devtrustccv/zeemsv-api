@@ -19,6 +19,8 @@ public class Projeto {
     private String dmEstadoProc;
     private LocalDate dateCreate;
     private BigDecimal userCreate;
+    private LocalDate dateUpdate;
+    private BigDecimal userUpdate;
     private Boolean dmDocFalta;
     private Integer idInvestidorCae;
     private String dmSituacao;
