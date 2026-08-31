@@ -1,8 +1,10 @@
 package cv.zeemsv.api.application.cobranca.service;
 
 import cv.zeemsv.api.application.audit.dto.AuditContext;
+import cv.zeemsv.api.application.audit.dto.TransactionAuditRequestDTO;
 import cv.zeemsv.api.application.audit.entity.ChangeLogsItem;
 import cv.zeemsv.api.application.audit.service.ChangeLogsService;
+import cv.zeemsv.api.application.audit.service.TransactionAuditService;
 import cv.zeemsv.api.application.cobranca.dto.CobrancaInvestidorResponseDTO;
 import cv.zeemsv.api.application.cobranca.dto.CobrancaPagamentoResponseDTO;
 import cv.zeemsv.api.application.cobranca.dto.CobrancaPrestacaoResponseDTO;
@@ -34,6 +36,7 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -43,6 +46,8 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 @RequiredArgsConstructor
@@ -63,6 +68,7 @@ public class CobrancaServiceImpl implements CobrancaService {
     private final ZeeTInvestidorRepository investidorRepository;
     private final DomainDescriptionHelper domainHelper;
     private final ChangeLogsService changeLogsService;
+    private final TransactionAuditService transactionAuditService;
 
     @Override
     @Transactional
@@ -258,6 +264,31 @@ public class CobrancaServiceImpl implements CobrancaService {
                 .userEmail(firstText(dto.getUserPagamento(), dto.getUserRegisto()))
                 .build()
         );
+        runAfterCommit(() -> transactionAuditService.createAsyncSafe(transactionAuditPagamentoCriado(pagamento, dto)));
+    }
+
+    private TransactionAuditRequestDTO transactionAuditPagamentoCriado(ZeeTPagamentoEntity pagamento, CriarPagamentoRequestDTO dto) {
+        TransactionAuditRequestDTO audit = new TransactionAuditRequestDTO();
+        audit.setUserId(firstText(dto.getUserPagamento(), dto.getUserRegisto()));
+        audit.setActionType("PAYMENT");
+        audit.setActionLabel("Pagamento");
+        audit.setDescription("Pagamento registado #" + pagamento.getId());
+        audit.setTableName("zee_t_pagamento");
+        audit.setTableId(String.valueOf(pagamento.getId()));
+        audit.setModule("PAGAMENTO");
+        audit.setRequestMethod("POST");
+        audit.setRequestUri("/api/v1/pagamentos");
+        audit.setStatusCode(201);
+
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("idCobranca", pagamento.getIdCobranca());
+        metadata.put("idInvestidor", pagamento.getIdInvestidor());
+        metadata.put("idProjeto", pagamento.getIdProjeto());
+        metadata.put("idSolicitacao", pagamento.getIdSolicitacao());
+        metadata.put("valor", pagamento.getValor());
+        metadata.put("source", "business_service");
+        audit.setMetadata(metadata);
+        return audit;
     }
 
     private ChangeLogsItem logItem(String column, Object oldValue, Object newValue) {
@@ -266,6 +297,19 @@ public class CobrancaServiceImpl implements CobrancaService {
         item.setOldValue(oldValue);
         item.setNewValue(newValue);
         return item;
+    }
+
+    private void runAfterCommit(Runnable action) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    action.run();
+                }
+            });
+            return;
+        }
+        action.run();
     }
 
     @Override

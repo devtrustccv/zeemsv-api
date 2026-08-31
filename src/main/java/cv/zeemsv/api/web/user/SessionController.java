@@ -10,6 +10,7 @@ import cv.zeemsv.api.application.user.dto.UserAccountDetailResponseDTO;
 import cv.zeemsv.api.application.user.service.SessionService;
 import cv.zeemsv.api.interfaces.dto.ApiResponse;
 import cv.zeemsv.api.utils.enums.LoginProvider;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.util.StringUtils;
 import java.util.List;
 
 @RestController
@@ -34,7 +36,8 @@ public class SessionController {
         @RequestHeader("X-OPENID-TOKEN") String accessToken,
         @RequestHeader("X-FINGERPRINT") String fingerprint,
         @RequestParam(required = false, name = "url_redirect") String urlRedirect,
-        @RequestParam(required = false, name = "provider", defaultValue = "AUTENTIKA") LoginProvider provider
+        @RequestParam(required = false, name = "provider", defaultValue = "AUTENTIKA") LoginProvider provider,
+        HttpServletRequest httpRequest
     ) {
         LoginRequestDTO request = LoginRequestDTO.builder()
             .autentikaToken(accessToken)
@@ -43,7 +46,7 @@ public class SessionController {
             .loginProvider(provider)
             .build();
 
-        LoginResponseDTO response = sessionService.login(request);
+        LoginResponseDTO response = sessionService.login(request, resolveIp(httpRequest), httpRequest.getHeader("User-Agent"));
         return ResponseEntity.ok(ApiResponse.ok("Sessao criada com sucesso", response));
     }
 
@@ -63,9 +66,10 @@ public class SessionController {
     @GetMapping("/logout")
     public ResponseEntity<ApiResponse<SessionValidationResponseDTO>> logout(
         @RequestHeader(name = "X-SESSION-TOKEN") String accessToken,
-        @RequestHeader(name = "X-FINGERPRINT") String fingerprint
+        @RequestHeader(name = "X-FINGERPRINT") String fingerprint,
+        HttpServletRequest httpRequest
     ) {
-        SessionValidationResponseDTO response = sessionService.logout(accessToken, fingerprint);
+        SessionValidationResponseDTO response = sessionService.logout(accessToken, fingerprint, resolveIp(httpRequest), httpRequest.getHeader("User-Agent"));
         if (!response.isValid()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.fail(response.getMessage(), response));
@@ -116,5 +120,13 @@ public class SessionController {
                 .body(ApiResponse.fail("OTP invalido", null));
         }
         return ResponseEntity.ok(ApiResponse.ok("OTP validado com sucesso", null));
+    }
+
+    private String resolveIp(HttpServletRequest request) {
+        String forwardedFor = request.getHeader("X-Forwarded-For");
+        if (StringUtils.hasText(forwardedFor)) {
+            return forwardedFor.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }

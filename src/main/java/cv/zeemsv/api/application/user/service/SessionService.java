@@ -2,6 +2,10 @@ package cv.zeemsv.api.application.user.service;
 
 import cv.zeemsv.api.application.generic.dto.OtpResponseDto;
 import cv.zeemsv.api.application.generic.service.OTPService;
+import cv.zeemsv.api.application.audit.dto.AccessAuditRequestDTO;
+import cv.zeemsv.api.application.audit.dto.SessionAuditRequestDTO;
+import cv.zeemsv.api.application.audit.service.AccessAuditService;
+import cv.zeemsv.api.application.audit.service.SessionAuditService;
 import cv.zeemsv.api.application.pessoa.mapper.PessoaModelDTOMapper;
 import cv.zeemsv.api.application.pessoa.service.ContatoService;
 import cv.zeemsv.api.application.user.dto.LoginRequestDTO;
@@ -36,6 +40,8 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 @RequiredArgsConstructor
@@ -51,6 +57,8 @@ public class SessionService {
     private final ZeeTSocioRepresRepository socioRepresRepository;
     private final ZeeTRepresInvestidorRepository represInvestidorRepository;
     private final DocumentViewerUrlService documentViewerUrlService;
+    private final AccessAuditService accessAuditService;
+    private final SessionAuditService sessionAuditService;
 
     @Value("${application.session.jwt-secret:01234567890123456789012345678901}")
     private String jwtSecret;
@@ -60,11 +68,17 @@ public class SessionService {
 
     @Transactional
     public LoginResponseDTO login(LoginRequestDTO request) {
+        return login(request, null, null);
+    }
+
+    @Transactional
+    public LoginResponseDTO login(LoginRequestDTO request, String ip, String userAgent) {
         AuthenticatedUserInfo userInfo;
         try {
             userInfo = autentikaBus.getUserInfo(request.getAutentikaToken(), request.getLoginProvider());
         } catch (ExternalApiException e) {
             log.error(Messages.AUTENTIKA_ERROR, e);
+            auditLoginFailure(null, null, null, request.getLoginProvider().name(), ip, userAgent);
             throw new BusinessException(Messages.AUTENTIKA_ERROR, e);
         }
 
@@ -99,7 +113,7 @@ public class SessionService {
             .sessionToken(jwtToken)
             .provider(request.getLoginProvider().name())
             .build();
-        sessionBus.save(session);
+        session = sessionBus.save(session);
 
         Optional<PessoaModel> pessoaOpt;
         PessoaModel pessoa = null;
@@ -150,6 +164,7 @@ public class SessionService {
         loginResponseDTO.setEmail(user.getEmail());
         loginResponseDTO.setNome(user.getName());
         loginResponseDTO.setStatus(user.getStatus());
+        auditLoginSuccess(loginResponseDTO, session, request.getLoginProvider().name(), ip, userAgent);
         return loginResponseDTO;
     }
 
@@ -174,6 +189,10 @@ public class SessionService {
     }
 
     public SessionValidationResponseDTO logout(String accessToken, String fingerprint) {
+        return logout(accessToken, fingerprint, null, null);
+    }
+
+    public SessionValidationResponseDTO logout(String accessToken, String fingerprint, String ip, String userAgent) {
         Optional<SessionModel> optSession = sessionBus.findBySessionToken(accessToken);
         if (optSession.isEmpty()) {
             return SessionValidationResponseDTO.builder().valid(false).message("Sessao nao encontrada").build();
@@ -191,8 +210,11 @@ public class SessionService {
                 .build();
         }
 
-        session.setEndDate(LocalDateTime.now());
-        sessionBus.save(session);
+        LocalDateTime originalEndDate = session.getEndDate();
+        LocalDateTime revokedAt = LocalDateTime.now();
+        session.setEndDate(revokedAt);
+        session = sessionBus.save(session);
+        auditLogout(session, originalEndDate, revokedAt, ip, userAgent);
         return SessionValidationResponseDTO.builder().valid(true).message("Sessao encerrada.").build();
     }
 
@@ -256,6 +278,127 @@ public class SessionService {
             return fotoUrl;
         }
         return documentViewerUrlService.toViewerUrl(fotoPath);
+    }
+
+    private void auditLoginSuccess(LoginResponseDTO response, SessionModel session, String provider, String ip, String userAgent) {
+        runAfterCommit(() -> {
+            accessAuditService.createAsyncSafe(accessAudit(
+                response.getUserId(),
+                response.getNome(),
+                response.getEmail(),
+                response.getEmail(),
+                "LOGIN_SUCCESS",
+                "Login com sucesso",
+                provider,
+                ip,
+                userAgent,
+                200
+            ));
+            sessionAuditService.createAsyncSafe(sessionAudit(response, session, "ATIVA", null, provider, ip, userAgent));
+        });
+    }
+
+    private void auditLoginFailure(String userId, String userName, String userEmail, String provider, String ip, String userAgent) {
+        accessAuditService.createAsyncSafe(accessAudit(
+            toStringValue(userId),
+            userName,
+            userEmail,
+            userEmail,
+            "LOGIN_FAILED",
+            "Login falhado",
+            provider,
+            ip,
+            userAgent,
+            401
+        ));
+    }
+
+    private void auditLogout(SessionModel session, LocalDateTime originalEndDate, LocalDateTime revokedAt, String ip, String userAgent) {
+        runAfterCommit(() -> {
+            accessAuditService.createAsyncSafe(accessAudit(
+                session.getUserId(),
+                null,
+                null,
+                null,
+                "LOGOUT",
+                "Logout",
+                session.getProvider(),
+                ip,
+                userAgent,
+                200
+            ));
+            LoginResponseDTO response = LoginResponseDTO.builder().userId(session.getUserId()).build();
+            SessionAuditRequestDTO sessionAudit = sessionAudit(response, session, "REVOGADA", revokedAt, session.getProvider(), ip, userAgent);
+            sessionAudit.setExpiresAt(originalEndDate);
+            sessionAuditService.revokeAsyncSafe(sessionAudit);
+        });
+    }
+
+    private AccessAuditRequestDTO accessAudit(
+        Object userId,
+        String userName,
+        String userEmail,
+        String identifier,
+        String eventType,
+        String eventLabel,
+        String provider,
+        String ip,
+        String userAgent,
+        Integer statusCode
+    ) {
+        AccessAuditRequestDTO dto = new AccessAuditRequestDTO();
+        dto.setUserId(toStringValue(userId));
+        dto.setUserName(userName);
+        dto.setUserEmail(userEmail);
+        dto.setIdentifier(identifier);
+        dto.setEventType(eventType);
+        dto.setEventLabel(eventLabel);
+        dto.setAuthenticationMethod(provider);
+        dto.setIp(ip);
+        dto.setUserAgent(userAgent);
+        dto.setStatusCode(statusCode);
+        return dto;
+    }
+
+    private SessionAuditRequestDTO sessionAudit(
+        LoginResponseDTO response,
+        SessionModel session,
+        String state,
+        LocalDateTime revokedAt,
+        String provider,
+        String ip,
+        String userAgent
+    ) {
+        SessionAuditRequestDTO dto = new SessionAuditRequestDTO();
+        dto.setUserId(toStringValue(response.getUserId()));
+        dto.setUserName(response.getNome());
+        dto.setUserEmail(response.getEmail());
+        dto.setIp(ip);
+        dto.setAuthenticationMethod(provider);
+        dto.setState(state);
+        dto.setStartedAt(session.getStartDate());
+        dto.setExpiresAt(session.getEndDate());
+        dto.setRevokedAt(revokedAt);
+        dto.setSessionId(toStringValue(session.getId()));
+        dto.setUserAgent(userAgent);
+        return dto;
+    }
+
+    private String toStringValue(Object value) {
+        return value != null ? String.valueOf(value) : null;
+    }
+
+    private void runAfterCommit(Runnable action) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    action.run();
+                }
+            });
+            return;
+        }
+        action.run();
     }
 
     @Transactional

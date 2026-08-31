@@ -20,6 +20,7 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.index.Index;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -68,6 +69,35 @@ public class SessionAuditService {
             create(dto);
         } catch (Exception ex) {
             log.warn("Falha ao gravar log de sessao. userId={}, sessionId={}",
+                dto != null ? dto.getUserId() : null,
+                dto != null ? dto.getSessionId() : null,
+                ex
+            );
+        }
+    }
+
+    @Async("auditTaskExecutor")
+    public void revokeAsyncSafe(SessionAuditRequestDTO dto) {
+        try {
+            if (!StringUtils.hasText(dto.getSessionId())) {
+                create(dto);
+                return;
+            }
+            Query query = Query.query(Criteria.where("sessionId").is(dto.getSessionId()))
+                .with(Sort.by(Sort.Direction.DESC, "date"))
+                .limit(1);
+            Update update = new Update()
+                .set("state", firstText(dto.getState(), "REVOGADA"))
+                .set("revokedAt", dto.getRevokedAt() != null ? dto.getRevokedAt() : LocalDateTime.now());
+            if (dto.getExpiresAt() != null) {
+                update.set("expiresAt", dto.getExpiresAt());
+            }
+            var result = mongoTemplate.updateFirst(query, update, SessionAuditLog.class, collectionName);
+            if (result.getMatchedCount() == 0) {
+                create(dto);
+            }
+        } catch (Exception ex) {
+            log.warn("Falha ao revogar log de sessao. userId={}, sessionId={}",
                 dto != null ? dto.getUserId() : null,
                 dto != null ? dto.getSessionId() : null,
                 ex

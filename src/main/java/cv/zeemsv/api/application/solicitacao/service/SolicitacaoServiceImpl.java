@@ -3,8 +3,10 @@ package cv.zeemsv.api.application.solicitacao.service;
 import cv.zeemsv.api.application.domain.DomainDescriptionHelper;
 import cv.zeemsv.api.application.generic.service.EmailService;
 import cv.zeemsv.api.application.audit.dto.AuditContext;
+import cv.zeemsv.api.application.audit.dto.TransactionAuditRequestDTO;
 import cv.zeemsv.api.application.audit.entity.ChangeLogsItem;
 import cv.zeemsv.api.application.audit.service.ChangeLogsService;
+import cv.zeemsv.api.application.audit.service.TransactionAuditService;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDocResponseDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDetailResponseDTO;
 import cv.zeemsv.api.application.solicitacao.dto.SolicitacaoDocumentosRequisitosResponseDTO;
@@ -90,6 +92,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -149,6 +152,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
     private final EmailService emailService;
     private final PlatformTransactionManager transactionManager;
     private final ChangeLogsService changeLogsService;
+    private final TransactionAuditService transactionAuditService;
 
     @Value("${application.reports.recibo-pdf-url-template:${application.reports.recibo-url-template:}}")
     private String reciboPdfUrlTemplate;
@@ -186,6 +190,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         saveDocumentos(dto.getDocumentos(), solicitacao, idProcesso, idEtapaDoc);
         saveRequisitos(dto.getRequisitos(), solicitacao, idProcesso, idEtapaDoc);
         notifyAfterCommit(dto, solicitacao, pedido, processo, tpSolicitacao);
+        auditSolicitacaoSubmetida(dto, solicitacao, pedido, processo);
 
         return enrich(mapper.toResponse(bus.findById(solicitacao.getId())));
     }
@@ -205,6 +210,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         corrigirRequisitos(dto.getRequisitos(), solicitacao);
         atualizarEstadoCorrecaoEAvancarProcesso(dto, solicitacao, authorization);
         auditSolicitacaoCorrection(before, solicitacao, beforeLotes, dto);
+        auditSolicitacaoCorrigida(solicitacao, dto);
 
         return enrich(mapper.toResponse(bus.findById(solicitacao.getId())));
     }
@@ -233,6 +239,19 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
                 runAfterCommitInNewTransaction(() -> notifyTecnicos(solicitacao, pedido, tpSolicitacao));
             }
         });
+    }
+
+    private void runAfterCommit(Runnable action) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    action.run();
+                }
+            });
+            return;
+        }
+        action.run();
     }
 
     private void runAfterCommitInNewTransaction(Runnable action) {
@@ -982,6 +1001,78 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
             .count();
     }
 
+    private void auditSolicitacaoSubmetida(
+        SubmeterSolicitacaoRequestDTO dto,
+        ZeeTSolicitacaoEntity solicitacao,
+        TPedidoEntity pedido,
+        StartProcessResponse processo
+    ) {
+        TransactionAuditRequestDTO audit = baseSolicitacaoTransactionAudit(
+            "CREATE",
+            "Submissao de formulario",
+            "Submissao de solicitacao #" + solicitacao.getId(),
+            solicitacao
+        );
+        audit.setUserId(toStringValue(dto.getIdUser()));
+        audit.setUserName(dto.getUserName());
+        audit.setUserEmail(dto.getEmail());
+        audit.setRequestMethod("POST");
+        audit.setRequestUri("/api/v1/solicitacaos/submeter");
+
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("idPedido", pedido.getId());
+        metadata.put("idProcesso", solicitacao.getIdProcesso());
+        metadata.put("processInstanceId", processo.getProcessInstanceId());
+        metadata.put("idTpSolicitacao", dto.getIdTpSolicitacao());
+        metadata.put("idInvestidor", dto.getIdInvestidor());
+        metadata.put("idProjeto", dto.getIdProjeto());
+        metadata.put("source", "business_service");
+        audit.setMetadata(metadata);
+        runAfterCommit(() -> transactionAuditService.createAsyncSafe(audit));
+    }
+
+    private void auditSolicitacaoCorrigida(ZeeTSolicitacaoEntity solicitacao, CorrigirSolicitacaoRequestDTO dto) {
+        TransactionAuditRequestDTO audit = baseSolicitacaoTransactionAudit(
+            "UPDATE",
+            "Edicao",
+            "Correcao de solicitacao #" + solicitacao.getId(),
+            solicitacao
+        );
+        audit.setUserId(firstText(solicitacao.getUserCorecao(), solicitacao.getUserSolic()));
+        audit.setUserName(dto.getUserName());
+        audit.setRequestMethod("PUT");
+        audit.setRequestUri("/api/v1/solicitacaos/" + solicitacao.getId() + "/correcao");
+        audit.setStatusCode(200);
+
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("idProcesso", solicitacao.getIdProcesso());
+        metadata.put("idPedido", solicitacao.getIdPedido());
+        metadata.put("idInvestidor", solicitacao.getIdInvestidor());
+        metadata.put("idProjeto", solicitacao.getIdProjeto());
+        metadata.put("documentosCorrigidos", countDocumentosCorrigidos(dto));
+        metadata.put("requisitosCorrigidos", dto.getRequisitos() == null ? 0 : dto.getRequisitos().size());
+        metadata.put("source", "business_service");
+        audit.setMetadata(metadata);
+        runAfterCommit(() -> transactionAuditService.createAsyncSafe(audit));
+    }
+
+    private TransactionAuditRequestDTO baseSolicitacaoTransactionAudit(
+        String actionType,
+        String actionLabel,
+        String description,
+        ZeeTSolicitacaoEntity solicitacao
+    ) {
+        TransactionAuditRequestDTO audit = new TransactionAuditRequestDTO();
+        audit.setActionType(actionType);
+        audit.setActionLabel(actionLabel);
+        audit.setDescription(description);
+        audit.setTableName("zee_t_solicitacao");
+        audit.setTableId(String.valueOf(solicitacao.getId()));
+        audit.setModule("SOLICITACAO");
+        audit.setStatusCode(201);
+        return audit;
+    }
+
     private ZeeTSolicitacaoEntity copySolicitacaoForAudit(ZeeTSolicitacaoEntity source) {
         ZeeTSolicitacaoEntity copy = new ZeeTSolicitacaoEntity();
         copy.setId(source.getId());
@@ -1130,6 +1221,10 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
             }
         }
         return null;
+    }
+
+    private static String toStringValue(Object value) {
+        return value != null ? String.valueOf(value) : null;
     }
 
     private static boolean hasText(String value) {

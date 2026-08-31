@@ -12,6 +12,7 @@ import cv.zeemsv.api.application.user.service.CredentialsLoginService;
 import cv.zeemsv.api.application.user.service.PasswordRecoveryService;
 import cv.zeemsv.api.application.user.service.UserRegistrationService;
 import cv.zeemsv.api.interfaces.dto.ApiResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.util.StringUtils;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -48,9 +50,10 @@ public class UserAuthController {
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponseDTO>> login(
         @RequestHeader("X-FINGERPRINT") String fingerprint,
-        @Valid @RequestBody CredentialsLoginRequestDTO request
+        @Valid @RequestBody CredentialsLoginRequestDTO request,
+        HttpServletRequest httpRequest
     ) {
-        LoginResponseDTO response = credentialsLoginService.login(request, fingerprint);
+        LoginResponseDTO response = credentialsLoginService.login(request, fingerprint, resolveIp(httpRequest), httpRequest.getHeader("User-Agent"));
         return ResponseEntity.ok(ApiResponse.ok("Login efetuado com sucesso", response));
     }
 
@@ -68,5 +71,13 @@ public class UserAuthController {
     ) {
         passwordRecoveryService.resetPassword(request);
         return ResponseEntity.ok(ApiResponse.ok("Password atualizada com sucesso", null));
+    }
+
+    private String resolveIp(HttpServletRequest request) {
+        String forwardedFor = request.getHeader("X-Forwarded-For");
+        if (StringUtils.hasText(forwardedFor)) {
+            return forwardedFor.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }
