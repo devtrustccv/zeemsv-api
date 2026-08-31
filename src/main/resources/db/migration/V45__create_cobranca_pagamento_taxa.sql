@@ -1,8 +1,8 @@
 create table if not exists public.zee_t_cobranca_taxa (
     id serial primary key,
-    id_cobranca integer,
-    id_taxa integer,
-    id_taxa_cond integer,
+    id_cobranca int4,
+    id_taxa int4,
+    id_taxa_cond int4,
     valor float8,
     dm_estado varchar(255),
     user_registo varchar(255),
@@ -26,9 +26,9 @@ create index if not exists idx_zee_t_cobranca_taxa_id_taxa
 
 create table if not exists public.zee_t_pagamento_taxa (
     id serial primary key,
-    id_pagamento integer,
-    id_taxa integer,
-    id_taxa_cond integer,
+    id_pagamento int4,
+    id_taxa int4,
+    id_taxa_cond int4,
     valor float8,
     dm_estado varchar(255),
     user_registo varchar(255),

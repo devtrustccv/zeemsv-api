@@ -20,5 +20,8 @@ public class AuditMongoProperties {
         private String changes = "changeLogs";
         private String jobs = "jobLogs";
         private String app = "appLogs";
+        private String transactions = "transactionAuditLogs";
+        private String access = "accessAuditLogs";
+        private String sessions = "sessionAuditLogs";
     }
 }
