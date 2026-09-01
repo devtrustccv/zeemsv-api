@@ -208,7 +208,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         corrigirDadosPedido(dto, solicitacao);
         corrigirDocumentos(dto.getDocumentos(), solicitacao);
         corrigirRequisitos(dto.getRequisitos(), solicitacao);
-        atualizarEstadoCorrecaoEAvancarProcesso(dto, solicitacao, authorization);
+        // atualizarEstadoCorrecaoEAvancarProcesso(dto, solicitacao, authorization);
         auditSolicitacaoCorrection(before, solicitacao, beforeLotes, dto);
         auditSolicitacaoCorrigida(solicitacao, dto);
 
