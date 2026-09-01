@@ -208,7 +208,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         corrigirDadosPedido(dto, solicitacao);
         corrigirDocumentos(dto.getDocumentos(), solicitacao);
         corrigirRequisitos(dto.getRequisitos(), solicitacao);
-        // atualizarEstadoCorrecaoEAvancarProcesso(dto, solicitacao, authorization);
+        atualizarEstadoCorrecaoEAvancarProcesso(dto, solicitacao, authorization);
         auditSolicitacaoCorrection(before, solicitacao, beforeLotes, dto);
         auditSolicitacaoCorrigida(solicitacao, dto);
 
@@ -950,7 +950,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         if (taskNumber == null) {
             throw new BusinessException("Pedido sem etapa/task para avancar processo: " + pedido.getId());
         }
-        processStartService.advanceTaskCorrecao(taskNumber, authorization);
+        // processStartService.advanceTaskCorrecao(taskNumber, authorization);
     }
 
     private void auditSolicitacaoCorrection(
