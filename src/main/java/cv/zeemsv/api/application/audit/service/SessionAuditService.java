@@ -52,11 +52,15 @@ public class SessionAuditService {
 
     @PostConstruct
     public void ensureIndexes() {
-        mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("date", Sort.Direction.DESC));
-        mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("userId", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
-        mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("state", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
-        mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("ip", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
-        mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("sessionId", Sort.Direction.ASC));
+        try {
+            mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("date", Sort.Direction.DESC));
+            mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("userId", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
+            mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("state", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
+            mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("ip", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
+            mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("sessionId", Sort.Direction.ASC));
+        } catch (Exception ex) {
+            log.warn("Falha ao criar indices de auditoria de sessao. collection={}", collectionName, ex);
+        }
     }
 
     public SessionAuditResponseDTO create(SessionAuditRequestDTO dto) {

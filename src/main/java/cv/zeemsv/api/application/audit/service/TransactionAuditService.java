@@ -75,12 +75,16 @@ public class TransactionAuditService {
 
     @PostConstruct
     public void ensureIndexes() {
-        mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("date", Sort.Direction.DESC));
-        mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("userId", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
-        mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("actionType", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
-        mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("tableName", Sort.Direction.ASC).on("tableId", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
-        mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("module", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
-        mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("ip", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
+        try {
+            mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("date", Sort.Direction.DESC));
+            mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("userId", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
+            mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("actionType", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
+            mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("tableName", Sort.Direction.ASC).on("tableId", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
+            mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("module", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
+            mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("ip", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
+        } catch (Exception ex) {
+            log.warn("Falha ao criar indices de auditoria transacional. collection={}", collectionName, ex);
+        }
     }
 
     public TransactionAuditResponseDTO create(TransactionAuditRequestDTO dto) {
