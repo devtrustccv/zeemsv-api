@@ -82,6 +82,7 @@ public class TransactionAuditService {
             mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("tableName", Sort.Direction.ASC).on("tableId", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
             mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("module", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
             mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("ip", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
+            mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("metadata.idInvestidor", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
         } catch (Exception ex) {
             log.warn("Falha ao criar indices de auditoria transacional. collection={}", collectionName, ex);
         }
@@ -125,6 +126,7 @@ public class TransactionAuditService {
         String tableName,
         String tableId,
         String module,
+        Integer idInvestidor,
         String ip,
         Integer page,
         Integer size
@@ -132,10 +134,10 @@ public class TransactionAuditService {
         int safePage = page != null && page >= 0 ? page : DEFAULT_PAGE;
         int safeSize = size != null && size > 0 ? Math.min(size, MAX_SIZE) : DEFAULT_SIZE;
 
-        Query baseQuery = buildQuery(userId, actionType, dateFrom, dateTo, tableName, tableId, module, ip);
+        Query baseQuery = buildQuery(userId, actionType, dateFrom, dateTo, tableName, tableId, module, idInvestidor, ip);
         long total = mongoTemplate.count(baseQuery, TransactionAuditLog.class, collectionName);
 
-        Query pageQuery = buildQuery(userId, actionType, dateFrom, dateTo, tableName, tableId, module, ip)
+        Query pageQuery = buildQuery(userId, actionType, dateFrom, dateTo, tableName, tableId, module, idInvestidor, ip)
             .with(Sort.by(Sort.Direction.DESC, "date"))
             .skip((long) safePage * safeSize)
             .limit(safeSize);
@@ -181,6 +183,7 @@ public class TransactionAuditService {
         String tableName,
         String tableId,
         String module,
+        Integer idInvestidor,
         String ip
     ) {
         List<Criteria> filters = new java.util.ArrayList<>();
@@ -190,6 +193,7 @@ public class TransactionAuditService {
         addEquals(filters, "tableName", tableName);
         addEquals(filters, "tableId", tableId);
         addEquals(filters, "module", module);
+        addEquals(filters, "metadata.idInvestidor", idInvestidor);
         addEquals(filters, "ip", ip);
 
         Criteria dateCriteria = buildDateCriteria(dateFrom, dateTo);
@@ -220,6 +224,12 @@ public class TransactionAuditService {
     private void addEquals(List<Criteria> filters, String field, String value) {
         if (StringUtils.hasText(value)) {
             filters.add(Criteria.where(field).is(value.trim()));
+        }
+    }
+
+    private void addEquals(List<Criteria> filters, String field, Integer value) {
+        if (value != null) {
+            filters.add(Criteria.where(field).is(value));
         }
     }
 

@@ -47,13 +47,14 @@ public class TransactionAuditController {
         @RequestParam(required = false) String tableName,
         @RequestParam(required = false) String tableId,
         @RequestParam(required = false) String module,
+        @RequestParam(required = false) Integer idInvestidor,
         @RequestParam(required = false) String ip,
         @RequestParam(required = false) Integer page,
         @RequestParam(required = false) Integer size
     ) {
         return ResponseEntity.ok(ApiResponse.ok(
             "Auditorias transacionais encontradas",
-            service.findAll(userId, actionType, dateFrom, dateTo, tableName, tableId, module, ip, page, size)
+            service.findAll(userId, actionType, dateFrom, dateTo, tableName, tableId, module, idInvestidor, ip, page, size)
         ));
     }
 
