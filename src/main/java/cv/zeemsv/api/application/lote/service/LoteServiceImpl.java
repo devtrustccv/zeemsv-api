@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -77,12 +78,18 @@ public class LoteServiceImpl implements LoteService {
         LoteInvestidorResponseDTO dto = new LoteInvestidorResponseDTO();
         dto.setIdLote(projection.getIdLote());
         dto.setRefLote(projection.getRefLote());
+        dto.setRefCm(projection.getRefCm());
         dto.setNip(projection.getNip());
         dto.setDmSituacaoCd(projection.getDmSituacaoCd());
         dto.setDmSituacaoCdDesc(domainHelper.describe(DomainDescriptionHelper.SITUACAO_LOTE, projection.getDmSituacaoCd()));
         dto.setEstado(projection.getEstado());
         dto.setIdZona(projection.getIdZona());
         dto.setZona(projection.getZona());
+        dto.setIdPark(projection.getIdPark());
+        dto.setParqueNome(projection.getParqueNome());
+        dto.setParqueSigla(projection.getParqueSigla());
+        dto.setParqueEstado(projection.getParqueEstado());
+        dto.setParqueEstadoDesc(domainHelper.describe(DomainDescriptionHelper.ESTADO, projection.getParqueEstado()));
         dto.setArea(projection.getArea());
         dto.setAreaInicial(projection.getAreaInicial());
         dto.setIdInvestidor(projection.getIdInvestidor());
@@ -95,7 +102,9 @@ public class LoteServiceImpl implements LoteService {
         dto.setDataAssociacao(projection.getDataAssociacao());
         dto.setUtilizadorAssociacao(projection.getUtilizadorAssociacao());
         dto.setDmEnquadramento(projection.getDmEnquadramento());
-        dto.setDmEnquadramentoDesc(domainHelper.describe(DomainDescriptionHelper.FORMA_COMERCIALIZACAO, projection.getDmEnquadramento()));
+        dto.setDmEnquadramentoDesc(describeCsv(DomainDescriptionHelper.FORMA_COMERCIALIZACAO, projection.getDmEnquadramento()));
+        dto.setFormasComercializacao(projection.getFormasComercializacao());
+        dto.setFormasComercializacaoDesc(describeCsv(DomainDescriptionHelper.FORMA_COMERCIALIZACAO, projection.getFormasComercializacao()));
         dto.setProjetoDenominacao(projection.getProjetoDenominacao());
         dto.setProjetoDmRegime(projection.getProjetoDmRegime());
         dto.setProjetoDmRegimeDesc(domainHelper.describe(DomainDescriptionHelper.REGIME, projection.getProjetoDmRegime()));
@@ -109,5 +118,20 @@ public class LoteServiceImpl implements LoteService {
         dto.setProjetoDmEstadoProjDesc(domainHelper.describe(DomainDescriptionHelper.ESTADO_PROJETO, projection.getProjetoDmEstadoProj()));
         dto.setProjetoDateCreate(projection.getProjetoDateCreate());
         return dto;
+    }
+
+    private String describeCsv(String dominio, String values) {
+        if (values == null || values.isBlank()) {
+            return null;
+        }
+        return Arrays.stream(values.split(","))
+            .map(String::trim)
+            .filter(value -> !value.isEmpty())
+            .map(value -> {
+                String desc = domainHelper.describe(dominio, value);
+                return desc != null ? desc : value;
+            })
+            .distinct()
+            .collect(java.util.stream.Collectors.joining(", "));
     }
 }

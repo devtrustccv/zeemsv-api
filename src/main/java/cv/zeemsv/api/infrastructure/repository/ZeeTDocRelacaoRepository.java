@@ -117,4 +117,32 @@ public interface ZeeTDocRelacaoRepository extends JpaRepository<ZeeTDocRelacaoEn
         order by d.date_create desc, d.id desc
         """, nativeQuery = true)
     List<InvestidorDocumentoProjection> findDocumentosByInvestidorId(@Param("idInvestidor") Integer idInvestidor);
+
+    @Query(value = """
+        select
+            d.id as id,
+            d.tipo_relacao as tipoRelacao,
+            d.id_relacao as idRelacao,
+            coalesce(td.nome, d.descricao) as nomeDocumento,
+            proj.denominacao as objetoDescricao,
+            d.id_doc as idDoc,
+            d.id_tp_doc as idTpDoc,
+            d.estado as estado,
+            d.date_create as dateCreate,
+            d.user_create as userCreate,
+            d.path as path,
+            d.doc_size as docSize,
+            d.mimetype as mimetype,
+            d.descricao as descricao
+        from public.zee_t_doc_relacao d
+        left join public.zee_t_tp_doc td on td.id = d.id_tp_doc
+        left join public.zee_t_proj_invest proj
+            on d.tipo_relacao = 'PROJETO'
+            and proj.id = d.id_relacao::integer
+        where d.tipo_relacao = 'PROJETO'
+            and d.id_relacao::integer = :idProjeto
+            and d.estado = 'ATIVO'
+        order by d.date_create desc, d.id desc
+        """, nativeQuery = true)
+    List<InvestidorDocumentoProjection> findDocumentosByProjetoId(@Param("idProjeto") Integer idProjeto);
 }

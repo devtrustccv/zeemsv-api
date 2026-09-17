@@ -2,6 +2,8 @@ package cv.zeemsv.api.application.projeto.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
+import cv.zeemsv.api.application.lote.dto.LoteInvestidorResponseDTO;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -40,4 +42,7 @@ public class ProjetoResponseDTO {
     private LocalDate dataDesistencia;
     private BigDecimal userDesistencia;
     private String motivo;
+    private List<ProjetoRepresentanteResponseDTO> representantes;
+    private List<LoteInvestidorResponseDTO> lotes;
+    private List<ProjetoDocumentoResponseDTO> documentos;
 }

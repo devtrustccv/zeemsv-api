@@ -6,11 +6,16 @@ import java.time.LocalDate;
 public interface LoteInvestidorProjection {
     Integer getIdLote();
     String getRefLote();
+    String getRefCm();
     String getNip();
     String getDmSituacaoCd();
     String getEstado();
     Integer getIdZona();
     String getZona();
+    Integer getIdPark();
+    String getParqueNome();
+    String getParqueSigla();
+    String getParqueEstado();
     BigDecimal getArea();
     BigDecimal getAreaInicial();
     Integer getIdInvestidor();
@@ -21,6 +26,7 @@ public interface LoteInvestidorProjection {
     LocalDate getDataAssociacao();
     String getUtilizadorAssociacao();
     String getDmEnquadramento();
+    String getFormasComercializacao();
     String getProjetoDenominacao();
     String getProjetoDmRegime();
     String getProjetoDmProdutoServico();

@@ -9,12 +9,18 @@ import lombok.Setter;
 public class LoteInvestidorResponseDTO {
     private Integer idLote;
     private String refLote;
+    private String refCm;
     private String nip;
     private String dmSituacaoCd;
     private String dmSituacaoCdDesc;
     private String estado;
     private Integer idZona;
     private String zona;
+    private Integer idPark;
+    private String parqueNome;
+    private String parqueSigla;
+    private String parqueEstado;
+    private String parqueEstadoDesc;
     private BigDecimal area;
     private BigDecimal areaInicial;
     private Integer idInvestidor;
@@ -28,6 +34,8 @@ public class LoteInvestidorResponseDTO {
     private String utilizadorAssociacao;
     private String dmEnquadramento;
     private String dmEnquadramentoDesc;
+    private String formasComercializacao;
+    private String formasComercializacaoDesc;
     private String projetoDenominacao;
     private String projetoDmRegime;
     private String projetoDmRegimeDesc;

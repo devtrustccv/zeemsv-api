@@ -84,6 +84,11 @@ public class SolicitacaoController {
         return ResponseEntity.ok(ApiResponse.ok("Detalhes da solicitacao encontrados", service.findDetailById(id)));
     }
 
+    @GetMapping("/pedido/{idPedido}/detalhes")
+    public ResponseEntity<ApiResponse<SolicitacaoDetailResponseDTO>> findDetailByPedidoId(@PathVariable Integer idPedido) {
+        return ResponseEntity.ok(ApiResponse.ok("Detalhes do pedido da solicitacao encontrados", service.findDetailByPedidoId(idPedido)));
+    }
+
     @GetMapping("/{id}/recibo-dados")
     public ResponseEntity<ApiResponse<ReciboPedidoDadosResponseDTO>> findReciboDados(@PathVariable Integer id) {
         return ResponseEntity.ok(ApiResponse.ok("Dados do recibo encontrados", service.findReciboDados(id)));

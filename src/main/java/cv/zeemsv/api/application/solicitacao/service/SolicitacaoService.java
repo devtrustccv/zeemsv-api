@@ -17,6 +17,7 @@ public interface SolicitacaoService {
     SolicitacaoResponseDTO update(Integer id, SolicitacaoRequestDTO dto);
     SolicitacaoResponseDTO findById(Integer id);
     SolicitacaoDetailResponseDTO findDetailById(Integer id);
+    SolicitacaoDetailResponseDTO findDetailByPedidoId(Integer idPedido);
     List<SolicitacaoResponseDTO> findAll();
     List<SolicitacaoResponseDTO> findByInvestidorId(Integer idInvestidor);
     ReciboPedidoDadosResponseDTO findReciboDados(Integer idSolicitacao);

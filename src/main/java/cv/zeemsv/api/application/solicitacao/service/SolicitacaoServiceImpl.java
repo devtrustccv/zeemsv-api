@@ -273,6 +273,22 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
             .map(this::toResponse)
             .orElseThrow(() -> new BusinessException("Solicitacao nao encontrada: " + id));
 
+        return buildDetail(solicitacao);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SolicitacaoDetailResponseDTO findDetailByPedidoId(Integer idPedido) {
+        ZeeTSolicitacaoEntity solicitacao = solicitacaoRepository.findFirstByIdPedido(idPedido)
+            .orElseThrow(() -> new BusinessException("Solicitacao nao encontrada para o pedido: " + idPedido));
+        SolicitacaoResponseDTO response = solicitacaoRepository.findDetalheById(solicitacao.getId())
+            .map(this::toResponse)
+            .orElseThrow(() -> new BusinessException("Solicitacao nao encontrada: " + solicitacao.getId()));
+
+        return buildDetail(response);
+    }
+
+    private SolicitacaoDetailResponseDTO buildDetail(SolicitacaoResponseDTO solicitacao) {
         SolicitacaoDetailResponseDTO detail = new SolicitacaoDetailResponseDTO();
         detail.setSolicitacao(solicitacao);
         detail.setPedido(resolvePedidoDados(solicitacao));
@@ -1822,14 +1838,74 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         dto.setInvestidorDenominacao(p.getInvestidorDenominacao());
         dto.setInvestidorNif(p.getInvestidorNif());
         dto.setInvestidorEmail(p.getInvestidorEmail());
+        dto.setInvestidorPhone(p.getInvestidorPhone());
+        dto.setInvestidorIndicativoPais(p.getInvestidorIndicativoPais());
         dto.setInvestidorTelemovel(p.getInvestidorTelemovel());
         dto.setInvestidorPaisOrigem(p.getInvestidorPaisOrigem());
+        dto.setInvestidorEndereco(p.getInvestidorEndereco());
+        dto.setInvestidorMatricula(p.getInvestidorMatricula());
+        dto.setInvestidorDmNaturezaJuridica(p.getInvestidorDmNaturezaJuridica());
+        dto.setInvestidorDmNaturezaJuridicaDesc(domainHelper.describe(DomainDescriptionHelper.NATUREZA_JURIDICA, p.getInvestidorDmNaturezaJuridica()));
+        dto.setInvestidorSetor(p.getInvestidorSetor());
+        dto.setInvestidorSede(p.getInvestidorSede());
+        dto.setInvestidorDmClassificacao(p.getInvestidorDmClassificacao());
+        dto.setInvestidorDmClassificacaoDesc(domainHelper.describe(DomainDescriptionHelper.CLASSIFICACAO, p.getInvestidorDmClassificacao()));
+        dto.setInvestidorDataConstituicao(p.getInvestidorDataConstituicao());
+        dto.setInvestidorSite(p.getInvestidorSite());
+        dto.setInvestidorFlagRec(p.getInvestidorFlagRec());
+        dto.setInvestidorFlagRecDesc(domainHelper.describe(DomainDescriptionHelper.SIM_NAO, p.getInvestidorFlagRec()));
+        dto.setInvestidorDmEstado(p.getInvestidorDmEstado());
+        dto.setInvestidorDmEstadoDesc(domainHelper.describe(DomainDescriptionHelper.ESTADO, p.getInvestidorDmEstado()));
+        dto.setInvestidorLinkRegComercial(p.getInvestidorLinkRegComercial());
+        dto.setInvestidorFormaObrigar(p.getInvestidorFormaObrigar());
+        dto.setInvestidorCapitalSocial(p.getInvestidorCapitalSocial());
+        dto.setInvestidorFlagServico(p.getInvestidorFlagServico());
+        dto.setInvestidorFlagServicoDesc(domainHelper.describe(DomainDescriptionHelper.SIM_NAO, p.getInvestidorFlagServico()));
+        dto.setInvestidorDmIdoma(p.getInvestidorDmIdoma());
+        dto.setInvestidorDmIdomaDesc(domainHelper.describe(DomainDescriptionHelper.IDIOMA, p.getInvestidorDmIdoma()));
+        dto.setInvestidorDmTipoInvestidor(p.getInvestidorDmTipoInvestidor());
+        dto.setInvestidorDmTipoInvestidorDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_INVESTIDOR, p.getInvestidorDmTipoInvestidor()));
+        dto.setInvestidorDmGenero(p.getInvestidorDmGenero());
+        dto.setInvestidorDmGeneroDesc(domainHelper.describe(DomainDescriptionHelper.GENERO, p.getInvestidorDmGenero()));
+        dto.setInvestidorDataNascimento(p.getInvestidorDataNascimento());
+        dto.setInvestidorDmEstadoCivil(p.getInvestidorDmEstadoCivil());
+        dto.setInvestidorDmEstadoCivilDesc(domainHelper.describe(DomainDescriptionHelper.ESTADO_CIVIL, p.getInvestidorDmEstadoCivil()));
+        dto.setInvestidorProfissao(p.getInvestidorProfissao());
+        dto.setInvestidorNrDocumento(p.getInvestidorNrDocumento());
+        dto.setInvestidorMoeda(p.getInvestidorMoeda());
+        dto.setInvestidorMoedaDesc(domainHelper.describe(DomainDescriptionHelper.MOEDA, p.getInvestidorMoeda()));
 
         dto.setPromotorDenominacao(p.getPromotorDenominacao());
         dto.setPromotorNif(p.getPromotorNif());
         dto.setPromotorEmail(p.getPromotorEmail());
+        dto.setPromotorDmEstado(p.getPromotorDmEstado());
+        dto.setPromotorDmEstadoDesc(domainHelper.describe(DomainDescriptionHelper.ESTADO, p.getPromotorDmEstado()));
+        dto.setPromotorDmIdioma(p.getPromotorDmIdioma());
+        dto.setPromotorDmIdiomaDesc(domainHelper.describe(DomainDescriptionHelper.IDIOMA, p.getPromotorDmIdioma()));
+        dto.setPromotorPhone(p.getPromotorPhone());
+        dto.setPromotorIndicativoPais(p.getPromotorIndicativoPais());
         dto.setPromotorTelemovel(p.getPromotorTelemovel());
         dto.setPromotorPaisOrigem(p.getPromotorPaisOrigem());
+        dto.setPromotorEndereco(p.getPromotorEndereco());
+        dto.setPromotorMatricula(p.getPromotorMatricula());
+        dto.setPromotorDmNaturezaJuridica(p.getPromotorDmNaturezaJuridica());
+        dto.setPromotorDmNaturezaJuridicaDesc(domainHelper.describe(DomainDescriptionHelper.NATUREZA_JURIDICA, p.getPromotorDmNaturezaJuridica()));
+        dto.setPromotorSetor(p.getPromotorSetor());
+        dto.setPromotorSede(p.getPromotorSede());
+        dto.setPromotorDataConstituicao(p.getPromotorDataConstituicao());
+        dto.setPromotorSite(p.getPromotorSite());
+        dto.setPromotorLinkRegComercial(p.getPromotorLinkRegComercial());
+        dto.setPromotorFormaObrigar(p.getPromotorFormaObrigar());
+        dto.setPromotorCapitalSocial(p.getPromotorCapitalSocial());
+        dto.setPromotorTipoInvestidor(p.getPromotorTipoInvestidor());
+        dto.setPromotorTipoInvestidorDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_INVESTIDOR, p.getPromotorTipoInvestidor()));
+        dto.setPromotorDmGenero(p.getPromotorDmGenero());
+        dto.setPromotorDmGeneroDesc(domainHelper.describe(DomainDescriptionHelper.GENERO, p.getPromotorDmGenero()));
+        dto.setPromotorDataNascimento(p.getPromotorDataNascimento());
+        dto.setPromotorDmEstadoCivil(p.getPromotorDmEstadoCivil());
+        dto.setPromotorDmEstadoCivilDesc(domainHelper.describe(DomainDescriptionHelper.ESTADO_CIVIL, p.getPromotorDmEstadoCivil()));
+        dto.setPromotorProfissao(p.getPromotorProfissao());
+        dto.setPromotorNrDocumento(p.getPromotorNrDocumento());
 
         dto.setProjetoDenominacao(p.getProjetoDenominacao());
         dto.setProjetoDmRegime(p.getProjetoDmRegime());
