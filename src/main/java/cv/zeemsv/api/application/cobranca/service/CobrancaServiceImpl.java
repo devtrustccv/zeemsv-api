@@ -50,6 +50,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -57,6 +58,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Service
 @RequiredArgsConstructor
+@Log4j2
 public class CobrancaServiceImpl implements CobrancaService {
     private static final String ESTADO_ATIVO = "A";
     private static final String ESTADO_PENDENTE = "PENDENTE";
@@ -66,7 +68,7 @@ public class CobrancaServiceImpl implements CobrancaService {
     private static final String ORIGEM_PAGAMENTO_PORTAL = "PORTAL";
     private static final String FLAG_INTEGRACAO_TRUE = "true";
     private static final String PAYMENT_GATEWAY_CHANNEL_CODE = "1008";
-    private static final String PAYMENT_GATEWAY_EMAIL = "555@uniteltmais.cv";
+    private static final String PAYMENT_GATEWAY_EMAIL = "info@azeemsv.cv";
     private static final String PAYMENT_GATEWAY_BILL_ADDR_COUNTRY = "238";
     private static final String PAYMENT_GATEWAY_BILL_ADDR_CITY = "MINDELO";
     private static final String PAYMENT_GATEWAY_BILL_ADDR_LINE1 = "CHA DE CRICKET - MINDELO - SÃO VICENTE";
@@ -90,17 +92,45 @@ public class CobrancaServiceImpl implements CobrancaService {
     @Override
     @Transactional(readOnly = true)
     public RealizarPagamentoResponseDTO realizarPagamento(RealizarPagamentoRequestDTO dto) {
+        log.info("Realizar pagamento - inicio. idCobranca={}, valor={}", dto.getIdCobranca(), dto.getValor());
+
         ZeeTCobrancaEntity cobranca = cobrancaRepository.findById(dto.getIdCobranca())
             .orElseThrow(() -> new BusinessException("Cobranca nao encontrada: " + dto.getIdCobranca()));
         validateValorPagamento(dto.getValor(), cobranca);
 
+        log.info(
+            "Realizar pagamento - cobranca encontrada. id={}, valorTotal={}, valorPago={}, valorDivida={}, dmEstado={}",
+            cobranca.getId(),
+            cobranca.getValorTotal(),
+            cobranca.getValorPago(),
+            cobranca.getValorDivida(),
+            cobranca.getDmEstado()
+        );
+
+        PaymentGatewayPaymentRequestDTO gatewayRequest = toPaymentGatewayRequest(dto, cobranca);
+        log.info(
+            "Realizar pagamento - request gateway. transactionId={}, total={}, paymentType={}, email={}, billAddrCountry={}, billAddrCity={}, billAddrPostCode={}",
+            gatewayRequest.getTransactionId(),
+            gatewayRequest.getTotal(),
+            gatewayRequest.getPaymentType(),
+            gatewayRequest.getEmail(),
+            gatewayRequest.getBillAddrCountry(),
+            gatewayRequest.getBillAddrCity(),
+            gatewayRequest.getBillAddrPostCode()
+        );
+
         PaymentGatewayPaymentResponseDTO gatewayResponse = paymentGatewayPaymentClient.createPayment(
-            toPaymentGatewayRequest(dto, cobranca)
+            gatewayRequest
         );
 
         RealizarPagamentoResponseDTO response = new RealizarPagamentoResponseDTO();
         response.setIntentionId(gatewayResponse.getIntentionId());
         response.setLinkPayment(gatewayResponse.getPaymentUrl());
+        log.info(
+            "Realizar pagamento - resposta gateway. intentionId={}, linkPaymentPresente={}",
+            response.getIntentionId(),
+            response.getLinkPayment() != null && !response.getLinkPayment().isBlank()
+        );
         return response;
     }
 

@@ -1,5 +1,7 @@
 package cv.zeemsv.api.infrastructure.client;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import cv.zeemsv.api.application.paymentgateway.dto.PaymentGatewayPaymentRequestDTO;
 import cv.zeemsv.api.application.paymentgateway.dto.PaymentGatewayPaymentResponseDTO;
 import cv.zeemsv.api.application.paymentgateway.dto.PaymentGatewayPaymentValidationRequestDTO;
@@ -26,6 +28,7 @@ public class PaymentGatewayPaymentClient {
     private final RestClient.Builder restClientBuilder;
     private final PaymentGatewayProperties properties;
     private final PaymentGatewayAuthClient authClient;
+    private final ObjectMapper objectMapper;
 
     public PaymentGatewayPaymentResponseDTO createPayment(PaymentGatewayPaymentRequestDTO request) {
         validateConfiguration();
@@ -34,21 +37,34 @@ public class PaymentGatewayPaymentClient {
         String token = authClient.getAccessToken();
 
         try {
-            PaymentGatewayPaymentResponseDTO response = restClientBuilder.build()
+            MultiValueMap<String, String> form = toForm(request);
+            log.info("Criar pagamento gateway - request form: {}", form);
+
+            String responseBody = restClientBuilder.build()
                 .post()
                 .uri(properties.getPaymentUrl())
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .accept(MediaType.APPLICATION_JSON)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                .body(toForm(request))
+                .body(form)
                 .retrieve()
-                .body(PaymentGatewayPaymentResponseDTO.class);
+                .body(String.class);
 
+            log.info("Criar pagamento gateway - response body: {}", responseBody);
+
+            PaymentGatewayPaymentResponseDTO response = objectMapper.readValue(responseBody, PaymentGatewayPaymentResponseDTO.class);
             validateResponse(response);
             return response;
         } catch (RestClientResponseException ex) {
-            log.warn("Falha ao criar pagamento no gateway. HTTP: {}", ex.getStatusCode());
+            log.warn(
+                "Falha ao criar pagamento no gateway. HTTP: {}, body: {}",
+                ex.getStatusCode(),
+                ex.getResponseBodyAsString()
+            );
             throw new BusinessException("Falha ao criar pagamento no gateway.");
+        } catch (JsonProcessingException ex) {
+            log.warn("Erro ao interpretar resposta do gateway de pagamento.", ex);
+            throw new BusinessException("Erro ao interpretar resposta do gateway de pagamento.");
         } catch (RuntimeException ex) {
             if (ex instanceof BusinessException businessException) {
                 throw businessException;
