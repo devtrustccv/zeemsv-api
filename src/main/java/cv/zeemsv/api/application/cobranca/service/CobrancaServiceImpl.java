@@ -92,22 +92,22 @@ public class CobrancaServiceImpl implements CobrancaService {
     @Override
     @Transactional(readOnly = true)
     public RealizarPagamentoResponseDTO realizarPagamento(RealizarPagamentoRequestDTO dto) {
-        log.info("Realizar pagamento - inicio. idCobranca={}, valor={}", dto.getIdCobranca(), dto.getValor());
+        List<Integer> idsCobranca = normalizeIdsCobranca(dto.getIdsCobranca());
+        log.info("Realizar pagamento - inicio. idsCobranca={}", idsCobranca);
 
-        ZeeTCobrancaEntity cobranca = cobrancaRepository.findById(dto.getIdCobranca())
-            .orElseThrow(() -> new BusinessException("Cobranca nao encontrada: " + dto.getIdCobranca()));
-        validateValorPagamento(dto.getValor(), cobranca);
+        List<ZeeTCobrancaEntity> cobrancas = findCobrancasForPagamento(idsCobranca);
+        BigDecimal valorTotalPagamento = calcularValorTotalDivida(cobrancas);
+        if (valorTotalPagamento.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("As cobrancas indicadas nao possuem divida pendente.");
+        }
 
         log.info(
-            "Realizar pagamento - cobranca encontrada. id={}, valorTotal={}, valorPago={}, valorDivida={}, dmEstado={}",
-            cobranca.getId(),
-            cobranca.getValorTotal(),
-            cobranca.getValorPago(),
-            cobranca.getValorDivida(),
-            cobranca.getDmEstado()
+            "Realizar pagamento - cobrancas encontradas. idsCobranca={}, valorTotalPagamento={}",
+            idsCobranca,
+            valorTotalPagamento
         );
 
-        PaymentGatewayPaymentRequestDTO gatewayRequest = toPaymentGatewayRequest(dto, cobranca);
+        PaymentGatewayPaymentRequestDTO gatewayRequest = toPaymentGatewayRequest(idsCobranca, valorTotalPagamento);
         log.info(
             "Realizar pagamento - request gateway. transactionId={}, total={}, paymentType={}, email={}, billAddrCountry={}, billAddrCity={}, billAddrPostCode={}",
             gatewayRequest.getTransactionId(),
@@ -167,14 +167,52 @@ public class CobrancaServiceImpl implements CobrancaService {
         }
     }
 
+    private List<Integer> normalizeIdsCobranca(List<Integer> idsCobranca) {
+        if (idsCobranca == null || idsCobranca.isEmpty()) {
+            throw new BusinessException("Informe ao menos uma cobranca para pagamento.");
+        }
+        return idsCobranca.stream()
+            .filter(Objects::nonNull)
+            .collect(Collectors.collectingAndThen(
+                Collectors.toCollection(LinkedHashSet::new),
+                ArrayList::new
+            ));
+    }
+
+    private List<ZeeTCobrancaEntity> findCobrancasForPagamento(List<Integer> idsCobranca) {
+        if (idsCobranca.isEmpty()) {
+            throw new BusinessException("Informe ao menos uma cobranca para pagamento.");
+        }
+
+        Map<Integer, ZeeTCobrancaEntity> cobrancasPorId = cobrancaRepository.findAllById(idsCobranca).stream()
+            .collect(Collectors.toMap(ZeeTCobrancaEntity::getId, Function.identity()));
+
+        List<Integer> idsNaoEncontrados = idsCobranca.stream()
+            .filter(id -> !cobrancasPorId.containsKey(id))
+            .toList();
+        if (!idsNaoEncontrados.isEmpty()) {
+            throw new BusinessException("Cobranca nao encontrada: " + idsNaoEncontrados);
+        }
+
+        return idsCobranca.stream()
+            .map(cobrancasPorId::get)
+            .toList();
+    }
+
+    private BigDecimal calcularValorTotalDivida(List<ZeeTCobrancaEntity> cobrancas) {
+        return cobrancas.stream()
+            .map(this::calcularDividaAtual)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
     private PaymentGatewayPaymentRequestDTO toPaymentGatewayRequest(
-        RealizarPagamentoRequestDTO dto,
-        ZeeTCobrancaEntity cobranca
+        List<Integer> idsCobranca,
+        BigDecimal valorTotalPagamento
     ) {
         PaymentGatewayPaymentRequestDTO request = new PaymentGatewayPaymentRequestDTO();
         request.setChannelCode(PAYMENT_GATEWAY_CHANNEL_CODE);
-        request.setTransactionId(buildPaymentTransactionId(cobranca));
-        request.setTotal(dto.getValor());
+        request.setTransactionId(buildPaymentTransactionId(idsCobranca));
+        request.setTotal(valorTotalPagamento);
         request.setPaymentType(PAYMENT_GATEWAY_PAYMENT_TYPE);
         request.setEmail(PAYMENT_GATEWAY_EMAIL);
         request.setBillAddrCountry(PAYMENT_GATEWAY_BILL_ADDR_COUNTRY);
@@ -184,8 +222,8 @@ public class CobrancaServiceImpl implements CobrancaService {
         return request;
     }
 
-    private String buildPaymentTransactionId(ZeeTCobrancaEntity cobranca) {
-        return "COB" + cobranca.getId() + System.currentTimeMillis();
+    private String buildPaymentTransactionId(List<Integer> idsCobranca) {
+        return "COB" + idsCobranca.get(0) + "L" + idsCobranca.size() + System.currentTimeMillis();
     }
 
     private ZeeTPagamentoEntity buildPagamento(
