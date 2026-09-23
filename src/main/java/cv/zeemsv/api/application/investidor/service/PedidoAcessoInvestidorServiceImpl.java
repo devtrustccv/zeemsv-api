@@ -39,8 +39,11 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -160,9 +163,18 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
             throw new BusinessException("Utilizador nao encontrado.");
         }
 
-        return repository.findByIdUtilizadorOrderByDataRegistoDescIdDesc(idUser)
+        List<ZeeTPedidoAcessoInvestidorEntity> pedidos = repository.findByIdUtilizadorOrderByDataRegistoDescIdDesc(idUser);
+        Map<Integer, ZeeTInvestidorEntity> investidoresById = investidorRepository.findAllById(
+                pedidos.stream()
+                    .map(ZeeTPedidoAcessoInvestidorEntity::getIdInvestidor)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet())
+            )
             .stream()
-            .map(this::toResponseWithFileContent)
+            .collect(Collectors.toMap(ZeeTInvestidorEntity::getId, Function.identity()));
+
+        return pedidos.stream()
+            .map(pedido -> toResponseWithFileContent(pedido, investidoresById.get(pedido.getIdInvestidor())))
             .toList();
     }
 
@@ -512,10 +524,15 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
     }
 
     private PedidoAcessoInvestidorResponseDTO toResponse(ZeeTPedidoAcessoInvestidorEntity entity) {
+        return toResponse(entity, null);
+    }
+
+    private PedidoAcessoInvestidorResponseDTO toResponse(ZeeTPedidoAcessoInvestidorEntity entity, ZeeTInvestidorEntity investidor) {
         PedidoAcessoInvestidorResponseDTO dto = new PedidoAcessoInvestidorResponseDTO();
         dto.setId(entity.getId());
         dto.setIdUser(entity.getIdUtilizador());
         dto.setIdInvestidor(entity.getIdInvestidor());
+        dto.setNomeInvestidor(resolveNomeInvestidor(entity, investidor));
         dto.setTipoPedido(entity.getDmTipoPedido());
         dto.setTipoPedidoDesc(domainHelper.describe(DomainDescriptionHelper.TIPO_PEDIDO_ACESSO, entity.getDmTipoPedido()));
         dto.setIdSocioRepres(entity.getIdSocioRepres());
@@ -540,6 +557,26 @@ public class PedidoAcessoInvestidorServiceImpl implements PedidoAcessoInvestidor
     private PedidoAcessoInvestidorResponseDTO toResponseWithFileContent(ZeeTPedidoAcessoInvestidorEntity entity) {
         PedidoAcessoInvestidorResponseDTO dto = toResponse(entity);
         return dto;
+    }
+
+    private PedidoAcessoInvestidorResponseDTO toResponseWithFileContent(
+        ZeeTPedidoAcessoInvestidorEntity entity,
+        ZeeTInvestidorEntity investidor
+    ) {
+        PedidoAcessoInvestidorResponseDTO dto = toResponse(entity, investidor);
+        return dto;
+    }
+
+    private String resolveNomeInvestidor(ZeeTPedidoAcessoInvestidorEntity entity, ZeeTInvestidorEntity investidor) {
+        if (investidor != null) {
+            return investidor.getDenominacao();
+        }
+        if (entity.getIdInvestidor() != null) {
+            return investidorRepository.findById(entity.getIdInvestidor())
+                .map(ZeeTInvestidorEntity::getDenominacao)
+                .orElse(entity.getDenominacaoEntidade());
+        }
+        return entity.getDenominacaoEntidade();
     }
 
     private PedidoAcessoInvestidorDetailResponseDTO.UtilizadorDTO toUtilizador(ZeeTUserEntity entity) {

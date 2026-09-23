@@ -14,6 +14,7 @@ public class PedidoAcessoInvestidorResponseDTO {
     private Integer id;
     private Integer idUser;
     private Integer idInvestidor;
+    private String nomeInvestidor;
     private String tipoPedido;
     private String tipoPedidoDesc;
     private Integer idSocioRepres;

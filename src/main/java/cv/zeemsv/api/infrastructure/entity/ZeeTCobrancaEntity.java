@@ -61,6 +61,15 @@ public class ZeeTCobrancaEntity {
     @Column(name = "dm_estado")
     private String dmEstado;
 
+    @Column(name = "flag_integracao")
+    private Boolean flagIntegracao;
+
+    @Column(name = "data_integracao")
+    private LocalDate dataIntegracao;
+
+    @Column(name = "user_integracao")
+    private String userIntegracao;
+
     @Column(name = "user_registo")
     private String userRegisto;
 

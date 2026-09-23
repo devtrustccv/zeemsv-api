@@ -2,6 +2,8 @@ package cv.zeemsv.api.web.cobranca;
 
 import cv.zeemsv.api.application.cobranca.dto.CobrancaPagamentoResponseDTO;
 import cv.zeemsv.api.application.cobranca.dto.CriarPagamentoRequestDTO;
+import cv.zeemsv.api.application.cobranca.dto.RealizarPagamentoRequestDTO;
+import cv.zeemsv.api.application.cobranca.dto.RealizarPagamentoResponseDTO;
 import cv.zeemsv.api.application.cobranca.service.CobrancaService;
 import cv.zeemsv.api.interfaces.dto.ApiResponse;
 import jakarta.validation.Valid;
@@ -25,5 +27,13 @@ public class PagamentoController {
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.ok("Pagamento criado com sucesso", cobrancaService.criarPagamento(dto)));
+    }
+
+    @PostMapping("/realizar-pagamento")
+    public ResponseEntity<ApiResponse<RealizarPagamentoResponseDTO>> realizarPagamento(
+        @Valid @RequestBody RealizarPagamentoRequestDTO dto
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(ApiResponse.ok("Intencao de pagamento criada com sucesso", cobrancaService.realizarPagamento(dto)));
     }
 }
