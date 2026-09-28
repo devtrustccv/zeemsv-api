@@ -15,11 +15,14 @@ import cv.zeemsv.api.application.cobranca.dto.RealizarPagamentoResponseDTO;
 import cv.zeemsv.api.application.domain.DomainDescriptionHelper;
 import cv.zeemsv.api.application.paymentgateway.dto.PaymentGatewayPaymentRequestDTO;
 import cv.zeemsv.api.application.paymentgateway.dto.PaymentGatewayPaymentResponseDTO;
+import cv.zeemsv.api.application.paymentgateway.dto.PaymentGatewayPaymentValidationRequestDTO;
 import cv.zeemsv.api.exceptions.BusinessException;
 import cv.zeemsv.api.infrastructure.entity.ZeeTCobrancaEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTCobrancaPrestacaoEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTCobrancaTaxaEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTPagamentoEntity;
+import cv.zeemsv.api.infrastructure.entity.ZeeTPagamentoIntencaoCobrancaEntity;
+import cv.zeemsv.api.infrastructure.entity.ZeeTPagamentoIntencaoEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTPagamentoTaxaEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTInvestidorEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTSolicitacaoCobrancaEntity;
@@ -37,6 +40,8 @@ import cv.zeemsv.api.infrastructure.repository.ZeeTSolicitacaoTaxaRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTTaxaRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTTpSolicTaxaRepository;
 import cv.zeemsv.api.infrastructure.client.PaymentGatewayPaymentClient;
+import cv.zeemsv.api.infrastructure.repository.ZeeTPagamentoIntencaoCobrancaRepository;
+import cv.zeemsv.api.infrastructure.repository.ZeeTPagamentoIntencaoRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -63,9 +68,11 @@ public class CobrancaServiceImpl implements CobrancaService {
     private static final String ESTADO_ATIVO = "A";
     private static final String ESTADO_PENDENTE = "PENDENTE";
     private static final String ESTADO_PAGO = "PAGO";
+    private static final String ESTADO_FALHADO = "FALHADO";
     private static final String FORMA_PAGAMENTO_VINT4 = "VINT4";
     private static final String PAYMENT_GATEWAY_PAYMENT_TYPE = "2";
     private static final String ORIGEM_PAGAMENTO_PORTAL = "PORTAL";
+    private static final String USER_PAYMENT_GATEWAY = "payment-gateway";
     private static final String FLAG_INTEGRACAO_TRUE = "true";
     private static final String PAYMENT_GATEWAY_CHANNEL_CODE = "1008";
     private static final String PAYMENT_GATEWAY_EMAIL = "info@azeemsv.cv";
@@ -79,6 +86,8 @@ public class CobrancaServiceImpl implements CobrancaService {
     private final ZeeTCobrancaTaxaRepository cobrancaTaxaRepository;
     private final ZeeTPagamentoRepository pagamentoRepository;
     private final ZeeTPagamentoTaxaRepository pagamentoTaxaRepository;
+    private final ZeeTPagamentoIntencaoRepository pagamentoIntencaoRepository;
+    private final ZeeTPagamentoIntencaoCobrancaRepository pagamentoIntencaoCobrancaRepository;
     private final ZeeTSolicitacaoCobrancaRepository solicitacaoCobrancaRepository;
     private final ZeeTSolicitacaoTaxaRepository solicitacaoTaxaRepository;
     private final ZeeTTpSolicTaxaRepository tpSolicTaxaRepository;
@@ -90,7 +99,7 @@ public class CobrancaServiceImpl implements CobrancaService {
     private final PaymentGatewayPaymentClient paymentGatewayPaymentClient;
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public RealizarPagamentoResponseDTO realizarPagamento(RealizarPagamentoRequestDTO dto) {
         List<Integer> idsCobranca = normalizeIdsCobranca(dto.getIdsCobranca());
         log.info("Realizar pagamento - inicio. idsCobranca={}", idsCobranca);
@@ -122,6 +131,7 @@ public class CobrancaServiceImpl implements CobrancaService {
         PaymentGatewayPaymentResponseDTO gatewayResponse = paymentGatewayPaymentClient.createPayment(
             gatewayRequest
         );
+        savePagamentoIntencao(gatewayRequest, gatewayResponse, cobrancas);
 
         RealizarPagamentoResponseDTO response = new RealizarPagamentoResponseDTO();
         response.setIntentionId(gatewayResponse.getIntentionId());
@@ -145,6 +155,166 @@ public class CobrancaServiceImpl implements CobrancaService {
         }
 
         List<ZeeTCobrancaTaxaEntity> cobrancaTaxas = cobrancaTaxaRepository.findByIdCobrancaOrderByIdAsc(cobranca.getId());
+        return createPagamentoConfirmado(dto, cobranca, cobrancaTaxas);
+    }
+
+    @Override
+    @Transactional
+    public List<CobrancaPagamentoResponseDTO> confirmarPagamento(PaymentGatewayPaymentValidationRequestDTO dto) {
+        validateGatewayCallback(dto);
+        ZeeTPagamentoIntencaoEntity intencao = findPagamentoIntencao(dto.getTransactionId());
+        List<ZeeTPagamentoIntencaoCobrancaEntity> relacoes = pagamentoIntencaoCobrancaRepository
+            .findByIdIntencaoOrderByIdAsc(intencao.getId());
+        if (relacoes.isEmpty()) {
+            throw new BusinessException("Intencao de pagamento sem cobrancas associadas: " + dto.getTransactionId());
+        }
+
+        if (ESTADO_PAGO.equalsIgnoreCase(intencao.getDmEstado())) {
+            return findPagamentosConfirmados(relacoes);
+        }
+        if (!"SUCCESS".equalsIgnoreCase(dto.getStatus())) {
+            updateIntencaoFromCallback(intencao, dto, ESTADO_FALHADO);
+            throw new BusinessException("Pagamento recusado pelo gateway. Estado: " + dto.getStatus());
+        }
+        if (!paymentGatewayPaymentClient.validatePayment(dto)) {
+            throw new BusinessException("Pagamento nao validado pelo gateway.");
+        }
+
+        List<CobrancaPagamentoResponseDTO> pagamentos = new ArrayList<>();
+        for (ZeeTPagamentoIntencaoCobrancaEntity relacao : relacoes) {
+            ZeeTCobrancaEntity cobranca = cobrancaRepository.findById(relacao.getIdCobranca())
+                .orElseThrow(() -> new BusinessException("Cobranca nao encontrada: " + relacao.getIdCobranca()));
+            BigDecimal valorPagamento = resolveValorPagamentoCallback(relacao, cobranca);
+            if (valorPagamento.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            CriarPagamentoRequestDTO pagamentoRequest = toPagamentoRequest(dto, cobranca, valorPagamento);
+            List<ZeeTCobrancaTaxaEntity> cobrancaTaxas = cobrancaTaxaRepository.findByIdCobrancaOrderByIdAsc(cobranca.getId());
+            CobrancaPagamentoResponseDTO pagamento = createPagamentoConfirmado(pagamentoRequest, cobranca, cobrancaTaxas);
+            relacao.setIdPagamento(pagamento.getId());
+            pagamentoIntencaoCobrancaRepository.save(relacao);
+            pagamentos.add(pagamento);
+        }
+
+        updateIntencaoFromCallback(intencao, dto, ESTADO_PAGO);
+        return pagamentos;
+    }
+
+    private void savePagamentoIntencao(
+        PaymentGatewayPaymentRequestDTO gatewayRequest,
+        PaymentGatewayPaymentResponseDTO gatewayResponse,
+        List<ZeeTCobrancaEntity> cobrancas
+    ) {
+        ZeeTPagamentoIntencaoEntity intencao = new ZeeTPagamentoIntencaoEntity();
+        intencao.setIntentionId(gatewayResponse.getIntentionId());
+        intencao.setTransactionId(gatewayRequest.getTransactionId());
+        intencao.setLinkPayment(gatewayResponse.getPaymentUrl());
+        intencao.setValorTotal(gatewayRequest.getTotal());
+        intencao.setDmEstado(ESTADO_PENDENTE);
+        intencao.setChannelCode(gatewayRequest.getChannelCode());
+        intencao.setUserRegisto(USER_PAYMENT_GATEWAY);
+        intencao.setDataRegisto(java.time.LocalDate.now());
+        intencao = pagamentoIntencaoRepository.save(intencao);
+
+        for (ZeeTCobrancaEntity cobranca : cobrancas) {
+            ZeeTPagamentoIntencaoCobrancaEntity relacao = new ZeeTPagamentoIntencaoCobrancaEntity();
+            relacao.setIdIntencao(intencao.getId());
+            relacao.setIdCobranca(cobranca.getId());
+            relacao.setValorCobranca(calcularDividaAtual(cobranca));
+            pagamentoIntencaoCobrancaRepository.save(relacao);
+        }
+    }
+
+    private ZeeTPagamentoIntencaoEntity findPagamentoIntencao(String transactionId) {
+        return pagamentoIntencaoRepository.findByIntentionId(transactionId)
+            .or(() -> pagamentoIntencaoRepository.findByTransactionId(transactionId))
+            .orElseThrow(() -> new BusinessException("Intencao de pagamento nao encontrada: " + transactionId));
+    }
+
+    private List<CobrancaPagamentoResponseDTO> findPagamentosConfirmados(List<ZeeTPagamentoIntencaoCobrancaEntity> relacoes) {
+        List<ZeeTPagamentoEntity> pagamentos = pagamentoRepository.findAllById(relacoes.stream()
+            .map(ZeeTPagamentoIntencaoCobrancaEntity::getIdPagamento)
+            .filter(Objects::nonNull)
+            .toList());
+        List<ZeeTPagamentoTaxaEntity> pagamentoTaxas = findPagamentoTaxas(pagamentos);
+        Map<Integer, List<ZeeTPagamentoTaxaEntity>> taxasPorPagamento = pagamentoTaxas.stream()
+            .filter(pagamentoTaxa -> pagamentoTaxa.getIdPagamento() != null)
+            .collect(Collectors.groupingBy(ZeeTPagamentoTaxaEntity::getIdPagamento));
+        Map<Integer, ZeeTTaxaEntity> taxasPorId = findTaxas(Collections.emptyMap(), Collections.emptyList(), pagamentoTaxas);
+
+        return pagamentos.stream()
+            .map(pagamento -> toPagamentoResponse(
+                pagamento,
+                taxasPorPagamento.getOrDefault(pagamento.getId(), Collections.emptyList()),
+                taxasPorId
+            ))
+            .toList();
+    }
+
+    private void validateGatewayCallback(PaymentGatewayPaymentValidationRequestDTO dto) {
+        if (dto == null) {
+            throw new BusinessException("Informe os dados de confirmacao do pagamento.");
+        }
+        if (dto.getTransactionId() == null || dto.getTransactionId().isBlank()) {
+            throw new BusinessException("Campo obrigatorio do pagamento nao informado: transactionId");
+        }
+        if (dto.getChannelCode() == null || dto.getChannelCode().isBlank()) {
+            throw new BusinessException("Campo obrigatorio do pagamento nao informado: channelCode");
+        }
+        if (!PAYMENT_GATEWAY_CHANNEL_CODE.equals(dto.getChannelCode())) {
+            throw new BusinessException("Canal de pagamento invalido: " + dto.getChannelCode());
+        }
+    }
+
+    private void updateIntencaoFromCallback(
+        ZeeTPagamentoIntencaoEntity intencao,
+        PaymentGatewayPaymentValidationRequestDTO dto,
+        String estado
+    ) {
+        intencao.setDmEstado(estado);
+        intencao.setChannelCode(dto.getChannelCode());
+        intencao.setMerchantRespErrorDescription(dto.getMerchantRespErrorDescription());
+        intencao.setMerchantRespMerchantRef(dto.getMerchantRespMerchantRef());
+        intencao.setMerchantRespMerchantSession(dto.getMerchantRespMerchantSession());
+        intencao.setFingerprint(dto.getFingerprint());
+        intencao.setDataPagamento(java.time.LocalDate.now());
+        pagamentoIntencaoRepository.save(intencao);
+    }
+
+    private BigDecimal resolveValorPagamentoCallback(
+        ZeeTPagamentoIntencaoCobrancaEntity relacao,
+        ZeeTCobrancaEntity cobranca
+    ) {
+        BigDecimal dividaAtual = calcularDividaAtual(cobranca);
+        if (dividaAtual.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal valorIntencao = relacao.getValorCobranca() != null ? relacao.getValorCobranca() : dividaAtual;
+        return valorIntencao.min(dividaAtual);
+    }
+
+    private CriarPagamentoRequestDTO toPagamentoRequest(
+        PaymentGatewayPaymentValidationRequestDTO dto,
+        ZeeTCobrancaEntity cobranca,
+        BigDecimal valorPagamento
+    ) {
+        CriarPagamentoRequestDTO request = new CriarPagamentoRequestDTO();
+        request.setIdCobranca(cobranca.getId());
+        request.setValor(valorPagamento);
+        request.setIntentionId(dto.getTransactionId());
+        request.setEntidade(dto.getChannelCode());
+        request.setReferencia(firstText(dto.getMerchantRespMerchantRef(), dto.getMerchantRespMerchantSession(), dto.getTransactionId()));
+        request.setUser(USER_PAYMENT_GATEWAY);
+        return request;
+    }
+
+    private CobrancaPagamentoResponseDTO createPagamentoConfirmado(
+        CriarPagamentoRequestDTO dto,
+        ZeeTCobrancaEntity cobranca,
+        List<ZeeTCobrancaTaxaEntity> cobrancaTaxas
+    ) {
+        validateValorPagamento(dto.getValor(), cobranca);
         ZeeTSolicitacaoTaxaEntity solicTaxa = findSolicTaxa(cobranca.getIdSolicTaxa());
         ZeeTPagamentoEntity pagamento = buildPagamento(dto, cobranca, solicTaxa, cobrancaTaxas);
         pagamento = pagamentoRepository.save(pagamento);

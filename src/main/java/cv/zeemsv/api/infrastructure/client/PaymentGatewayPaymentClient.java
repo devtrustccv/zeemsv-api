@@ -78,6 +78,16 @@ public class PaymentGatewayPaymentClient {
         validateValidationConfiguration();
         requireText(intentionId, "intentionId");
 
+        return validatePayment(toValidationRequest(intentionId));
+    }
+
+    public boolean validatePayment(PaymentGatewayPaymentValidationRequestDTO request) {
+        validateValidationConfiguration();
+        if (request == null) {
+            throw new BusinessException("Informe os dados de validacao do pagamento.");
+        }
+        requireText(request.getTransactionId(), "transactionId");
+
         String token = authClient.getAccessToken();
 
         try {
@@ -87,7 +97,7 @@ public class PaymentGatewayPaymentClient {
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                .body(toValidationRequest(intentionId))
+                .body(request)
                 .retrieve()
                 .body(Boolean.class);
 

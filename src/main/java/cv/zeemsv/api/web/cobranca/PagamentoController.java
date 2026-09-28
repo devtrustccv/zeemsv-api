@@ -5,8 +5,10 @@ import cv.zeemsv.api.application.cobranca.dto.CriarPagamentoRequestDTO;
 import cv.zeemsv.api.application.cobranca.dto.RealizarPagamentoRequestDTO;
 import cv.zeemsv.api.application.cobranca.dto.RealizarPagamentoResponseDTO;
 import cv.zeemsv.api.application.cobranca.service.CobrancaService;
+import cv.zeemsv.api.application.paymentgateway.dto.PaymentGatewayPaymentValidationRequestDTO;
 import cv.zeemsv.api.interfaces.dto.ApiResponse;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,7 +24,15 @@ public class PagamentoController {
     private final CobrancaService cobrancaService;
 
     @PostMapping
-    public ResponseEntity<ApiResponse<CobrancaPagamentoResponseDTO>> criarPagamento(
+    public ResponseEntity<ApiResponse<List<CobrancaPagamentoResponseDTO>>> confirmarPagamento(
+        @Valid @RequestBody PaymentGatewayPaymentValidationRequestDTO dto
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(ApiResponse.ok("Pagamento confirmado com sucesso", cobrancaService.confirmarPagamento(dto)));
+    }
+
+    @PostMapping("/manual")
+    public ResponseEntity<ApiResponse<CobrancaPagamentoResponseDTO>> criarPagamentoManual(
         @Valid @RequestBody CriarPagamentoRequestDTO dto
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
