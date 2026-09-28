@@ -28,7 +28,7 @@ public class PagamentoController {
         @Valid @RequestBody PaymentGatewayPaymentValidationRequestDTO dto
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
-            .body(ApiResponse.ok("Pagamento confirmado com sucesso", cobrancaService.confirmarPagamento(dto)));
+            .body(ApiResponse.ok("Callback de pagamento processado com sucesso", cobrancaService.confirmarPagamento(dto)));
     }
 
     @PostMapping("/manual")

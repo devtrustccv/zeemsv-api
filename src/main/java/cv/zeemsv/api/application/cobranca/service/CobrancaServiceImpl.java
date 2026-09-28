@@ -170,14 +170,18 @@ public class CobrancaServiceImpl implements CobrancaService {
         }
 
         if (ESTADO_PAGO.equalsIgnoreCase(intencao.getDmEstado())) {
+            auditPagamentoCallback(intencao, dto, "PAYMENT_CALLBACK_REPLAY", "Callback de pagamento repetido", relacoes, 200);
             return findPagamentosConfirmados(relacoes);
         }
         if (!"SUCCESS".equalsIgnoreCase(dto.getStatus())) {
             updateIntencaoFromCallback(intencao, dto, ESTADO_FALHADO);
-            throw new BusinessException("Pagamento recusado pelo gateway. Estado: " + dto.getStatus());
+            auditPagamentoCallback(intencao, dto, "PAYMENT_CALLBACK_FAILED", "Pagamento recusado pelo gateway", relacoes, 200);
+            return Collections.emptyList();
         }
         if (!paymentGatewayPaymentClient.validatePayment(dto)) {
-            throw new BusinessException("Pagamento nao validado pelo gateway.");
+            updateIntencaoFromCallback(intencao, dto, ESTADO_FALHADO);
+            auditPagamentoCallback(intencao, dto, "PAYMENT_CALLBACK_INVALID", "Pagamento nao validado pelo gateway", relacoes, 200);
+            return Collections.emptyList();
         }
 
         List<CobrancaPagamentoResponseDTO> pagamentos = new ArrayList<>();
@@ -198,6 +202,7 @@ public class CobrancaServiceImpl implements CobrancaService {
         }
 
         updateIntencaoFromCallback(intencao, dto, ESTADO_PAGO);
+        auditPagamentoCallback(intencao, dto, "PAYMENT_CALLBACK_SUCCESS", "Pagamento validado pelo gateway", relacoes, 201);
         return pagamentos;
     }
 
@@ -216,13 +221,15 @@ public class CobrancaServiceImpl implements CobrancaService {
         intencao.setUserRegisto(USER_PAYMENT_GATEWAY);
         intencao.setDataRegisto(java.time.LocalDate.now());
         intencao = pagamentoIntencaoRepository.save(intencao);
+        auditPagamentoIntencaoCriada(intencao, gatewayRequest, cobrancas);
 
         for (ZeeTCobrancaEntity cobranca : cobrancas) {
             ZeeTPagamentoIntencaoCobrancaEntity relacao = new ZeeTPagamentoIntencaoCobrancaEntity();
             relacao.setIdIntencao(intencao.getId());
             relacao.setIdCobranca(cobranca.getId());
             relacao.setValorCobranca(calcularDividaAtual(cobranca));
-            pagamentoIntencaoCobrancaRepository.save(relacao);
+            relacao = pagamentoIntencaoCobrancaRepository.save(relacao);
+            auditPagamentoIntencaoCobrancaCriada(relacao, intencao);
         }
     }
 
@@ -582,6 +589,181 @@ public class CobrancaServiceImpl implements CobrancaService {
         metadata.put("idSolicitacao", pagamento.getIdSolicitacao());
         metadata.put("valor", pagamento.getValor());
         metadata.put("source", "business_service");
+        audit.setMetadata(metadata);
+        return audit;
+    }
+
+    private void auditPagamentoIntencaoCriada(
+        ZeeTPagamentoIntencaoEntity intencao,
+        PaymentGatewayPaymentRequestDTO gatewayRequest,
+        List<ZeeTCobrancaEntity> cobrancas
+    ) {
+        List<Integer> idsCobranca = cobrancas.stream().map(ZeeTCobrancaEntity::getId).toList();
+        changeLogsService.createLogsAsyncSafe(
+            List.of(
+                logItem("intention_id", null, intencao.getIntentionId()),
+                logItem("transaction_id", null, intencao.getTransactionId()),
+                logItem("valor_total", null, intencao.getValorTotal()),
+                logItem("dm_estado", null, intencao.getDmEstado()),
+                logItem("ids_cobranca", null, idsCobranca)
+            ),
+            "CREATE",
+            "zee_t_pagamento_intencao",
+            String.valueOf(intencao.getId()),
+            "Intencao de pagamento criada",
+            AuditContext.builder()
+                .userId(USER_PAYMENT_GATEWAY)
+                .userEmail(USER_PAYMENT_GATEWAY)
+                .build()
+        );
+        runAfterCommit(() -> transactionAuditService.createAsyncSafe(
+            transactionAuditPagamentoIntencaoCriada(intencao, gatewayRequest, idsCobranca)
+        ));
+    }
+
+    private TransactionAuditRequestDTO transactionAuditPagamentoIntencaoCriada(
+        ZeeTPagamentoIntencaoEntity intencao,
+        PaymentGatewayPaymentRequestDTO gatewayRequest,
+        List<Integer> idsCobranca
+    ) {
+        TransactionAuditRequestDTO audit = new TransactionAuditRequestDTO();
+        audit.setUserId(USER_PAYMENT_GATEWAY);
+        audit.setActionType("PAYMENT_INTENTION_CREATE");
+        audit.setActionLabel("Criacao de intencao de pagamento");
+        audit.setDescription("Intencao de pagamento criada #" + intencao.getId());
+        audit.setTableName("zee_t_pagamento_intencao");
+        audit.setTableId(String.valueOf(intencao.getId()));
+        audit.setModule("PAGAMENTO");
+        audit.setRequestMethod("POST");
+        audit.setRequestUri("/api/v1/pagamentos/realizar-pagamento");
+        audit.setStatusCode(201);
+
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("intentionId", intencao.getIntentionId());
+        metadata.put("transactionId", intencao.getTransactionId());
+        metadata.put("idsCobranca", idsCobranca);
+        metadata.put("valorTotal", intencao.getValorTotal());
+        metadata.put("channelCode", gatewayRequest.getChannelCode());
+        metadata.put("paymentType", gatewayRequest.getPaymentType());
+        metadata.put("source", "payment_gateway");
+        audit.setMetadata(metadata);
+        return audit;
+    }
+
+    private void auditPagamentoIntencaoCobrancaCriada(
+        ZeeTPagamentoIntencaoCobrancaEntity relacao,
+        ZeeTPagamentoIntencaoEntity intencao
+    ) {
+        changeLogsService.createLogsAsyncSafe(
+            List.of(
+                logItem("id_intencao", null, relacao.getIdIntencao()),
+                logItem("id_cobranca", null, relacao.getIdCobranca()),
+                logItem("valor_cobranca", null, relacao.getValorCobranca())
+            ),
+            "CREATE",
+            "zee_t_pagamento_intencao_cobranca",
+            String.valueOf(relacao.getId()),
+            "Cobranca associada a intencao de pagamento",
+            AuditContext.builder()
+                .userId(USER_PAYMENT_GATEWAY)
+                .userEmail(USER_PAYMENT_GATEWAY)
+                .build()
+        );
+        runAfterCommit(() -> transactionAuditService.createAsyncSafe(
+            transactionAuditPagamentoIntencaoCobrancaCriada(relacao, intencao)
+        ));
+    }
+
+    private TransactionAuditRequestDTO transactionAuditPagamentoIntencaoCobrancaCriada(
+        ZeeTPagamentoIntencaoCobrancaEntity relacao,
+        ZeeTPagamentoIntencaoEntity intencao
+    ) {
+        TransactionAuditRequestDTO audit = new TransactionAuditRequestDTO();
+        audit.setUserId(USER_PAYMENT_GATEWAY);
+        audit.setActionType("PAYMENT_INTENTION_LINK_CREATE");
+        audit.setActionLabel("Associacao de cobranca a intencao");
+        audit.setDescription("Cobranca #" + relacao.getIdCobranca() + " associada a intencao #" + relacao.getIdIntencao());
+        audit.setTableName("zee_t_pagamento_intencao_cobranca");
+        audit.setTableId(String.valueOf(relacao.getId()));
+        audit.setModule("PAGAMENTO");
+        audit.setRequestMethod("POST");
+        audit.setRequestUri("/api/v1/pagamentos/realizar-pagamento");
+        audit.setStatusCode(201);
+
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("idIntencao", relacao.getIdIntencao());
+        metadata.put("idCobranca", relacao.getIdCobranca());
+        metadata.put("intentionId", intencao.getIntentionId());
+        metadata.put("transactionId", intencao.getTransactionId());
+        metadata.put("valorCobranca", relacao.getValorCobranca());
+        metadata.put("source", "payment_gateway");
+        audit.setMetadata(metadata);
+        return audit;
+    }
+
+    private void auditPagamentoCallback(
+        ZeeTPagamentoIntencaoEntity intencao,
+        PaymentGatewayPaymentValidationRequestDTO dto,
+        String actionType,
+        String description,
+        List<ZeeTPagamentoIntencaoCobrancaEntity> relacoes,
+        int statusCode
+    ) {
+        changeLogsService.createLogsAsyncSafe(
+            List.of(
+                logItem("dm_estado", null, intencao.getDmEstado()),
+                logItem("channel_code", null, dto.getChannelCode()),
+                logItem("merchant_resp_error_description", null, dto.getMerchantRespErrorDescription()),
+                logItem("merchant_resp_merchant_ref", null, dto.getMerchantRespMerchantRef()),
+                logItem("merchant_resp_merchant_session", null, dto.getMerchantRespMerchantSession()),
+                logItem("fingerprint_present", null, dto.getFingerprint() != null && !dto.getFingerprint().isBlank())
+            ),
+            "UPDATE",
+            "zee_t_pagamento_intencao",
+            String.valueOf(intencao.getId()),
+            description,
+            AuditContext.builder()
+                .userId(USER_PAYMENT_GATEWAY)
+                .userEmail(USER_PAYMENT_GATEWAY)
+                .build()
+        );
+        runAfterCommit(() -> transactionAuditService.createAsyncSafe(
+            transactionAuditPagamentoCallback(intencao, dto, actionType, description, relacoes, statusCode)
+        ));
+    }
+
+    private TransactionAuditRequestDTO transactionAuditPagamentoCallback(
+        ZeeTPagamentoIntencaoEntity intencao,
+        PaymentGatewayPaymentValidationRequestDTO dto,
+        String actionType,
+        String description,
+        List<ZeeTPagamentoIntencaoCobrancaEntity> relacoes,
+        int statusCode
+    ) {
+        TransactionAuditRequestDTO audit = new TransactionAuditRequestDTO();
+        audit.setUserId(USER_PAYMENT_GATEWAY);
+        audit.setActionType(actionType);
+        audit.setActionLabel("Callback de pagamento");
+        audit.setDescription(description + " #" + intencao.getId());
+        audit.setTableName("zee_t_pagamento_intencao");
+        audit.setTableId(String.valueOf(intencao.getId()));
+        audit.setModule("PAGAMENTO");
+        audit.setRequestMethod("POST");
+        audit.setRequestUri("/api/v1/pagamentos");
+        audit.setStatusCode(statusCode);
+
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("intentionId", intencao.getIntentionId());
+        metadata.put("transactionId", dto.getTransactionId());
+        metadata.put("status", dto.getStatus());
+        metadata.put("estado", intencao.getDmEstado());
+        metadata.put("channelCode", dto.getChannelCode());
+        metadata.put("merchantRespMerchantRef", dto.getMerchantRespMerchantRef());
+        metadata.put("merchantRespMerchantSession", dto.getMerchantRespMerchantSession());
+        metadata.put("fingerprintPresent", dto.getFingerprint() != null && !dto.getFingerprint().isBlank());
+        metadata.put("idsCobranca", relacoes.stream().map(ZeeTPagamentoIntencaoCobrancaEntity::getIdCobranca).toList());
+        metadata.put("idsPagamento", relacoes.stream().map(ZeeTPagamentoIntencaoCobrancaEntity::getIdPagamento).filter(Objects::nonNull).toList());
+        metadata.put("source", "payment_gateway_callback");
         audit.setMetadata(metadata);
         return audit;
     }
