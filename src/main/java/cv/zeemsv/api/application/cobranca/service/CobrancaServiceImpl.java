@@ -10,6 +10,7 @@ import cv.zeemsv.api.application.cobranca.dto.CobrancaPagamentoResponseDTO;
 import cv.zeemsv.api.application.cobranca.dto.CobrancaPrestacaoResponseDTO;
 import cv.zeemsv.api.application.cobranca.dto.CobrancaTaxaResponseDTO;
 import cv.zeemsv.api.application.cobranca.dto.CriarPagamentoRequestDTO;
+import cv.zeemsv.api.application.cobranca.dto.PagamentoIntencaoStatusResponseDTO;
 import cv.zeemsv.api.application.cobranca.dto.RealizarPagamentoRequestDTO;
 import cv.zeemsv.api.application.cobranca.dto.RealizarPagamentoResponseDTO;
 import cv.zeemsv.api.application.domain.DomainDescriptionHelper;
@@ -44,6 +45,8 @@ import cv.zeemsv.api.infrastructure.repository.ZeeTPagamentoIntencaoCobrancaRepo
 import cv.zeemsv.api.infrastructure.repository.ZeeTPagamentoIntencaoRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -69,6 +72,8 @@ public class CobrancaServiceImpl implements CobrancaService {
     private static final String ESTADO_PENDENTE = "PENDENTE";
     private static final String ESTADO_PAGO = "PAGO";
     private static final String ESTADO_FALHADO = "FALHADO";
+    private static final String ESTADO_EXPIRADO = "EXPIRADO";
+    private static final long PAYMENT_GATEWAY_INTENTION_TIMEOUT_MINUTES = 5;
     private static final String FORMA_PAGAMENTO_VINT4 = "VINT4";
     private static final String PAYMENT_GATEWAY_PAYMENT_TYPE = "2";
     private static final String ORIGEM_PAGAMENTO_PORTAL = "PORTAL";
@@ -131,11 +136,13 @@ public class CobrancaServiceImpl implements CobrancaService {
         PaymentGatewayPaymentResponseDTO gatewayResponse = paymentGatewayPaymentClient.createPayment(
             gatewayRequest
         );
-        savePagamentoIntencao(gatewayRequest, gatewayResponse, cobrancas);
+        ZeeTPagamentoIntencaoEntity intencao = savePagamentoIntencao(gatewayRequest, gatewayResponse, cobrancas);
 
         RealizarPagamentoResponseDTO response = new RealizarPagamentoResponseDTO();
         response.setIntentionId(gatewayResponse.getIntentionId());
         response.setLinkPayment(gatewayResponse.getPaymentUrl());
+        response.setExpiresAt(intencao.getDataExpiracao());
+        response.setExpiresInSeconds(PAYMENT_GATEWAY_INTENTION_TIMEOUT_MINUTES * 60);
         log.info(
             "Realizar pagamento - resposta gateway. intentionId={}, linkPaymentPresente={}",
             response.getIntentionId(),
@@ -173,6 +180,11 @@ public class CobrancaServiceImpl implements CobrancaService {
             auditPagamentoCallback(intencao, dto, "PAYMENT_CALLBACK_REPLAY", "Callback de pagamento repetido", relacoes, 200);
             return findPagamentosConfirmados(relacoes);
         }
+        if (isPagamentoIntencaoExpirada(intencao)) {
+            updateIntencaoFromCallback(intencao, dto, ESTADO_EXPIRADO);
+            auditPagamentoCallback(intencao, dto, "PAYMENT_CALLBACK_EXPIRED", "Callback recebido depois da expiracao da intencao", relacoes, 200);
+            return Collections.emptyList();
+        }
         if (!"SUCCESS".equalsIgnoreCase(dto.getStatus())) {
             updateIntencaoFromCallback(intencao, dto, ESTADO_FALHADO);
             auditPagamentoCallback(intencao, dto, "PAYMENT_CALLBACK_FAILED", "Pagamento recusado pelo gateway", relacoes, 200);
@@ -206,11 +218,27 @@ public class CobrancaServiceImpl implements CobrancaService {
         return pagamentos;
     }
 
-    private void savePagamentoIntencao(
+    @Override
+    @Transactional(readOnly = true)
+    public PagamentoIntencaoStatusResponseDTO consultarEstadoPagamento(String intentionId) {
+        if (intentionId == null || intentionId.isBlank()) {
+            throw new BusinessException("Informe o identificador da intencao de pagamento.");
+        }
+
+        ZeeTPagamentoIntencaoEntity intencao = pagamentoIntencaoRepository.findByIntentionId(intentionId)
+            .orElseThrow(() -> new BusinessException("Intencao de pagamento nao encontrada: " + intentionId));
+        List<ZeeTPagamentoIntencaoCobrancaEntity> relacoes = pagamentoIntencaoCobrancaRepository
+            .findByIdIntencaoOrderByIdAsc(intencao.getId());
+
+        return toPagamentoIntencaoStatusResponse(intencao, relacoes);
+    }
+
+    private ZeeTPagamentoIntencaoEntity savePagamentoIntencao(
         PaymentGatewayPaymentRequestDTO gatewayRequest,
         PaymentGatewayPaymentResponseDTO gatewayResponse,
         List<ZeeTCobrancaEntity> cobrancas
     ) {
+        LocalDateTime dataHoraRegisto = LocalDateTime.now();
         ZeeTPagamentoIntencaoEntity intencao = new ZeeTPagamentoIntencaoEntity();
         intencao.setIntentionId(gatewayResponse.getIntentionId());
         intencao.setTransactionId(gatewayRequest.getTransactionId());
@@ -220,6 +248,8 @@ public class CobrancaServiceImpl implements CobrancaService {
         intencao.setChannelCode(gatewayRequest.getChannelCode());
         intencao.setUserRegisto(USER_PAYMENT_GATEWAY);
         intencao.setDataRegisto(java.time.LocalDate.now());
+        intencao.setDataHoraRegisto(dataHoraRegisto);
+        intencao.setDataExpiracao(dataHoraRegisto.plusMinutes(PAYMENT_GATEWAY_INTENTION_TIMEOUT_MINUTES));
         intencao = pagamentoIntencaoRepository.save(intencao);
         auditPagamentoIntencaoCriada(intencao, gatewayRequest, cobrancas);
 
@@ -231,6 +261,7 @@ public class CobrancaServiceImpl implements CobrancaService {
             relacao = pagamentoIntencaoCobrancaRepository.save(relacao);
             auditPagamentoIntencaoCobrancaCriada(relacao, intencao);
         }
+        return intencao;
     }
 
     private ZeeTPagamentoIntencaoEntity findPagamentoIntencao(String transactionId) {
@@ -287,6 +318,72 @@ public class CobrancaServiceImpl implements CobrancaService {
         intencao.setFingerprint(dto.getFingerprint());
         intencao.setDataPagamento(java.time.LocalDate.now());
         pagamentoIntencaoRepository.save(intencao);
+    }
+
+    private PagamentoIntencaoStatusResponseDTO toPagamentoIntencaoStatusResponse(
+        ZeeTPagamentoIntencaoEntity intencao,
+        List<ZeeTPagamentoIntencaoCobrancaEntity> relacoes
+    ) {
+        String estado = resolveEstadoIntencao(intencao);
+        LocalDateTime dataExpiracao = resolveDataExpiracao(intencao);
+        long remainingSeconds = Math.max(0, Duration.between(LocalDateTime.now(), dataExpiracao).getSeconds());
+
+        PagamentoIntencaoStatusResponseDTO response = new PagamentoIntencaoStatusResponseDTO();
+        response.setIntentionId(intencao.getIntentionId());
+        response.setTransactionId(intencao.getTransactionId());
+        response.setEstado(estado);
+        response.setFinalizado(isEstadoFinalizado(estado));
+        response.setPago(ESTADO_PAGO.equalsIgnoreCase(estado));
+        response.setExpirado(ESTADO_EXPIRADO.equalsIgnoreCase(estado));
+        response.setLinkPayment(intencao.getLinkPayment());
+        response.setValorTotal(intencao.getValorTotal());
+        response.setCreatedAt(resolveDataHoraRegisto(intencao));
+        response.setExpiresAt(dataExpiracao);
+        response.setRemainingSeconds(remainingSeconds);
+        response.setIdsCobranca(relacoes.stream()
+            .map(ZeeTPagamentoIntencaoCobrancaEntity::getIdCobranca)
+            .filter(Objects::nonNull)
+            .toList());
+        response.setIdsPagamento(relacoes.stream()
+            .map(ZeeTPagamentoIntencaoCobrancaEntity::getIdPagamento)
+            .filter(Objects::nonNull)
+            .toList());
+        return response;
+    }
+
+    private String resolveEstadoIntencao(ZeeTPagamentoIntencaoEntity intencao) {
+        if (ESTADO_PENDENTE.equalsIgnoreCase(intencao.getDmEstado()) && isPagamentoIntencaoExpirada(intencao)) {
+            return ESTADO_EXPIRADO;
+        }
+        return intencao.getDmEstado();
+    }
+
+    private boolean isPagamentoIntencaoExpirada(ZeeTPagamentoIntencaoEntity intencao) {
+        return ESTADO_PENDENTE.equalsIgnoreCase(intencao.getDmEstado())
+            && !LocalDateTime.now().isBefore(resolveDataExpiracao(intencao));
+    }
+
+    private boolean isEstadoFinalizado(String estado) {
+        return ESTADO_PAGO.equalsIgnoreCase(estado)
+            || ESTADO_FALHADO.equalsIgnoreCase(estado)
+            || ESTADO_EXPIRADO.equalsIgnoreCase(estado);
+    }
+
+    private LocalDateTime resolveDataHoraRegisto(ZeeTPagamentoIntencaoEntity intencao) {
+        if (intencao.getDataHoraRegisto() != null) {
+            return intencao.getDataHoraRegisto();
+        }
+        if (intencao.getDataRegisto() != null) {
+            return intencao.getDataRegisto().atStartOfDay();
+        }
+        return LocalDateTime.now();
+    }
+
+    private LocalDateTime resolveDataExpiracao(ZeeTPagamentoIntencaoEntity intencao) {
+        if (intencao.getDataExpiracao() != null) {
+            return intencao.getDataExpiracao();
+        }
+        return resolveDataHoraRegisto(intencao).plusMinutes(PAYMENT_GATEWAY_INTENTION_TIMEOUT_MINUTES);
     }
 
     private BigDecimal resolveValorPagamentoCallback(

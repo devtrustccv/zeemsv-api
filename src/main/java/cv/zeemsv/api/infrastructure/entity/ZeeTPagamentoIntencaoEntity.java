@@ -8,6 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -56,6 +57,12 @@ public class ZeeTPagamentoIntencaoEntity {
 
     @Column(name = "data_registo")
     private LocalDate dataRegisto;
+
+    @Column(name = "data_hora_registo")
+    private LocalDateTime dataHoraRegisto;
+
+    @Column(name = "data_expiracao")
+    private LocalDateTime dataExpiracao;
 
     @Column(name = "data_pagamento")
     private LocalDate dataPagamento;

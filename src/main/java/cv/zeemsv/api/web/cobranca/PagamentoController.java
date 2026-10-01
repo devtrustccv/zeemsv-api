@@ -2,6 +2,7 @@ package cv.zeemsv.api.web.cobranca;
 
 import cv.zeemsv.api.application.cobranca.dto.CobrancaPagamentoResponseDTO;
 import cv.zeemsv.api.application.cobranca.dto.CriarPagamentoRequestDTO;
+import cv.zeemsv.api.application.cobranca.dto.PagamentoIntencaoStatusResponseDTO;
 import cv.zeemsv.api.application.cobranca.dto.RealizarPagamentoRequestDTO;
 import cv.zeemsv.api.application.cobranca.dto.RealizarPagamentoResponseDTO;
 import cv.zeemsv.api.application.cobranca.service.CobrancaService;
@@ -12,6 +13,8 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -45,5 +48,14 @@ public class PagamentoController {
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.ok("Intencao de pagamento criada com sucesso", cobrancaService.realizarPagamento(dto)));
+    }
+
+    @GetMapping("/intencoes/{intentionId}/status")
+    public ResponseEntity<ApiResponse<PagamentoIntencaoStatusResponseDTO>> consultarEstadoPagamento(
+        @PathVariable String intentionId
+    ) {
+        return ResponseEntity.ok(
+            ApiResponse.ok("Estado da intencao de pagamento consultado com sucesso", cobrancaService.consultarEstadoPagamento(intentionId))
+        );
     }
 }
