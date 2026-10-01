@@ -74,7 +74,7 @@ public class CobrancaServiceImpl implements CobrancaService {
     private static final String ORIGEM_PAGAMENTO_PORTAL = "PORTAL";
     private static final String USER_PAYMENT_GATEWAY = "payment-gateway";
     private static final String FLAG_INTEGRACAO_TRUE = "true";
-    private static final String PAYMENT_GATEWAY_CHANNEL_CODE = "1008";
+    private static final String PAYMENT_GATEWAY_CHANNEL_CODE = "1052";
     private static final String PAYMENT_GATEWAY_EMAIL = "info@azeemsv.cv";
     private static final String PAYMENT_GATEWAY_BILL_ADDR_COUNTRY = "238";
     private static final String PAYMENT_GATEWAY_BILL_ADDR_CITY = "MINDELO";
