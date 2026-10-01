@@ -12,8 +12,10 @@ import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -29,6 +31,17 @@ public class PagamentoController {
     @PostMapping
     public ResponseEntity<ApiResponse<List<CobrancaPagamentoResponseDTO>>> confirmarPagamento(
         @Valid @RequestBody PaymentGatewayPaymentValidationRequestDTO dto
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(ApiResponse.ok("Callback de pagamento processado com sucesso", cobrancaService.confirmarPagamento(dto)));
+    }
+
+    @PostMapping(
+        value = "/confirmar-pagamentos",
+        consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE
+    )
+    public ResponseEntity<ApiResponse<List<CobrancaPagamentoResponseDTO>>> confirmarPagamentosForm(
+        @Valid @ModelAttribute PaymentGatewayPaymentValidationRequestDTO dto
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.ok("Callback de pagamento processado com sucesso", cobrancaService.confirmarPagamento(dto)));
