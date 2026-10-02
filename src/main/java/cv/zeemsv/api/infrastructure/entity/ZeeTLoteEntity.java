@@ -1,5 +1,6 @@
 package cv.zeemsv.api.infrastructure.entity;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -10,6 +11,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "zee_t_lote", schema = "public")
@@ -97,5 +100,9 @@ public class ZeeTLoteEntity {
 
     @Column(name = "valor_direito_superficie")
     private BigDecimal valorDireitoSuperficie;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "coordenadas", columnDefinition = "jsonb")
+    private JsonNode coordenadas;
 
 }

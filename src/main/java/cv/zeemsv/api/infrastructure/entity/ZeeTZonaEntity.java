@@ -1,5 +1,6 @@
 package cv.zeemsv.api.infrastructure.entity;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -9,6 +10,8 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "zee_t_zona", schema = "public")
@@ -39,5 +42,9 @@ public class ZeeTZonaEntity {
 
     @Column(name = "nome_norm", length = 255)
     private String nomeNorm;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "coordenadas", columnDefinition = "jsonb")
+    private JsonNode coordenadas;
 
 }

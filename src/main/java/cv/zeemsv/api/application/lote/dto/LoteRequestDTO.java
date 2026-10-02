@@ -1,5 +1,6 @@
 package cv.zeemsv.api.application.lote.dto;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.Setter;
@@ -10,4 +11,5 @@ public class LoteRequestDTO {
     private String nome;
     private String descricao;
     private String estado;
+    private JsonNode coordenadas;
 }

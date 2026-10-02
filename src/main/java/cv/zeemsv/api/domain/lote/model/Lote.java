@@ -1,5 +1,6 @@
 package cv.zeemsv.api.domain.lote.model;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -9,4 +10,5 @@ public class Lote {
     private String nome;
     private String descricao;
     private String estado;
+    private JsonNode coordenadas;
 }
