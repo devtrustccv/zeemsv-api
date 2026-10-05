@@ -16,6 +16,8 @@ public interface CobrancaService {
 
     List<CobrancaPagamentoResponseDTO> confirmarPagamento(PaymentGatewayPaymentValidationRequestDTO dto);
 
+    String confirmarPagamentoERetornarIntentionId(PaymentGatewayPaymentValidationRequestDTO dto);
+
     RealizarPagamentoResponseDTO realizarPagamento(RealizarPagamentoRequestDTO dto);
 
     PagamentoIntencaoStatusResponseDTO consultarEstadoPagamento(String intentionId);

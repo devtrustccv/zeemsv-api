@@ -18,4 +18,5 @@ public class PaymentGatewayProperties {
     private String clientId;
     private String clientSecret;
     private long tokenExpirySkewSeconds = 30;
+    private String confirmationRedirectUrl;
 }

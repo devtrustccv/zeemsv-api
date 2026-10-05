@@ -168,6 +168,16 @@ public class CobrancaServiceImpl implements CobrancaService {
     @Override
     @Transactional
     public List<CobrancaPagamentoResponseDTO> confirmarPagamento(PaymentGatewayPaymentValidationRequestDTO dto) {
+        return confirmarPagamentoResult(dto).pagamentos();
+    }
+
+    @Override
+    @Transactional
+    public String confirmarPagamentoERetornarIntentionId(PaymentGatewayPaymentValidationRequestDTO dto) {
+        return confirmarPagamentoResult(dto).intentionId();
+    }
+
+    private PagamentoConfirmacaoResult confirmarPagamentoResult(PaymentGatewayPaymentValidationRequestDTO dto) {
         validateGatewayCallback(dto);
         ZeeTPagamentoIntencaoEntity intencao = findPagamentoIntencao(dto.getTransactionId());
         List<ZeeTPagamentoIntencaoCobrancaEntity> relacoes = pagamentoIntencaoCobrancaRepository
@@ -178,22 +188,22 @@ public class CobrancaServiceImpl implements CobrancaService {
 
         if (ESTADO_PAGO.equalsIgnoreCase(intencao.getDmEstado())) {
             auditPagamentoCallback(intencao, dto, "PAYMENT_CALLBACK_REPLAY", "Callback de pagamento repetido", relacoes, 200);
-            return findPagamentosConfirmados(relacoes);
+            return new PagamentoConfirmacaoResult(intencao.getIntentionId(), findPagamentosConfirmados(relacoes));
         }
         if (isPagamentoIntencaoExpirada(intencao)) {
             updateIntencaoFromCallback(intencao, dto, ESTADO_EXPIRADO);
             auditPagamentoCallback(intencao, dto, "PAYMENT_CALLBACK_EXPIRED", "Callback recebido depois da expiracao da intencao", relacoes, 200);
-            return Collections.emptyList();
+            return new PagamentoConfirmacaoResult(intencao.getIntentionId(), Collections.emptyList());
         }
         if (!"SUCCESS".equalsIgnoreCase(dto.getStatus())) {
             updateIntencaoFromCallback(intencao, dto, ESTADO_FALHADO);
             auditPagamentoCallback(intencao, dto, "PAYMENT_CALLBACK_FAILED", "Pagamento recusado pelo gateway", relacoes, 200);
-            return Collections.emptyList();
+            return new PagamentoConfirmacaoResult(intencao.getIntentionId(), Collections.emptyList());
         }
         if (!paymentGatewayPaymentClient.validatePayment(dto)) {
             updateIntencaoFromCallback(intencao, dto, ESTADO_FALHADO);
             auditPagamentoCallback(intencao, dto, "PAYMENT_CALLBACK_INVALID", "Pagamento nao validado pelo gateway", relacoes, 200);
-            return Collections.emptyList();
+            return new PagamentoConfirmacaoResult(intencao.getIntentionId(), Collections.emptyList());
         }
 
         List<CobrancaPagamentoResponseDTO> pagamentos = new ArrayList<>();
@@ -215,7 +225,10 @@ public class CobrancaServiceImpl implements CobrancaService {
 
         updateIntencaoFromCallback(intencao, dto, ESTADO_PAGO);
         auditPagamentoCallback(intencao, dto, "PAYMENT_CALLBACK_SUCCESS", "Pagamento validado pelo gateway", relacoes, 201);
-        return pagamentos;
+        return new PagamentoConfirmacaoResult(intencao.getIntentionId(), pagamentos);
+    }
+
+    private record PagamentoConfirmacaoResult(String intentionId, List<CobrancaPagamentoResponseDTO> pagamentos) {
     }
 
     @Override
