@@ -2,6 +2,7 @@ package cv.zeemsv.api.infrastructure.repository;
 
 import cv.zeemsv.api.infrastructure.entity.ZeeTLoteEntity;
 import cv.zeemsv.api.infrastructure.repository.projection.LoteInvestidorProjection;
+import java.util.Collection;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -9,6 +10,10 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface ZeeTLoteRepository extends JpaRepository<ZeeTLoteEntity, Integer>, JpaSpecificationExecutor<ZeeTLoteEntity> {
+    List<ZeeTLoteEntity> findByIdZonaInOrderByIdZonaAscRefLoteAsc(Collection<Integer> idZonas);
+
+    List<ZeeTLoteEntity> findByIdZonaInAndCoordenadasIsNotNullOrderByIdZonaAscRefLoteAsc(Collection<Integer> idZonas);
+
     @Query("""
         select
             l.id as idLote,

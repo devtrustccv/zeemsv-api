@@ -1,0 +1,337 @@
+{
+  "name": "Sync Servicos ZEEMSV para Strapi",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "bca8a333-ff44-482f-bbf2-3e0afbe38cd4",
+      "name": "Executar Manualmente",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        2736,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=http://zeemsv-api:8080/zeemsv-api/api/v1/servicos/sended-to-cms/pendentes",
+        "options": {}
+      },
+      "id": "e93a907a-f983-4949-b61b-8c7203113c93",
+      "name": "GET servicos pendentes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3024,
+        752
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst servicos = Array.isArray(response.data) ? response.data : [];\nconst firstDefined = (...values) => values.find((value) => value !== undefined);\nconst asArray = (value) => Array.isArray(value) ? value : [];\n\nreturn servicos.map((servico) => {\n  const id = firstDefined(servico.id, servico.id_tp_solicitacao);\n  const nome = firstDefined(servico.nome, servico.title);\n  const descricao = firstDefined(servico.descricao, servico.description);\n  const msgPedido = firstDefined(servico.msg_pedido, servico.msgPedido);\n  const quemRaw = asArray(firstDefined(servico.quem_deve_solicitar, servico.quemDeveSolicitar, []));\n  const onboardingRaw = asArray(firstDefined(servico.tipos_onboarding, servico.tiposOnboarding, []));\n  const representantesRaw = asArray(firstDefined(servico.dm_tp_representante, servico.dmTpRepresentante, []));\n\n  const title = nome || `Servico ${id}`;\n  const description = descricao || msgPedido || title;\n\n  const dmTpRepresentante = representantesRaw.length > 0\n    ? [...new Set(representantesRaw.filter(Boolean))]\n    : [...new Set(quemRaw.map((item) => firstDefined(item.dm_tp_representante, item.dmTpRepresentante)).filter(Boolean))];\n\n  const quemDeveSolicitar = quemRaw\n    .filter((item) => firstDefined(item.dm_objecto, item.dmObjecto))\n    .map((item) => ({\n      dm_objecto: firstDefined(item.dm_objecto, item.dmObjecto),\n      dm_objecto_desc: firstDefined(item.dm_objecto_desc, item.dmObjectoDesc) ?? null\n    }));\n\n  const tiposOnboarding = onboardingRaw\n    .filter((item) => firstDefined(item.dm_tipo_onboarding, item.dmTipoOnboarding))\n    .map((item) => ({\n      id_tipo_onboarding: firstDefined(item.id_tipo_onboarding, item.id) ?? null,\n      dm_tipo_onboarding: firstDefined(item.dm_tipo_onboarding, item.dmTipoOnboarding),\n      dm_tipo_onboarding_desc: firstDefined(item.dm_tipo_onboarding_desc, item.dmTipoOnboardingDesc) ?? null,\n      ordem: firstDefined(item.ordem) == null ? null : Number(item.ordem)\n    }));\n\n  const data = {\n    service_id: servico.id,\n    title,\n    description,\n    icon: null,\n    content: description,\n    requirements: [],\n    highlighted: false,\n    button_text: 'Ver +',\n    dm_tipo_solicitacao: firstDefined(servico.dm_tipo_solicitacao, servico.dmTipoSolicitacao) ?? null,\n    dm_tipo_solicitacao_desc: firstDefined(servico.dm_tipo_solicitacao_desc, servico.dmTipoSolicitacaoDesc) ?? null,\n    dm_tp_representante: dmTpRepresentante,\n    dm_categoria: firstDefined(servico.dm_categoria, servico.dmCategoria) ?? null,\n    dm_categoria_desc: firstDefined(servico.dm_categoria_desc, servico.dmCategoriaDesc) ?? null,\n    msg_pedido: msgPedido ?? null,\n    prazo_dia: firstDefined(servico.prazo_dia, servico.prazoDia) == null ? null : Number(firstDefined(servico.prazo_dia, servico.prazoDia)),\n    flag_obrigatorio: firstDefined(servico.flag_obrigatorio, servico.flagObrigatorio) ?? null,\n    codigo: servico.codigo ?? null,\n    dm_estado: firstDefined(servico.dm_estado, servico.dmEstado) ?? null,\n    dm_estado_desc: firstDefined(servico.dm_estado_desc, servico.dmEstadoDesc) ?? null,\n    id_ent_externa: firstDefined(servico.id_ent_externa, servico.idEntExterna) ?? null,\n    possui_taxa: firstDefined(servico.possui_taxa, servico.possuiTaxa) ?? null,\n    possui_onboarding: firstDefined(servico.possui_onboarding, servico.possuiOnboarding) ?? null,\n    entidade_denominacao: firstDefined(servico.entidade_denominacao, servico.entidadeDenominacao) ?? null,\n    entidade_sigla: firstDefined(servico.entidade_sigla, servico.entidadeSigla) ?? null,\n    entidade_dm_tipo_ent: firstDefined(servico.entidade_dm_tipo_ent, servico.entidadeDmTipoEnt) ?? null,\n    entidade_dm_tipo_ent_desc: firstDefined(servico.entidade_dm_tipo_ent_desc, servico.entidadeDmTipoEntDesc) ?? null,\n    quem_deve_solicitar: quemDeveSolicitar,\n    tipos_onboarding: tiposOnboarding\n  };\n\n  return {\n    json: {\n      id_tp_solicitacao: id,\n      servico,\n      strapiPayload: { data }\n    }\n  };\n});"
+      },
+      "id": "281e0684-be67-418f-aba3-27fdc8a23dc1",
+      "name": "Extrair servicos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3536,
+        752
+      ]
+    },
+    {
+      "parameters": {
+        "method": "={{ $json.strapiServicoExiste ? 'PUT' : 'POST' }}",
+        "url": "={{ $json.strapiServicoExiste ? 'http://zeemsv-cms:1337/api/servicos-digitais/' + $json.strapiServicoId + '?populate=*' : 'http://zeemsv-cms:1337/api/servicos-digitais?populate=*' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify($json.strapiPayload)}}",
+        "options": {}
+      },
+      "id": "cdb17df5-5b4b-4871-b154-1ce2521f32ae",
+      "name": "UPSERT servico no Strapi",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4336,
+        752
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "Wqr2VNjakY5ouG7l",
+          "name": "Bearer Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=http://zeemsv-api:8080/zeemsv-api/api/v1/servicos/sended-to-cms?id_tp_solicitacao={{ $('Preparar upsert Strapi').item.json.id_tp_solicitacao }}",
+        "options": {}
+      },
+      "id": "241548d8-c3f4-4c16-a818-bc2fdc0f8f26",
+      "name": "PATCH marcar enviado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4608,
+        752
+      ]
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        4816,
+        752
+      ],
+      "id": "f173e117-e862-41b6-adf9-a28a5d90b273",
+      "name": "Fim"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 2
+            }
+          ]
+        }
+      },
+      "id": "dc945ca2-f726-4741-b8ef-d51c18a36ccd",
+      "name": "A cada 2 minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        2736,
+        848
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=http://zeemsv-cms:1337/api/servicos-digitais?filters[codigo][$eq]={{ encodeURIComponent($json.strapiPayload.data.codigo || '') }}&populate=*",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6d929655-34d6-46a1-8f9a-7eba9618ebd9",
+      "name": "GET servico no Strapi por codigo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3792,
+        752
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "Wqr2VNjakY5ouG7l",
+          "name": "Bearer Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const lookup = $input.first().json;\nconst original = $('Extrair servicos').item.json;\nconst data = Array.isArray(lookup.data) ? lookup.data : [];\nconst existing = data[0];\nconst existingId = existing?.documentId ?? existing?.id ?? null;\n\nreturn [{\n  json: {\n    ...original,\n    strapiServicoExiste: Boolean(existingId),\n    strapiServicoId: existingId,\n    strapiLookup: lookup\n  }\n}];"
+      },
+      "id": "07a5c7a5-92db-4a18-b8d1-3755f158b869",
+      "name": "Preparar upsert Strapi",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4064,
+        752
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "83f5ad4f-ce1c-44e2-bdf0-6b5c9f95d5d0",
+              "leftValue": "={{ $json.data }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3248,
+        752
+      ],
+      "id": "5e1fa6ef-ec5c-46b7-8f8b-38e76f4e5e3c",
+      "name": "If"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        3440,
+        1008
+      ],
+      "id": "12247aef-9f4c-419a-b0d9-1feae570de98",
+      "name": "FIM"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Executar Manualmente": {
+      "main": [
+        [
+          {
+            "node": "GET servicos pendentes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET servicos pendentes": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrair servicos": {
+      "main": [
+        [
+          {
+            "node": "GET servico no Strapi por codigo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PATCH marcar enviado": {
+      "main": [
+        [
+          {
+            "node": "Fim",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A cada 2 minutos": {
+      "main": [
+        [
+          {
+            "node": "GET servicos pendentes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET servico no Strapi por codigo": {
+      "main": [
+        [
+          {
+            "node": "Preparar upsert Strapi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar upsert Strapi": {
+      "main": [
+        [
+          {
+            "node": "UPSERT servico no Strapi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UPSERT servico no Strapi": {
+      "main": [
+        [
+          {
+            "node": "PATCH marcar enviado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Extrair servicos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "FIM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "e8763e7c-bf19-4538-a12c-1be367fe5d52",
+  "meta": {
+    "instanceId": "5ee46b501de59bdf1f4bdba2e46658390895d4e8fb8f80f9f7a16460217aa219"
+  },
+  "nodeGroups": [],
+  "id": "hmRfXR92sx5E1pEO",
+  "tags": []
+}
