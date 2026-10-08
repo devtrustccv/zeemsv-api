@@ -22,7 +22,7 @@ import org.springframework.web.client.RestClientResponseException;
 @RequiredArgsConstructor
 @Log4j2
 public class PaymentGatewayPaymentClient {
-    private static final String VALIDATION_STATUS_SUCCESS = "SUCCESS";
+    private static final String VALIDATION_STATUS_SUCCESS = "1";
     private static final String VALIDATION_CHANNEL_CODE = "1052";
 
     private final RestClient.Builder restClientBuilder;
