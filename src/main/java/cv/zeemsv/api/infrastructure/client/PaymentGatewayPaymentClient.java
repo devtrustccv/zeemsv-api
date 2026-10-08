@@ -91,6 +91,17 @@ public class PaymentGatewayPaymentClient {
         String token = authClient.getAccessToken();
 
         try {
+            log.info(
+                "Validar pagamento gateway - url: {}, transactionId: {}, status: [{}], statusLength: {}, channelCode: {}, merchantRef: {}, merchantSession: {}, fingerprintPresent: {}",
+                properties.getPaymentValidateUrl(),
+                request.getTransactionId(),
+                request.getStatus(),
+                request.getStatus() == null ? null : request.getStatus().length(),
+                request.getChannelCode(),
+                request.getMerchantRespMerchantRef(),
+                request.getMerchantRespMerchantSession(),
+                request.getFingerprint() != null && !request.getFingerprint().isBlank()
+            );
             Boolean response = restClientBuilder.build()
                 .post()
                 .uri(properties.getPaymentValidateUrl())
@@ -101,15 +112,25 @@ public class PaymentGatewayPaymentClient {
                 .retrieve()
                 .body(Boolean.class);
 
+            log.info(
+                "Validar pagamento gateway - transactionId: {}, response: {}",
+                request.getTransactionId(),
+                response
+            );
             return Boolean.TRUE.equals(response);
         } catch (RestClientResponseException ex) {
-            log.warn("Falha ao validar pagamento no gateway. HTTP: {}", ex.getStatusCode());
+            log.warn(
+                "Falha ao validar pagamento no gateway. transactionId: {}, HTTP: {}, body: {}",
+                request.getTransactionId(),
+                ex.getStatusCode(),
+                ex.getResponseBodyAsString()
+            );
             throw new BusinessException("Falha ao validar pagamento no gateway.");
         } catch (RuntimeException ex) {
             if (ex instanceof BusinessException businessException) {
                 throw businessException;
             }
-            log.warn("Erro ao validar pagamento no gateway.", ex);
+            log.warn("Erro ao validar pagamento no gateway. transactionId: {}", request.getTransactionId(), ex);
             throw new BusinessException("Erro ao validar pagamento no gateway.");
         }
     }

@@ -73,7 +73,7 @@ public class CobrancaServiceImpl implements CobrancaService {
     private static final String ESTADO_PAGO = "PAGO";
     private static final String ESTADO_FALHADO = "FALHADO";
     private static final String ESTADO_EXPIRADO = "EXPIRADO";
-    private static final long PAYMENT_GATEWAY_INTENTION_TIMEOUT_MINUTES = 5;
+    private static final long PAYMENT_GATEWAY_INTENTION_TIMEOUT_MINUTES = 10;
     private static final String FORMA_PAGAMENTO_VINT4 = "VINT4";
     private static final String PAYMENT_GATEWAY_PAYMENT_TYPE = "2";
     private static final String ORIGEM_PAGAMENTO_PORTAL = "PORTAL";
@@ -181,28 +181,93 @@ public class CobrancaServiceImpl implements CobrancaService {
 
     private PagamentoConfirmacaoResult confirmarPagamentoResult(PaymentGatewayPaymentValidationRequestDTO dto) {
         validateGatewayCallback(dto);
+        log.info(
+            "Confirmar pagamento callback recebido - transactionId: {}, status: [{}], statusLength: {}, channelCode: {}, merchantRef: {}, merchantSession: {}, fingerprintPresent: {}",
+            dto.getTransactionId(),
+            dto.getStatus(),
+            dto.getStatus() == null ? null : dto.getStatus().length(),
+            dto.getChannelCode(),
+            dto.getMerchantRespMerchantRef(),
+            dto.getMerchantRespMerchantSession(),
+            dto.getFingerprint() != null && !dto.getFingerprint().isBlank()
+        );
         ZeeTPagamentoIntencaoEntity intencao = findPagamentoIntencao(dto.getTransactionId());
         List<ZeeTPagamentoIntencaoCobrancaEntity> relacoes = pagamentoIntencaoCobrancaRepository
             .findByIdIntencaoOrderByIdAsc(intencao.getId());
+        log.info(
+            "Confirmar pagamento intencao encontrada - id: {}, intentionId: {}, transactionId: {}, estadoAtual: {}, dataHoraRegisto: {}, dataExpiracao: {}, relacoes: {}",
+            intencao.getId(),
+            intencao.getIntentionId(),
+            intencao.getTransactionId(),
+            intencao.getDmEstado(),
+            intencao.getDataHoraRegisto(),
+            resolveDataExpiracao(intencao),
+            relacoes.size()
+        );
         if (relacoes.isEmpty()) {
             throw new BusinessException("Intencao de pagamento sem cobrancas associadas: " + dto.getTransactionId());
         }
 
         if (ESTADO_PAGO.equalsIgnoreCase(intencao.getDmEstado())) {
+            log.info(
+                "Confirmar pagamento replay ignorado - intentionId: {}, transactionId: {}, estadoAtual: {}",
+                intencao.getIntentionId(),
+                dto.getTransactionId(),
+                intencao.getDmEstado()
+            );
             auditPagamentoCallback(intencao, dto, "PAYMENT_CALLBACK_REPLAY", "Callback de pagamento repetido", relacoes, 200);
             return new PagamentoConfirmacaoResult(intencao.getIntentionId(), findPagamentosConfirmados(relacoes));
         }
         if (isPagamentoIntencaoExpirada(intencao)) {
+            log.warn(
+                "Confirmar pagamento expirado antes da validacao - intentionId: {}, transactionId: {}, estadoAtual: {}, dataExpiracao: {}, now: {}",
+                intencao.getIntentionId(),
+                dto.getTransactionId(),
+                intencao.getDmEstado(),
+                resolveDataExpiracao(intencao),
+                LocalDateTime.now()
+            );
             updateIntencaoFromCallback(intencao, dto, ESTADO_EXPIRADO);
             auditPagamentoCallback(intencao, dto, "PAYMENT_CALLBACK_EXPIRED", "Callback recebido depois da expiracao da intencao", relacoes, 200);
             return new PagamentoConfirmacaoResult(intencao.getIntentionId(), Collections.emptyList());
         }
-        if (!isPagamentoGatewaySuccess(dto.getStatus())) {
+        boolean statusSuccess = isPagamentoGatewaySuccess(dto.getStatus());
+        log.info(
+            "Confirmar pagamento avaliacao status - intentionId: {}, transactionId: {}, status: [{}], statusLength: {}, statusSuccess: {}",
+            intencao.getIntentionId(),
+            dto.getTransactionId(),
+            dto.getStatus(),
+            dto.getStatus() == null ? null : dto.getStatus().length(),
+            statusSuccess
+        );
+        if (!statusSuccess) {
+            log.warn(
+                "Confirmar pagamento falhou por status do gateway - intentionId: {}, transactionId: {}, status: [{}], channelCode: {}, errorDescription: {}",
+                intencao.getIntentionId(),
+                dto.getTransactionId(),
+                dto.getStatus(),
+                dto.getChannelCode(),
+                dto.getMerchantRespErrorDescription()
+            );
             updateIntencaoFromCallback(intencao, dto, ESTADO_FALHADO);
             auditPagamentoCallback(intencao, dto, "PAYMENT_CALLBACK_FAILED", "Pagamento recusado pelo gateway", relacoes, 200);
             return new PagamentoConfirmacaoResult(intencao.getIntentionId(), Collections.emptyList());
         }
-        if (!paymentGatewayPaymentClient.validatePayment(dto)) {
+        boolean gatewayValidated = paymentGatewayPaymentClient.validatePayment(dto);
+        log.info(
+            "Confirmar pagamento resultado validate gateway - intentionId: {}, transactionId: {}, validated: {}",
+            intencao.getIntentionId(),
+            dto.getTransactionId(),
+            gatewayValidated
+        );
+        if (!gatewayValidated) {
+            log.warn(
+                "Confirmar pagamento falhou por validate gateway - intentionId: {}, transactionId: {}, status: [{}], channelCode: {}",
+                intencao.getIntentionId(),
+                dto.getTransactionId(),
+                dto.getStatus(),
+                dto.getChannelCode()
+            );
             updateIntencaoFromCallback(intencao, dto, ESTADO_FALHADO);
             auditPagamentoCallback(intencao, dto, "PAYMENT_CALLBACK_INVALID", "Pagamento nao validado pelo gateway", relacoes, 200);
             return new PagamentoConfirmacaoResult(intencao.getIntentionId(), Collections.emptyList());
@@ -226,6 +291,13 @@ public class CobrancaServiceImpl implements CobrancaService {
         }
 
         updateIntencaoFromCallback(intencao, dto, ESTADO_PAGO);
+        log.info(
+            "Confirmar pagamento concluido com sucesso - intentionId: {}, transactionId: {}, pagamentosCriados: {}, novoEstado: {}",
+            intencao.getIntentionId(),
+            dto.getTransactionId(),
+            pagamentos.size(),
+            intencao.getDmEstado()
+        );
         auditPagamentoCallback(intencao, dto, "PAYMENT_CALLBACK_SUCCESS", "Pagamento validado pelo gateway", relacoes, 201);
         return new PagamentoConfirmacaoResult(intencao.getIntentionId(), pagamentos);
     }
@@ -249,6 +321,17 @@ public class CobrancaServiceImpl implements CobrancaService {
             .orElseThrow(() -> new BusinessException("Intencao de pagamento nao encontrada: " + intentionId));
         List<ZeeTPagamentoIntencaoCobrancaEntity> relacoes = pagamentoIntencaoCobrancaRepository
             .findByIdIntencaoOrderByIdAsc(intencao.getId());
+        String estadoResolvido = resolveEstadoIntencao(intencao);
+        log.info(
+            "Consultar status pagamento - intentionId: {}, transactionId: {}, estadoPersistido: {}, estadoResolvido: {}, dataExpiracao: {}, remainingSeconds: {}, relacoes: {}",
+            intencao.getIntentionId(),
+            intencao.getTransactionId(),
+            intencao.getDmEstado(),
+            estadoResolvido,
+            resolveDataExpiracao(intencao),
+            Math.max(0, Duration.between(LocalDateTime.now(), resolveDataExpiracao(intencao)).getSeconds()),
+            relacoes.size()
+        );
 
         return toPagamentoIntencaoStatusResponse(intencao, relacoes);
     }
