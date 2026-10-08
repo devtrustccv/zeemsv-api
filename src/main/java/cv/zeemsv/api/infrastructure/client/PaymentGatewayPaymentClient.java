@@ -91,8 +91,9 @@ public class PaymentGatewayPaymentClient {
         String token = authClient.getAccessToken();
 
         try {
+            String requestBody = objectMapper.writeValueAsString(request);
             log.info(
-                "Validar pagamento gateway - url: {}, transactionId: {}, status: [{}], statusLength: {}, channelCode: {}, merchantRef: {}, merchantSession: {}, fingerprintPresent: {}",
+                "Validar pagamento gateway - url: {}, transactionId: {}, status: [{}], statusLength: {}, channelCode: {}, merchantRef: {}, merchantSession: {}, fingerprintPresent: {}, fingerprintLength: {}, fingerprintContainsPlus: {}, fingerprintContainsSpace: {}, body: {}",
                 properties.getPaymentValidateUrl(),
                 request.getTransactionId(),
                 request.getStatus(),
@@ -100,7 +101,11 @@ public class PaymentGatewayPaymentClient {
                 request.getChannelCode(),
                 request.getMerchantRespMerchantRef(),
                 request.getMerchantRespMerchantSession(),
-                request.getFingerprint() != null && !request.getFingerprint().isBlank()
+                request.getFingerprint() != null && !request.getFingerprint().isBlank(),
+                request.getFingerprint() == null ? null : request.getFingerprint().length(),
+                request.getFingerprint() != null && request.getFingerprint().contains("+"),
+                request.getFingerprint() != null && request.getFingerprint().contains(" "),
+                requestBody
             );
             Boolean response = restClientBuilder.build()
                 .post()
@@ -108,7 +113,7 @@ public class PaymentGatewayPaymentClient {
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                .body(request)
+                .body(requestBody)
                 .retrieve()
                 .body(Boolean.class);
 
@@ -118,6 +123,9 @@ public class PaymentGatewayPaymentClient {
                 response
             );
             return Boolean.TRUE.equals(response);
+        } catch (JsonProcessingException ex) {
+            log.warn("Erro ao serializar pedido de validacao de pagamento. transactionId: {}", request.getTransactionId(), ex);
+            throw new BusinessException("Erro ao serializar pedido de validacao de pagamento.");
         } catch (RestClientResponseException ex) {
             log.warn(
                 "Falha ao validar pagamento no gateway. transactionId: {}, HTTP: {}, body: {}",

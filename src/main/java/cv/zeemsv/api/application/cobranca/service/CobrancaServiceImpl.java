@@ -180,16 +180,20 @@ public class CobrancaServiceImpl implements CobrancaService {
     }
 
     private PagamentoConfirmacaoResult confirmarPagamentoResult(PaymentGatewayPaymentValidationRequestDTO dto) {
+        normalizeGatewayCallback(dto);
         validateGatewayCallback(dto);
         log.info(
-            "Confirmar pagamento callback recebido - transactionId: {}, status: [{}], statusLength: {}, channelCode: {}, merchantRef: {}, merchantSession: {}, fingerprintPresent: {}",
+            "Confirmar pagamento callback recebido - transactionId: {}, status: [{}], statusLength: {}, channelCode: {}, merchantRef: {}, merchantSession: {}, fingerprintPresent: {}, fingerprintLength: {}, fingerprintContainsPlus: {}, fingerprintContainsSpace: {}",
             dto.getTransactionId(),
             dto.getStatus(),
             dto.getStatus() == null ? null : dto.getStatus().length(),
             dto.getChannelCode(),
             dto.getMerchantRespMerchantRef(),
             dto.getMerchantRespMerchantSession(),
-            dto.getFingerprint() != null && !dto.getFingerprint().isBlank()
+            dto.getFingerprint() != null && !dto.getFingerprint().isBlank(),
+            dto.getFingerprint() == null ? null : dto.getFingerprint().length(),
+            dto.getFingerprint() != null && dto.getFingerprint().contains("+"),
+            dto.getFingerprint() != null && dto.getFingerprint().contains(" ")
         );
         ZeeTPagamentoIntencaoEntity intencao = findPagamentoIntencao(dto.getTransactionId());
         List<ZeeTPagamentoIntencaoCobrancaEntity> relacoes = pagamentoIntencaoCobrancaRepository
@@ -406,6 +410,34 @@ public class CobrancaServiceImpl implements CobrancaService {
         if (!PAYMENT_GATEWAY_CHANNEL_CODE.equals(dto.getChannelCode())) {
             throw new BusinessException("Canal de pagamento invalido: " + dto.getChannelCode());
         }
+    }
+
+    private void normalizeGatewayCallback(PaymentGatewayPaymentValidationRequestDTO dto) {
+        if (dto == null) {
+            return;
+        }
+        dto.setTransactionId(normalizeCallbackText(dto.getTransactionId()));
+        dto.setStatus(normalizeCallbackText(dto.getStatus()));
+        dto.setChannelCode(normalizeCallbackText(dto.getChannelCode()));
+        dto.setMerchantRespMerchantRef(normalizeCallbackText(dto.getMerchantRespMerchantRef()));
+        dto.setMerchantRespMerchantSession(normalizeCallbackText(dto.getMerchantRespMerchantSession()));
+        dto.setFingerprint(normalizeFingerprint(dto.getFingerprint()));
+    }
+
+    private String normalizeCallbackText(String value) {
+        return value == null ? null : value.trim();
+    }
+
+    private String normalizeFingerprint(String fingerprint) {
+        if (fingerprint == null) {
+            return null;
+        }
+        String normalized = fingerprint.trim();
+        if (normalized.contains(" ") && !normalized.contains("+")) {
+            normalized = normalized.replace(' ', '+');
+            log.info("Confirmar pagamento fingerprint normalizado - espacos convertidos para '+'.");
+        }
+        return normalized;
     }
 
     private void updateIntencaoFromCallback(
