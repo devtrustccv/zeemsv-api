@@ -80,6 +80,8 @@ public class CobrancaServiceImpl implements CobrancaService {
     private static final String USER_PAYMENT_GATEWAY = "payment-gateway";
     private static final String FLAG_INTEGRACAO_TRUE = "true";
     private static final String PAYMENT_GATEWAY_CHANNEL_CODE = "1052";
+    private static final String PAYMENT_GATEWAY_STATUS_SUCCESS = "1";
+    private static final String PAYMENT_GATEWAY_STATUS_SUCCESS_LEGACY = "SUCCESS";
     private static final String PAYMENT_GATEWAY_EMAIL = "info@azeemsv.cv";
     private static final String PAYMENT_GATEWAY_BILL_ADDR_COUNTRY = "238";
     private static final String PAYMENT_GATEWAY_BILL_ADDR_CITY = "MINDELO";
@@ -195,7 +197,7 @@ public class CobrancaServiceImpl implements CobrancaService {
             auditPagamentoCallback(intencao, dto, "PAYMENT_CALLBACK_EXPIRED", "Callback recebido depois da expiracao da intencao", relacoes, 200);
             return new PagamentoConfirmacaoResult(intencao.getIntentionId(), Collections.emptyList());
         }
-        if (!"SUCCESS".equalsIgnoreCase(dto.getStatus())) {
+        if (!isPagamentoGatewaySuccess(dto.getStatus())) {
             updateIntencaoFromCallback(intencao, dto, ESTADO_FALHADO);
             auditPagamentoCallback(intencao, dto, "PAYMENT_CALLBACK_FAILED", "Pagamento recusado pelo gateway", relacoes, 200);
             return new PagamentoConfirmacaoResult(intencao.getIntentionId(), Collections.emptyList());
@@ -226,6 +228,11 @@ public class CobrancaServiceImpl implements CobrancaService {
         updateIntencaoFromCallback(intencao, dto, ESTADO_PAGO);
         auditPagamentoCallback(intencao, dto, "PAYMENT_CALLBACK_SUCCESS", "Pagamento validado pelo gateway", relacoes, 201);
         return new PagamentoConfirmacaoResult(intencao.getIntentionId(), pagamentos);
+    }
+
+    private boolean isPagamentoGatewaySuccess(String status) {
+        return PAYMENT_GATEWAY_STATUS_SUCCESS.equals(status)
+            || PAYMENT_GATEWAY_STATUS_SUCCESS_LEGACY.equalsIgnoreCase(status);
     }
 
     private record PagamentoConfirmacaoResult(String intentionId, List<CobrancaPagamentoResponseDTO> pagamentos) {

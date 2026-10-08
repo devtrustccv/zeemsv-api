@@ -88,7 +88,7 @@
                   },
                   {
                       "parameters":  {
-                                         "jsCode":  "const response = $input.first().json;\nconst envelope = Array.isArray(response) ? response[0] : response;\nconst zonas = Array.isArray(envelope?.data) ? envelope.data : [];\nconst firstDefined = (...values) =\u003e values.find((value) =\u003e value !== undefined \u0026\u0026 value !== null);\nconst asArray = (value) =\u003e Array.isArray(value) ? value : [];\nconst asNumber = (value) =\u003e {\n  if (value === null || value === undefined || value === \u0027\u0027) return null;\n  const number = Number(String(value).replace(\u0027,\u0027, \u0027.\u0027));\n  return Number.isFinite(number) ? number : null;\n};\nconst firstNumber = (...values) =\u003e {\n  for (const value of values) {\n    const number = asNumber(value);\n    if (number !== null) return number;\n  }\n  return null;\n};\nconst sumArea = (items) =\u003e items.reduce((total, item) =\u003e total + (firstNumber(item.area, item.area_inicial, item.areaInicial) ?? 0), 0);\nconst containsAny = (value, words) =\u003e {\n  if (value === null || value === undefined) return false;\n  const normalized = String(value).normalize(\u0027NFD\u0027).replace(/[\\u0300-\\u036f]/g, \u0027\u0027).toUpperCase();\n  return words.some((word) =\u003e normalized.includes(word));\n};\nconst statusText = (lote) =\u003e firstDefined(lote.situacao, lote.dmSituacaoCd, lote.dm_situacao_cd, lote.disponibilidade, lote.dmDisponibilidade, lote.dm_disponibilidade);\nconst isLivre = (lote) =\u003e containsAny(statusText(lote), [\u0027LIVRE\u0027, \u0027DISPONIVEL\u0027]);\nconst isOcupado = (lote) =\u003e containsAny(statusText(lote), [\u0027OCUP\u0027, \u0027RESERVADO\u0027, \u0027CEDIDO\u0027, \u0027INDISPONIVEL\u0027]);\nconst normalizeCode = (value, fallback) =\u003e String(value || fallback || \u0027SEM-CODIGO\u0027).trim().toUpperCase();\nconst normalizeCoordinates = (coordenadas, pontos = []) =\u003e {\n  if (coordenadas \u0026\u0026 typeof coordenadas === \u0027object\u0027 \u0026\u0026 !Array.isArray(coordenadas)) {\n    if (Array.isArray(coordenadas.coordinates)) return coordenadas;\n    if (Array.isArray(coordenadas.coordenadas)) return { coordinates: coordenadas.coordenadas };\n  }\n  if (Array.isArray(coordenadas)) return { coordinates: coordenadas };\n\n  const coordinates = asArray(pontos)\n    .map((ponto) =\u003e [asNumber(firstDefined(ponto.coordenadaX, ponto.coordenada_x)), asNumber(firstDefined(ponto.coordenadaY, ponto.coordenada_y))])\n    .filter(([x, y]) =\u003e x !== null \u0026\u0026 y !== null);\n\n  return coordinates.length \u003e 0 ? { coordinates } : null;\n};\nconst loteCode = (zonaCode, lote) =\u003e {\n  const raw = firstDefined(lote.code, lote.refLote, lote.ref_lote, lote.nip, lote.id);\n  const value = String(raw || \u0027\u0027).trim();\n  if (!value) return null;\n  return value.toUpperCase().startsWith(`${zonaCode}-`) ? value : `${zonaCode}-L${value}`;\n};\nconst loteName = (lote) =\u003e {\n  const raw = firstDefined(lote.name, lote.refLote, lote.ref_lote, lote.nip, lote.id);\n  return raw ? `Lote ${raw}` : \u0027Lote\u0027;\n};\n\nconst grouped = new Map();\n\nfor (const zona of zonas) {\n  const code = normalizeCode(firstDefined(zona.sigla, zona.code), zona.id);\n  if (!grouped.has(code)) {\n    grouped.set(code, {\n      code,\n      name: code,\n      zones: []\n    });\n  }\n\n  const lotesOrigem = asArray(zona.lotes);\n  const lotesLivres = lotesOrigem.filter(isLivre);\n  const lotesOcupados = lotesOrigem.filter(isOcupado);\n  const areaTotalFallback = sumArea(lotesOrigem);\n  const areaDisponivelFallback = sumArea(lotesLivres);\n  const areaOcupadaFallback = lotesOcupados.length \u003e 0 ? sumArea(lotesOcupados) : Math.max(0, (areaTotalFallback || 0) - (areaDisponivelFallback || 0));\n\n  const parques = asArray(zona.parques).map((parque) =\u003e ({\n    code: firstDefined(parque.sigla, parque.code) ?? null,\n    name: firstDefined(parque.nome, parque.name) ?? null,\n    estado: parque.estado ?? null\n  }));\n  const lotes = lotesOrigem.map((lote) =\u003e ({\n    code: loteCode(code, lote),\n    name: loteName(lote),\n    description: firstDefined(lote.description, lote.refCm, lote.ref_cm) ? `Referencia CM: ${firstDefined(lote.description, lote.refCm, lote.ref_cm)}` : null,\n    coordinates: normalizeCoordinates(firstDefined(lote.coordenadas, lote.coordinates), []),\n    parque: firstDefined(lote.parque, lote.parqueNome, lote.parque_nome) ?? null,\n    nip: lote.nip ?? null,\n    zona: firstDefined(lote.zona, zona.nome, zona.name) ?? null,\n    area: firstNumber(lote.area, lote.area_inicial, lote.areaInicial),\n    situacao: firstDefined(lote.situacao, lote.dmSituacaoCd, lote.dm_situacao_cd) ?? null,\n    disponibilidade: firstDefined(lote.disponibilidade, lote.dmDisponibilidade, lote.dm_disponibilidade) ?? null\n  })).filter((lote) =\u003e lote.code || lote.name || lote.coordinates);\n\n  grouped.get(code).zones.push({\n    code,\n    name: firstDefined(zona.nome, zona.name) ?? code,\n    description: zona.description ?? null,\n    coordinates: normalizeCoordinates(firstDefined(zona.coordenadas, zona.coordinates), zona.pontos),\n    parque: parques.length === 1 ? firstDefined(parques[0].name, parques[0].code) : code,\n    areaTotal: firstNumber(zona.areaTotal, zona.area_total) ?? areaTotalFallback,\n    areaTotalDisponivel: firstNumber(zona.areaTotalDisponivel, zona.area_total_disponivel) ?? areaDisponivelFallback,\n    areaTotalOcupada: firstNumber(zona.areaTotalOcupada, zona.area_total_ocupada) ?? areaOcupadaFallback,\n    quantidadeLotesLivres: firstNumber(zona.quantidadeLotesLivres, zona.quantidade_lotes_livres) ?? lotesLivres.length,\n    quantidadeLotesOcupados: firstNumber(zona.quantidadeLotesOcupados, zona.quantidadeLotesOcupadas, zona.quantidade_lotes_ocupados, zona.quantidade_lotes_ocupadas) ?? lotesOcupados.length,\n    parques,\n    lotes\n  });\n}\n\nreturn [...grouped.values()].map((pole) =\u003e ({\n  json: {\n    code: pole.code,\n    zonasCount: pole.zones.length,\n    lotesCount: pole.zones.reduce((total, zone) =\u003e total + asArray(zone.lotes).length, 0),\n    strapiPayload: {\n      data: {\n        name: pole.name,\n        code: pole.code,\n        zones: pole.zones\n      }\n    }\n  }\n}));"
+                                         "jsCode":  "const response = $input.first().json;\nconst envelope = Array.isArray(response) ? response[0] : response;\nconst zonas = Array.isArray(envelope?.data) ? envelope.data : [];\nconst firstDefined = (...values) =\u003e values.find((value) =\u003e value !== undefined \u0026\u0026 value !== null);\nconst asArray = (value) =\u003e Array.isArray(value) ? value : [];\nconst asNumber = (value) =\u003e {\n  if (value === null || value === undefined || value === \u0027\u0027) return null;\n  const number = Number(String(value).replace(\u0027,\u0027, \u0027.\u0027));\n  return Number.isFinite(number) ? number : null;\n};\nconst firstNumber = (...values) =\u003e {\n  for (const value of values) {\n    const number = asNumber(value);\n    if (number !== null) return number;\n  }\n  return null;\n};\nconst sumArea = (items) =\u003e items.reduce((total, item) =\u003e total + (firstNumber(item.area, item.area_inicial, item.areaInicial) ?? 0), 0);\nconst containsAny = (value, words) =\u003e {\n  if (value === null || value === undefined) return false;\n  const normalized = String(value).normalize(\u0027NFD\u0027).replace(/[\\u0300-\\u036f]/g, \u0027\u0027).toUpperCase();\n  return words.some((word) =\u003e normalized.includes(word));\n};\nconst statusText = (lote) =\u003e firstDefined(lote.situacao, lote.dmSituacaoCd, lote.dm_situacao_cd, lote.disponibilidade, lote.dmDisponibilidade, lote.dm_disponibilidade);\nconst isLivre = (lote) =\u003e containsAny(statusText(lote), [\u0027LIVRE\u0027, \u0027DISPONIVEL\u0027]);\nconst isOcupado = (lote) =\u003e containsAny(statusText(lote), [\u0027OCUP\u0027, \u0027RESERVADO\u0027, \u0027CEDIDO\u0027, \u0027INDISPONIVEL\u0027]);\nconst normalizeCode = (value, fallback) =\u003e String(value || fallback || \u0027SEM-CODIGO\u0027).trim().toUpperCase();\nconst normalizeCoordinates = (coordenadas, pontos = []) =\u003e {\n  if (coordenadas \u0026\u0026 typeof coordenadas === \u0027object\u0027 \u0026\u0026 !Array.isArray(coordenadas)) {\n    if (Array.isArray(coordenadas.coordinates)) return coordenadas;\n    if (Array.isArray(coordenadas.coordenadas)) return { coordinates: coordenadas.coordenadas };\n  }\n  if (Array.isArray(coordenadas)) return { coordinates: coordenadas };\n\n  const coordinates = asArray(pontos)\n    .map((ponto) =\u003e [asNumber(firstDefined(ponto.coordenadaX, ponto.coordenada_x)), asNumber(firstDefined(ponto.coordenadaY, ponto.coordenada_y))])\n    .filter(([x, y]) =\u003e x !== null \u0026\u0026 y !== null);\n\n  return coordinates.length \u003e 0 ? { coordinates } : null;\n};\nconst loteCode = (zonaCode, lote) =\u003e {\n  const raw = firstDefined(lote.code, lote.refLote, lote.ref_lote, lote.nip, lote.id);\n  const value = String(raw || \u0027\u0027).trim();\n  if (!value) return null;\n  return value.toUpperCase().startsWith(`${zonaCode}-`) ? value : `${zonaCode}-L${value}`;\n};\nconst loteName = (lote) =\u003e {\n  const raw = firstDefined(lote.name, lote.refLote, lote.ref_lote, lote.nip, lote.id);\n  return raw ? `Lote ${raw}` : \u0027Lote\u0027;\n};\n\nconst grouped = new Map();\n\nfor (const zona of zonas) {\n  const code = normalizeCode(firstDefined(zona.sigla, zona.code), zona.id);\n  if (!grouped.has(code)) {\n    grouped.set(code, {\n      code,\n      name: code,\n      zones: []\n    });\n  }\n\n  const lotesOrigem = asArray(zona.lotes);\n  const lotesLivres = lotesOrigem.filter(isLivre);\n  const lotesOcupados = lotesOrigem.filter(isOcupado);\n  const areaTotalFallback = sumArea(lotesOrigem);\n  const areaDisponivelFallback = sumArea(lotesLivres);\n  const areaOcupadaFallback = lotesOcupados.length \u003e 0 ? sumArea(lotesOcupados) : Math.max(0, (areaTotalFallback || 0) - (areaDisponivelFallback || 0));\n\n  const parques = asArray(zona.parques).map((parque) =\u003e ({\n    code: firstDefined(parque.sigla, parque.code) ?? null,\n    name: firstDefined(parque.nome, parque.name) ?? null,\n    estado: parque.estado ?? null\n  }));\n  const lotes = lotesOrigem.map((lote) =\u003e ({\n    code: loteCode(code, lote),\n    name: loteName(lote),\n    description: firstDefined(lote.description, lote.refCm, lote.ref_cm) ? `Referencia CM: ${firstDefined(lote.description, lote.refCm, lote.ref_cm)}` : null,\n    coordinates: normalizeCoordinates(firstDefined(lote.coordenadas, lote.coordinates), []),\n    parque: firstDefined(lote.parque, lote.parqueNome, lote.parque_nome) ?? null,\n    nip: lote.nip ?? null,\n    zona: firstDefined(lote.zona, zona.nome, zona.name) ?? null,\n    area: firstNumber(lote.area, lote.area_inicial, lote.areaInicial),\n    situacao: firstDefined(lote.situacao, lote.dmSituacaoCd, lote.dm_situacao_cd) ?? null,\n    disponibilidade: firstDefined(lote.disponibilidade, lote.dmDisponibilidade, lote.dm_disponibilidade) ?? null\n  })).filter((lote) =\u003e lote.code || lote.name || lote.coordinates);\n\n  grouped.get(code).zones.push({\n    code,\n    name: firstDefined(zona.nome, zona.name) ?? code,\n    description: zona.description ?? null,\n    coordinates: normalizeCoordinates(firstDefined(zona.coordenadas, zona.coordinates), zona.pontos),\n    parque: parques.length === 1 ? firstDefined(parques[0].name, parques[0].code) : code,\n    areaTotal: firstNumber(zona.areaTotal, zona.area_total) ?? areaTotalFallback,\n    areaTotalDisponivel: firstNumber(zona.areaTotalDisponivel, zona.area_total_disponivel) ?? areaDisponivelFallback,\n    areaTotalOcupada: firstNumber(zona.areaTotalOcupada, zona.area_total_ocupada) ?? areaOcupadaFallback,\n    quantidadeLotesLivres: firstNumber(zona.quantidadeLotesLivres, zona.quantidade_lotes_livres) ?? lotesLivres.length,\n    quantidadeLotesOcupados: firstNumber(zona.quantidadeLotesOcupados, zona.quantidadeLotesOcupadas, zona.quantidade_lotes_ocupados, zona.quantidade_lotes_ocupadas) ?? lotesOcupados.length,\n    parques,\n    lotes\n  });\n}\n\nreturn [...grouped.values()].map((pole) =\u003e ({\n  json: {\n    code: pole.code,\n    zonasCount: pole.zones.length,\n    lotesCount: pole.zones.reduce((total, zone) =\u003e total + asArray(zone.lotes).length, 0),\n    strapiPayload: {\n      data: {\n        locale: \u0027pt\u0027,\n        name: pole.name,\n        code: pole.code,\n        zones: pole.zones\n      }\n    }\n  }\n}));"
                                      },
                       "id":  "2f1d0965-7df7-4f2e-95c7-00f3b7bde006",
                       "name":  "Preparar development poles",
@@ -101,7 +101,7 @@
                   },
                   {
                       "parameters":  {
-                                         "url":  "=https://zeemsv-sta.uniteltmais.cv/zeemsv-cms/api/development-poles?filters[code][$eq]={{ encodeURIComponent($json.code || \u0027\u0027) }}\u0026populate[0]=zones\u0026populate[1]=zones.lotes",
+                                         "url":  "=https://zeemsv-sta.uniteltmais.cv/zeemsv-cms/api/development-poles?filters[code][$eq]={{ encodeURIComponent($json.code || \u0027\u0027) }}\u0026locale=pt\u0026populate[0]=zones\u0026populate[1]=zones.lotes",
                                          "authentication":  "genericCredentialType",
                                          "genericAuthType":  "httpBearerAuth",
                                          "sendHeaders":  true,
@@ -135,7 +135,7 @@
                   },
                   {
                       "parameters":  {
-                                         "jsCode":  "const lookup = $input.first().json;\nconst original = $(\u0027Preparar development poles\u0027).item.json;\nconst data = Array.isArray(lookup.data) ? lookup.data : [];\nconst existing = data[0];\nconst existingId = existing?.documentId ?? existing?.id ?? null;\n\nconst existingRoot = existing?.attributes ?? existing ?? {};\nconst existingZones = Array.isArray(existingRoot.zones) ? existingRoot.zones : [];\nconst zoneKey = (zone) =\u003e String(zone?.code || zone?.name || \u0027\u0027).trim().toUpperCase();\nconst loteKey = (lote) =\u003e String(lote?.code || lote?.name || lote?.nip || \u0027\u0027).trim().toUpperCase();\nconst byKey = (items, keyFn) =\u003e new Map(items.map((item) =\u003e [keyFn(item), item]).filter(([key]) =\u003e key));\n\nconst payload = JSON.parse(JSON.stringify(original.strapiPayload));\nconst existingZonesByKey = byKey(existingZones, zoneKey);\n\npayload.data.zones = (payload.data.zones || []).map((zone) =\u003e {\n  const existingZone = existingZonesByKey.get(zoneKey(zone));\n  const nextZone = { ...zone };\n\n  if (existingZone?.id) {\n    nextZone.id = existingZone.id;\n  }\n\n  const existingLotes = Array.isArray(existingZone?.lotes) ? existingZone.lotes : [];\n  const existingLotesByKey = byKey(existingLotes, loteKey);\n  nextZone.lotes = (zone.lotes || []).map((lote) =\u003e {\n    const existingLote = existingLotesByKey.get(loteKey(lote));\n    return existingLote?.id ? { ...lote, id: existingLote.id } : lote;\n  });\n\n  return nextZone;\n});\n\nreturn [{\n  json: {\n    ...original,\n    strapiPayload: payload,\n    strapiPoleExiste: Boolean(existingId),\n    strapiPoleId: existingId,\n    strapiLookup: lookup\n  }\n}];"
+                                         "jsCode":  "const lookup = $input.first().json;\nconst original = $(\u0027Preparar development poles\u0027).item.json;\nconst data = Array.isArray(lookup.data) ? lookup.data : [];\nconst existing = data[0];\nconst existingId = existing?.documentId ?? existing?.id ?? null;\n\nconst existingRoot = existing?.attributes ?? existing ?? {};\nconst existingZones = Array.isArray(existingRoot.zones) ? existingRoot.zones : [];\nconst zoneKey = (zone) =\u003e String(zone?.code || zone?.name || \u0027\u0027).trim().toUpperCase();\nconst loteKey = (lote) =\u003e String(lote?.code || lote?.name || lote?.nip || \u0027\u0027).trim().toUpperCase();\nconst byKey = (items, keyFn) =\u003e new Map(items.map((item) =\u003e [keyFn(item), item]).filter(([key]) =\u003e key));\n\nconst payload = JSON.parse(JSON.stringify(original.strapiPayload));\nconst existingZonesByKey = byKey(existingZones, zoneKey);\n\npayload.data.zones = (payload.data.zones || []).map((zone) =\u003e {\n  const existingZone = existingZonesByKey.get(zoneKey(zone));\n  const nextZone = { ...zone };\n\n  if (existingZone?.id) {\n    nextZone.id = existingZone.id;\n  }\n\n  const existingLotes = Array.isArray(existingZone?.lotes) ? existingZone.lotes : [];\n  const existingLotesByKey = byKey(existingLotes, loteKey);\n  nextZone.lotes = (zone.lotes || []).map((lote) =\u003e {\n    const existingLote = existingLotesByKey.get(loteKey(lote));\n    return existingLote?.id ? { ...lote, id: existingLote.id } : lote;\n  });\n\n  return nextZone;\n});\n\nreturn [{\n  json: {\n    ...original,\n    strapiPayload: payload,\n    strapiPoleExiste: Boolean(existingId),\n    strapiPoleId: existingId,\n    strapiMethod: existingId ? \u0027PUT\u0027 : \u0027POST\u0027,\n    strapiUrl: existingId ? \u0027https://zeemsv-sta.uniteltmais.cv/zeemsv-cms/api/development-poles/\u0027 + existingId + \u0027?locale=pt\u0026populate=*\u0027 : \u0027https://zeemsv-sta.uniteltmais.cv/zeemsv-cms/api/development-poles?locale=pt\u0026populate=*\u0027,\n    strapiLookup: lookup\n  }\n}];"
                                      },
                       "id":  "2f1d0965-7df7-4f2e-95c7-00f3b7bde008",
                       "name":  "Preparar upsert Strapi",
@@ -148,8 +148,8 @@
                   },
                   {
                       "parameters":  {
-                                         "method":  "={{ $json.strapiPoleExiste ? \u0027PUT\u0027 : \u0027POST\u0027 }}",
-                                         "url":  "={{ $json.strapiPoleExiste ? \u0027https://zeemsv-sta.uniteltmais.cv/zeemsv-cms/api/development-poles/\u0027 + $json.strapiPoleId + \u0027?populate=*\u0027 : \u0027https://zeemsv-sta.uniteltmais.cv/zeemsv-cms/api/development-poles?populate=*\u0027 }}",
+                                         "method":  "PUT",
+                                         "url":  "={{ $json.strapiUrl }}",
                                          "authentication":  "genericCredentialType",
                                          "genericAuthType":  "httpBearerAuth",
                                          "sendHeaders":  true,
@@ -169,12 +169,12 @@
                                                      }
                                      },
                       "id":  "2f1d0965-7df7-4f2e-95c7-00f3b7bde009",
-                      "name":  "UPSERT pole no Strapi",
+                      "name":  "PUT pole no Strapi",
                       "type":  "n8n-nodes-base.httpRequest",
                       "typeVersion":  4.2,
                       "position":  [
-                                       4336,
-                                       752
+                                       4608,
+                                       624
                                    ],
                       "alwaysOutputData":  true,
                       "credentials":  {
@@ -193,7 +193,7 @@
                       "type":  "n8n-nodes-base.noOp",
                       "typeVersion":  1,
                       "position":  [
-                                       4608,
+                                       4864,
                                        752
                                    ]
                   },
@@ -209,6 +209,79 @@
                                        3536,
                                        1008
                                    ]
+                  },
+                  {
+                      "parameters":  {
+                                         "conditions":  {
+                                                            "options":  {
+                                                                            "caseSensitive":  true,
+                                                                            "leftValue":  "",
+                                                                            "typeValidation":  "strict",
+                                                                            "version":  3
+                                                                        },
+                                                            "conditions":  [
+                                                                               {
+                                                                                   "id":  "8dc28f3a-c8c5-498b-9abd-9e06d6cf47d9",
+                                                                                   "leftValue":  "={{ $json.strapiPoleExiste }}",
+                                                                                   "rightValue":  true,
+                                                                                   "operator":  {
+                                                                                                    "type":  "boolean",
+                                                                                                    "operation":  "equals"
+                                                                                                }
+                                                                               }
+                                                                           ],
+                                                            "combinator":  "and"
+                                                        },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "9cce7824-d4f9-41f1-bf52-61c3c72f3ac5",
+                      "name":  "Existe no Strapi?",
+                      "type":  "n8n-nodes-base.if",
+                      "typeVersion":  2.3,
+                      "position":  [
+                                       4336,
+                                       752
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "method":  "POST",
+                                         "url":  "={{ $json.strapiUrl }}",
+                                         "authentication":  "genericCredentialType",
+                                         "genericAuthType":  "httpBearerAuth",
+                                         "sendHeaders":  true,
+                                         "headerParameters":  {
+                                                                  "parameters":  [
+                                                                                     {
+                                                                                         "name":  "Content-Type",
+                                                                                         "value":  "application/json"
+                                                                                     }
+                                                                                 ]
+                                                              },
+                                         "sendBody":  true,
+                                         "specifyBody":  "json",
+                                         "jsonBody":  "={{JSON.stringify($json.strapiPayload)}}",
+                                         "options":  {
+                                                         "allowUnauthorizedCerts":  true
+                                                     }
+                                     },
+                      "id":  "d0d3193b-bbb7-4f28-9af1-b31afda42ec5",
+                      "name":  "POST pole no Strapi",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "position":  [
+                                       4608,
+                                       880
+                                   ],
+                      "alwaysOutputData":  true,
+                      "credentials":  {
+                                          "httpBearerAuth":  {
+                                                                 "id":  "Wqr2VNjakY5ouG7l",
+                                                                 "name":  "Bearer Auth account"
+                                                             }
+                                      }
                   }
               ],
     "pinData":  {
@@ -290,26 +363,49 @@
                                                         },
                         "Preparar upsert Strapi":  {
                                                        "main":  [
-                                                                    [
-                                                                        {
-                                                                            "node":  "UPSERT pole no Strapi",
-                                                                            "type":  "main",
-                                                                            "index":  0
-                                                                        }
-                                                                    ]
+                                                                    {
+                                                                        "node":  "Existe no Strapi?",
+                                                                        "type":  "main",
+                                                                        "index":  0
+                                                                    }
                                                                 ]
                                                    },
-                        "UPSERT pole no Strapi":  {
-                                                      "main":  [
-                                                                   [
-                                                                       {
-                                                                           "node":  "Fim",
-                                                                           "type":  "main",
-                                                                           "index":  0
-                                                                       }
-                                                                   ]
+                        "Existe no Strapi?":  {
+                                                  "main":  [
+                                                               [
+                                                                   {
+                                                                       "node":  "PUT pole no Strapi",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ],
+                                                               [
+                                                                   {
+                                                                       "node":  "POST pole no Strapi",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
                                                                ]
-                                                  }
+                                                           ]
+                                              },
+                        "PUT pole no Strapi":  {
+                                                   "main":  [
+                                                                {
+                                                                    "node":  "Fim",
+                                                                    "type":  "main",
+                                                                    "index":  0
+                                                                }
+                                                            ]
+                                               },
+                        "POST pole no Strapi":  {
+                                                    "main":  [
+                                                                 {
+                                                                     "node":  "Fim",
+                                                                     "type":  "main",
+                                                                     "index":  0
+                                                                 }
+                                                             ]
+                                                }
                     },
     "active":  false,
     "settings":  {
