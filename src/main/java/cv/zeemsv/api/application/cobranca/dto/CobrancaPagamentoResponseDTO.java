@@ -26,6 +26,7 @@ public class CobrancaPagamentoResponseDTO {
     private String nrProcesso;
     private String entidade;
     private String referencia;
+    private String sessao;
     private String duc;
     private String dmEstadoPag;
     private String dmEstadoPagDesc;

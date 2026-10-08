@@ -27,6 +27,7 @@ public class CriarPagamentoRequestDTO {
 
     private String entidade;
     private String referencia;
+    private String sessao;
 
     @NotBlank(message = "O campo user e obrigatorio")
     private String user;

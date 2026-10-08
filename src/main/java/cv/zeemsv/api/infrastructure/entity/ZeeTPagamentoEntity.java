@@ -59,6 +59,9 @@ public class ZeeTPagamentoEntity {
     @Column(name = "referencia")
     private String referencia;
 
+    @Column(name = "sessao")
+    private String sessao;
+
     @Column(name = "duc")
     private String duc;
 

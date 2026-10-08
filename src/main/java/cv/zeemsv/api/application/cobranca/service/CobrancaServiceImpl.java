@@ -544,6 +544,7 @@ public class CobrancaServiceImpl implements CobrancaService {
         request.setIntentionId(dto.getTransactionId());
         request.setEntidade(dto.getChannelCode());
         request.setReferencia(firstText(dto.getMerchantRespMerchantRef(), dto.getMerchantRespMerchantSession(), dto.getTransactionId()));
+        request.setSessao(dto.getMerchantRespMerchantSession());
         request.setUser(USER_PAYMENT_GATEWAY);
         return request;
     }
@@ -662,6 +663,7 @@ public class CobrancaServiceImpl implements CobrancaService {
         pagamento.setDmEstado(ESTADO_ATIVO);
         pagamento.setEntidade(dto.getEntidade());
         pagamento.setReferencia(dto.getReferencia());
+        pagamento.setSessao(dto.getSessao());
         pagamento.setFormaPagamento(FORMA_PAGAMENTO_VINT4);
         pagamento.setOrigemPagamento(ORIGEM_PAGAMENTO_PORTAL);
         pagamento.setFlagIntegracao(FLAG_INTEGRACAO_TRUE);
@@ -787,6 +789,7 @@ public class CobrancaServiceImpl implements CobrancaService {
                 logItem("id_cobranca", null, pagamento.getIdCobranca()),
                 logItem("valor", null, pagamento.getValor()),
                 logItem("referencia", null, pagamento.getReferencia()),
+                logItem("sessao", null, pagamento.getSessao()),
                 logItem("duc", null, pagamento.getDuc())
             ),
             "CREATE",
@@ -1348,6 +1351,7 @@ public class CobrancaServiceImpl implements CobrancaService {
         dto.setNrProcesso(pagamento.getNrProcesso());
         dto.setEntidade(pagamento.getEntidade());
         dto.setReferencia(pagamento.getReferencia());
+        dto.setSessao(pagamento.getSessao());
         dto.setDuc(pagamento.getDuc());
         dto.setDmEstadoPag(pagamento.getDmEstadoPag());
         dto.setDmEstadoPagDesc(domainHelper.describe(DomainDescriptionHelper.ESTADO, pagamento.getDmEstadoPag()));
