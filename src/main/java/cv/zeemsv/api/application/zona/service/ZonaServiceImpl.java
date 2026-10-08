@@ -184,7 +184,7 @@ public class ZonaServiceImpl implements ZonaService {
         dto.setDmSituacaoCd(entity.getDmSituacaoCd());
         dto.setSituacao(domainHelper.describe(DomainDescriptionHelper.SITUACAO_LOTE, entity.getDmSituacaoCd()));
         dto.setDmDisponibilidade(entity.getDmDisponibilidade());
-        dto.setDisponibilidade(entity.getDmDisponibilidade());
+        dto.setDisponibilidade(describeOrCode(DomainDescriptionHelper.DISPONIBILIDADE, entity.getDmDisponibilidade()));
         dto.setDmFormalizacao(entity.getDmFormalizacao());
         dto.setEstado(entity.getEstado());
         dto.setPublicado(entity.getPublicado());
@@ -193,5 +193,10 @@ public class ZonaServiceImpl implements ZonaService {
         dto.setValorDireitoSuperficie(entity.getValorDireitoSuperficie());
         dto.setCoordenadas(entity.getCoordenadas());
         return dto;
+    }
+
+    private String describeOrCode(String dominio, String codigo) {
+        String descricao = domainHelper.describe(dominio, codigo);
+        return descricao == null ? codigo : descricao;
     }
 }

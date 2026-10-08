@@ -53,6 +53,7 @@ public class DomainDescriptionHelper {
     public static final String CLASSIFICACAO = "CLASSIFICACAO";
     public static final String CATEGORIA_SERVICO = "CATEGORIA_SERVICO";
     public static final String RESULTADO_CHAMADA = "RESULTADO_CHAMADA";
+    public static final String DISPONIBILIDADE = "DISPONIBILIDADE";
 
     private static final String SQL = """
         select description
