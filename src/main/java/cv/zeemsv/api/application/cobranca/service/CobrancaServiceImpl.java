@@ -163,7 +163,7 @@ public class CobrancaServiceImpl implements CobrancaService {
     public CobrancaPagamentoResponseDTO criarPagamento(CriarPagamentoRequestDTO dto) {
         ZeeTCobrancaEntity cobranca = cobrancaRepository.findById(dto.getIdCobranca())
             .orElseThrow(() -> new BusinessException("Cobranca nao encontrada: " + dto.getIdCobranca()));
-        validateValorPagamento(dto.getValor(), cobranca);
+        validateValorPagamento(dto.getValor(), cobranca, dto.getIdPrestacao());
         if (!paymentGatewayPaymentClient.validatePayment(dto.getIntentionId())) {
             throw new BusinessException("Pagamento nao validado pelo gateway.");
         }
