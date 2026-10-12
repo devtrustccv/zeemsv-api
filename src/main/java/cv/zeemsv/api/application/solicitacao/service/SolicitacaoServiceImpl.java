@@ -713,6 +713,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         cobranca.setValorTotal(total.toPlainString());
         cobranca.setValorPago(BigDecimal.ZERO.toPlainString());
         cobranca.setValorDivida(total.toPlainString());
+        cobranca.setTipoLiquidacao("TOTAL");
         cobranca.setDmEstado(ESTADO_PENDENTE);
         cobranca.setUserRegisto(solicitacao.getUserSolic());
         cobranca.setDataRegisto(LocalDate.now());

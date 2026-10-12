@@ -2,6 +2,7 @@ package cv.zeemsv.api.infrastructure.client;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import cv.zeemsv.api.application.paymentgateway.dto.PaymentGatewayPaymentRequestDTO;
 import cv.zeemsv.api.application.paymentgateway.dto.PaymentGatewayPaymentResponseDTO;
 import cv.zeemsv.api.application.paymentgateway.dto.PaymentGatewayPaymentValidationRequestDTO;
@@ -91,7 +92,7 @@ public class PaymentGatewayPaymentClient {
         String token = authClient.getAccessToken();
 
         try {
-            String requestBody = objectMapper.writeValueAsString(request);
+            String requestBody = toValidationRequestBody(objectMapper, request);
             log.info(
                 "Validar pagamento gateway - url: {}, transactionId: {}, status: [{}], statusLength: {}, channelCode: {}, merchantRef: {}, merchantSession: {}, fingerprintPresent: {}, fingerprintLength: {}, fingerprintContainsPlus: {}, fingerprintContainsSpace: {}, body: {}",
                 properties.getPaymentValidateUrl(),
@@ -167,6 +168,15 @@ public class PaymentGatewayPaymentClient {
         request.setMerchantRespMerchantSession("");
         request.setFingerprint("");
         return request;
+    }
+
+    static String toValidationRequestBody(
+        ObjectMapper objectMapper,
+        PaymentGatewayPaymentValidationRequestDTO request
+    ) throws JsonProcessingException {
+        return objectMapper.copy()
+            .setPropertyNamingStrategy(PropertyNamingStrategies.LOWER_CAMEL_CASE)
+            .writeValueAsString(request);
     }
 
     private void validateConfiguration() {

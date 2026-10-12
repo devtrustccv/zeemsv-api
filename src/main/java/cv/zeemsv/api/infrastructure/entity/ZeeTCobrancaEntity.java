@@ -55,6 +55,9 @@ public class ZeeTCobrancaEntity {
     @Column(name = "tipo_liquidacao")
     private String tipoLiquidacao;
 
+    @Column(name = "periodicidade")
+    private String periodicidade;
+
     @Column(name = "nr_prestacao")
     private Integer nrPrestacao;
 

@@ -26,6 +26,9 @@ public class ZeeTPagamentoIntencaoCobrancaEntity {
     @Column(name = "id_cobranca")
     private Integer idCobranca;
 
+    @Column(name = "id_prestacao")
+    private Integer idPrestacao;
+
     @Column(name = "id_pagamento")
     private Integer idPagamento;
 

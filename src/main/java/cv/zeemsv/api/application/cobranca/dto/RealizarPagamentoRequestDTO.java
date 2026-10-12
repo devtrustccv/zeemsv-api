@@ -14,4 +14,6 @@ import lombok.Setter;
 public class RealizarPagamentoRequestDTO {
     @NotEmpty(message = "O campo ids_cobranca e obrigatorio")
     private List<@NotNull(message = "O campo ids_cobranca nao pode conter valores nulos") Integer> idsCobranca;
+
+    private List<Integer> idsPrestacao;
 }

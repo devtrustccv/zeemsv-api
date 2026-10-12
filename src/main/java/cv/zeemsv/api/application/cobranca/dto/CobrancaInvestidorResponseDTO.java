@@ -25,6 +25,7 @@ public class CobrancaInvestidorResponseDTO {
     private String valorPago;
     private String valorDivida;
     private String tipoLiquidacao;
+    private String periodicidade;
     private Integer nrPrestacao;
     private String dmEstado;
     private String dmEstadoDesc;

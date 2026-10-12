@@ -21,5 +21,6 @@ public class PagamentoIntencaoStatusResponseDTO {
     private LocalDateTime expiresAt;
     private long remainingSeconds;
     private List<Integer> idsCobranca;
+    private List<Integer> idsPrestacao;
     private List<Integer> idsPagamento;
 }
