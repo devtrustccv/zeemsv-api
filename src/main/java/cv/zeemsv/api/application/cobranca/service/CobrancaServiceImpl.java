@@ -76,7 +76,7 @@ public class CobrancaServiceImpl implements CobrancaService {
     private static final long PAYMENT_GATEWAY_INTENTION_TIMEOUT_MINUTES = 10;
     private static final String FORMA_PAGAMENTO_VINT4 = "VINT4";
     private static final String PAYMENT_GATEWAY_PAYMENT_TYPE = "2";
-    private static final String ORIGEM_PAGAMENTO_PORTAL = "PORTAL";
+    private static final String ORIGEM_PAGAMENTO_PORTAL = "Portal";
     private static final String USER_PAYMENT_GATEWAY = "payment-gateway";
     private static final String FLAG_INTEGRACAO_TRUE = "true";
     private static final String PAYMENT_GATEWAY_CHANNEL_CODE = "1052";
@@ -597,7 +597,7 @@ public class CobrancaServiceImpl implements CobrancaService {
 
         List<ZeeTPagamentoTaxaEntity> pagamentoTaxas = createPagamentoTaxas(pagamento, cobrancaTaxas, dto);
         atualizarCobrancaAposPagamento(cobranca, cobrancaTaxas);
-        atualizarPrestacaoAposPagamento(dto.getIdPrestacao());
+        atualizarPrestacaoAposPagamento(dto.getIdPrestacao(), pagamento.getId());
         auditPagamentoCriado(pagamento, dto);
 
         Map<Integer, ZeeTTaxaEntity> taxasPorId = findTaxas(Collections.emptyMap(), Collections.emptyList(), pagamentoTaxas);
@@ -834,13 +834,14 @@ public class CobrancaServiceImpl implements CobrancaService {
         }
     }
 
-    private void atualizarPrestacaoAposPagamento(Integer idPrestacao) {
+    private void atualizarPrestacaoAposPagamento(Integer idPrestacao, Integer idPagamento) {
         if (idPrestacao == null) {
             return;
         }
         ZeeTCobrancaPrestacaoEntity prestacao = prestacaoRepository.findById(idPrestacao)
             .orElseThrow(() -> new BusinessException("Prestacao nao encontrada: " + idPrestacao));
         BigDecimal divida = calcularDividaPrestacao(prestacao);
+        prestacao.setIdPagamento(idPagamento);
         prestacao.setDmEstado(divida.compareTo(BigDecimal.ZERO) == 0 ? ESTADO_PAGO : ESTADO_PENDENTE);
         prestacaoRepository.save(prestacao);
     }
@@ -1439,6 +1440,7 @@ public class CobrancaServiceImpl implements CobrancaService {
         CobrancaPrestacaoResponseDTO dto = new CobrancaPrestacaoResponseDTO();
         dto.setId(prestacao.getId());
         dto.setIdCobranca(prestacao.getIdCobranca());
+        dto.setIdPagamento(prestacao.getIdPagamento());
         dto.setNrPrestacao(prestacao.getNrPrestacao());
         dto.setValor(prestacao.getValor());
         dto.setDataVencimento(prestacao.getDataVencimento());

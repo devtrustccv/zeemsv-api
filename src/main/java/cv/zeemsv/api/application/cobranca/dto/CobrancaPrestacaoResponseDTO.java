@@ -13,6 +13,7 @@ import lombok.Setter;
 public class CobrancaPrestacaoResponseDTO {
     private Integer id;
     private Integer idCobranca;
+    private Integer idPagamento;
     private String nrPrestacao;
     private String valor;
     private LocalDate dataVencimento;
