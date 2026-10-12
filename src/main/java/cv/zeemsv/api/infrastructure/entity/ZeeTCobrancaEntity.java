@@ -20,7 +20,7 @@ public class ZeeTCobrancaEntity {
     private Integer id;
 
     @Column(name = "nr_cobranca")
-    private Integer nrCobranca;
+    private String nrCobranca;
 
     @Column(name = "id_solicitacao")
     private Integer idSolicitacao;

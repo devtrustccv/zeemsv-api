@@ -12,7 +12,7 @@ import lombok.Setter;
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class CobrancaInvestidorResponseDTO {
     private Integer id;
-    private Integer nrCobranca;
+    private String nrCobranca;
     private Integer idInvestidor;
     private Integer idProjeto;
     private Integer nrProcesso;
