@@ -23,6 +23,7 @@ class AtividadeProjetosTest {
     @Mock ZeeTProjAtividadeRepository projAtividadeRepository;
     @Mock ZeeTDocRelacaoRepository docRelacaoRepository;
     @Mock DomainDescriptionHelper domainHelper;
+    @Mock org.springframework.jdbc.core.JdbcTemplate igrpJdbcTemplate;
     @InjectMocks AtividadeServiceImpl service;
 
     @Test
@@ -49,6 +50,40 @@ class AtividadeProjetosTest {
             .thenReturn(List.of());
         assertTrue(service.findAgendadasByInvestidorId(10).isEmpty());
         verifyNoInteractions(projAtividadeRepository);
+        verifyNoInteractions(igrpJdbcTemplate);
+    }
+
+    @Test
+    void resolvesBothUserNamesInOneQueryAndPreservesMissingUserId() throws Exception {
+        var first = atividade(1);
+        first.setUserRegisto(7);
+        first.setUserResponsavel(8);
+        var second = atividade(2);
+        second.setUserRegisto(7);
+        second.setUserResponsavel(99);
+        when(repository.findByIdInvestidorAndAgendamentoTrueOrderByDataCreateDescIdDesc(BigDecimal.TEN))
+            .thenReturn(List.of(first, second));
+        doAnswer(invocation -> {
+            org.springframework.jdbc.core.RowCallbackHandler handler = invocation.getArgument(1);
+            var rs = mock(java.sql.ResultSet.class);
+            when(rs.getInt("id")).thenReturn(7, 8);
+            when(rs.getString("name")).thenReturn("Maria", "Joao");
+            handler.processRow(rs);
+            handler.processRow(rs);
+            return null;
+        }).when(igrpJdbcTemplate).query(
+            eq("select id, name from tbl_user where id in (?,?,?)"),
+            any(org.springframework.jdbc.core.RowCallbackHandler.class), eq(7), eq(8), eq(99));
+
+        var result = service.findAgendadasByInvestidorId(10);
+
+        assertEquals("Maria", result.get(0).getUserRegistoNome());
+        assertEquals("Joao", result.get(0).getUserResponsavelNome());
+        assertEquals("Maria", result.get(1).getUserRegistoNome());
+        assertEquals(99, result.get(1).getUserResponsavel());
+        assertNull(result.get(1).getUserResponsavelNome());
+        verify(igrpJdbcTemplate).query(eq("select id, name from tbl_user where id in (?,?,?)"),
+            any(org.springframework.jdbc.core.RowCallbackHandler.class), eq(7), eq(8), eq(99));
     }
 
     private ZeeTAtividadeEntity atividade(int id) {

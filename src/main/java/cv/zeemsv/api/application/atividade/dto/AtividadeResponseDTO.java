@@ -19,6 +19,7 @@ public class AtividadeResponseDTO {
     private String dmTag;
     private LocalDate dataConclusao;
     private Integer userResponsavel;
+    private String userResponsavelNome;
     private String dmEstadoAtividade;
     private String dmEstadoAtividadeDesc;
     private Integer idPessoaCont;
@@ -40,6 +41,7 @@ public class AtividadeResponseDTO {
     private String dmEstado;
     private String dmEstadoDesc;
     private Integer userRegisto;
+    private String userRegistoNome;
     private LocalDate dataCreate;
     private String tipoRelacao;
     private Boolean agendamento;

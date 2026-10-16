@@ -131,7 +131,9 @@ public class AtividadeServiceImpl implements AtividadeService {
         saveAnexoInteracao(saved, anexo);
         notifyTecnicosInteracao(saved);
         notifyRequerenteInteracao(saved);
-        return toResponse(saved);
+        AtividadeResponseDTO response = toResponse(saved);
+        enrichUserNames(List.of(response));
+        return response;
     }
 
     private Integer resolveInteracaoIdUser(InteracaoRequestDTO dto) {
@@ -345,7 +347,35 @@ public class AtividadeServiceImpl implements AtividadeService {
                 Collectors.mapping(p -> new AtividadeProjetoResponseDTO(p.getIdProjeto(), p.getDenominacao()), Collectors.toList())
             ));
         atividades.forEach(a -> a.setProjetos(projetos.getOrDefault(a.getId(), List.of())));
+        enrichUserNames(atividades);
         return atividades;
+    }
+
+    private void enrichUserNames(List<AtividadeResponseDTO> atividades) {
+        Set<Integer> userIds = new LinkedHashSet<>();
+        atividades.forEach(a -> {
+            if (a.getUserRegisto() != null) userIds.add(a.getUserRegisto());
+            if (a.getUserResponsavel() != null) userIds.add(a.getUserResponsavel());
+        });
+        if (userIds.isEmpty()) {
+            return;
+        }
+        Map<Integer, String> nomes = new LinkedHashMap<>();
+        String placeholders = String.join(",", java.util.Collections.nCopies(userIds.size(), "?"));
+        try {
+            igrpJdbcTemplate.query(
+                "select id, name from tbl_user where id in (" + placeholders + ")",
+                (org.springframework.jdbc.core.RowCallbackHandler) rs -> nomes.put(rs.getInt("id"), rs.getString("name")),
+                userIds.toArray()
+            );
+        } catch (DataAccessException ex) {
+            log.warn("Nao foi possivel resolver nomes dos utilizadores no IGRP.", ex);
+            return;
+        }
+        atividades.forEach(a -> {
+            a.setUserRegistoNome(nomes.get(a.getUserRegisto()));
+            a.setUserResponsavelNome(nomes.get(a.getUserResponsavel()));
+        });
     }
 
     @Override
