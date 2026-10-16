@@ -948,6 +948,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         ZeeTSolicitacaoEntity solicitacao,
         String authorization
     ) {
+        solicitacao.setFlagCorrecao(false);
         solicitacao.setEtapaAtual(ETAPA_ANALISE_SOLICITACAO);
         solicitacao.setDataCorrecao(LocalDate.now());
         solicitacao.setUserCorecao(firstText(dto.getUserName(), solicitacao.getUserSolic(), "system"));
