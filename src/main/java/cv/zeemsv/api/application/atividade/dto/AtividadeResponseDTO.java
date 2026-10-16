@@ -11,6 +11,7 @@ public class AtividadeResponseDTO {
     private Integer id;
     private Integer idInvestidor;
     private String idProjeto;
+    private List<AtividadeProjetoResponseDTO> projetos = List.of();
     private Integer idRepresentante;
     private Integer idRelacao;
     private String dmTipoAtividade;

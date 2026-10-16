@@ -1,6 +1,9 @@
 package cv.zeemsv.api.application.atividade.service;
 
 import cv.zeemsv.api.application.atividade.dto.AtividadeResponseDTO;
+import cv.zeemsv.api.application.atividade.dto.AtividadeProjetoResponseDTO;
+import cv.zeemsv.api.infrastructure.repository.ZeeTProjAtividadeRepository;
+import cv.zeemsv.api.infrastructure.repository.projection.AtividadeProjetoProjection;
 import cv.zeemsv.api.application.atividade.dto.AtividadeBadgesResponseDTO;
 import cv.zeemsv.api.application.atividade.dto.InteracaoAnexoResponseDTO;
 import cv.zeemsv.api.application.atividade.dto.InteracaoMensagemResponseDTO;
@@ -74,6 +77,7 @@ public class AtividadeServiceImpl implements AtividadeService {
     private static final String ESTADO_PENDENTE = "PENDENTE";
 
     private final ZeeTAtividadeRepository repository;
+    private final ZeeTProjAtividadeRepository projAtividadeRepository;
     private final ZeeTInvestidorRepository investidorRepository;
     private final ZeeTUserRepository userRepository;
     private final ZeeTDocRelacaoRepository docRelacaoRepository;
@@ -326,10 +330,22 @@ public class AtividadeServiceImpl implements AtividadeService {
     @Override
     @Transactional(readOnly = true)
     public List<AtividadeResponseDTO> findAgendadasByInvestidorId(Integer idInvestidor) {
-        return repository.findByIdInvestidorAndAgendamentoTrueOrderByDataCreateDescIdDesc(toBigDecimal(idInvestidor))
+        List<AtividadeResponseDTO> atividades = repository.findByIdInvestidorAndAgendamentoTrueOrderByDataCreateDescIdDesc(toBigDecimal(idInvestidor))
             .stream()
             .map(this::toResponse)
             .toList();
+        if (atividades.isEmpty()) {
+            return atividades;
+        }
+        Map<Integer, List<AtividadeProjetoResponseDTO>> projetos = projAtividadeRepository
+            .findProjetosByAtividadeIds(atividades.stream().map(AtividadeResponseDTO::getId).toList())
+            .stream()
+            .collect(Collectors.groupingBy(
+                AtividadeProjetoProjection::getIdAtividade,
+                Collectors.mapping(p -> new AtividadeProjetoResponseDTO(p.getIdProjeto(), p.getDenominacao()), Collectors.toList())
+            ));
+        atividades.forEach(a -> a.setProjetos(projetos.getOrDefault(a.getId(), List.of())));
+        return atividades;
     }
 
     @Override
