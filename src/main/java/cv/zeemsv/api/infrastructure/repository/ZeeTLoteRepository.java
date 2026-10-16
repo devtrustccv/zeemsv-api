@@ -2,6 +2,7 @@ package cv.zeemsv.api.infrastructure.repository;
 
 import cv.zeemsv.api.infrastructure.entity.ZeeTLoteEntity;
 import cv.zeemsv.api.infrastructure.repository.projection.LoteInvestidorProjection;
+import cv.zeemsv.api.infrastructure.repository.projection.LoteEnquadramentoProjection;
 import java.util.Collection;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -10,6 +11,17 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface ZeeTLoteRepository extends JpaRepository<ZeeTLoteEntity, Integer>, JpaSpecificationExecutor<ZeeTLoteEntity> {
+    @Query(value = """
+        select le.id_lote as idLote,
+            string_agg(distinct ze.dm_enquadramento, ', ' order by ze.dm_enquadramento) as formasComercializacao
+        from public.zee_t_lote_enquad le
+        join public.zee_t_zona_enquad ze on ze.id = le.id_zona_enquad
+            and ze.estado in ('A', 'ATIVO')
+        where le.id_lote in (:idsLotes) and le.estado in ('A', 'ATIVO')
+        group by le.id_lote
+        """, nativeQuery = true)
+    List<LoteEnquadramentoProjection> findEnquadramentosByLoteIds(@Param("idsLotes") Collection<Integer> idsLotes);
+
     List<ZeeTLoteEntity> findByIdZonaInOrderByIdZonaAscRefLoteAsc(Collection<Integer> idZonas);
 
     List<ZeeTLoteEntity> findByIdZonaInAndCoordenadasIsNotNullOrderByIdZonaAscRefLoteAsc(Collection<Integer> idZonas);

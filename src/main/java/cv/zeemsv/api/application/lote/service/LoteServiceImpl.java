@@ -48,11 +48,13 @@ public class LoteServiceImpl implements LoteService {
             .filter(projeto -> !idsProprietario.contains(projeto.getIdLote()))
             .toList();
 
-        return Stream.concat(
+        List<LoteInvestidorResponseDTO> lotes = Stream.concat(
                 proprietarios.stream().map(proprietario -> toInvestidorResponse(proprietario, "PROPRIETARIO")),
                 projetos.stream().map(projeto -> toInvestidorResponse(projeto, projeto.getDmEnquadramento()))
             )
             .toList();
+        enrichEnquadramentosDiretos(lotes);
+        return lotes;
     }
 
     @Override @Transactional(readOnly = true)
@@ -65,10 +67,36 @@ public class LoteServiceImpl implements LoteService {
             return findByInvestidorId(idInvestidor);
         }
 
-        return loteRepository.findByProjectoId(idProjecto)
+        List<LoteInvestidorResponseDTO> lotes = loteRepository.findByProjectoId(idProjecto)
             .stream()
             .map(projeto -> toInvestidorResponse(projeto, projeto.getDmEnquadramento()))
             .toList();
+        enrichEnquadramentosDiretos(lotes);
+        return lotes;
+    }
+
+    private void enrichEnquadramentosDiretos(List<LoteInvestidorResponseDTO> lotes) {
+        List<Integer> ids = lotes.stream()
+            .filter(l -> l.getFormasComercializacao() == null || l.getFormasComercializacao().isBlank())
+            .map(LoteInvestidorResponseDTO::getIdLote)
+            .distinct()
+            .toList();
+        if (ids.isEmpty()) {
+            return;
+        }
+        java.util.Map<Integer, String> formas = new java.util.HashMap<>();
+        loteRepository.findEnquadramentosByLoteIds(ids).forEach(e ->
+            formas.put(e.getIdLote(), e.getFormasComercializacao()));
+        lotes.stream()
+            .filter(l -> l.getFormasComercializacao() == null || l.getFormasComercializacao().isBlank())
+            .forEach(l -> {
+            String codigos = formas.get(l.getIdLote());
+            String descricoes = describeCsv(DomainDescriptionHelper.FORMA_COMERCIALIZACAO, codigos);
+            l.setFormasComercializacao(codigos);
+            l.setFormasComercializacaoDesc(descricoes);
+            l.setDmEnquadramento(codigos);
+            l.setDmEnquadramentoDesc(descricoes);
+        });
     }
 
     @Override @Transactional
