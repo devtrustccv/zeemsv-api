@@ -8,6 +8,7 @@ import lombok.Setter;
 @Setter
 public class TransactionAuditRequestDTO {
     private String userId;
+    private String relatedUserId;
     private String userName;
     private String userEmail;
 

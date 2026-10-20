@@ -23,6 +23,7 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.index.Index;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -59,17 +60,20 @@ public class TransactionAuditService {
     private final MongoTemplate mongoTemplate;
     private final ZeeTUserRepository userRepository;
     private final AuditProperties auditProperties;
+    private final TransactionAuditContextResolver contextResolver;
     private final String collectionName;
 
     public TransactionAuditService(
         MongoTemplate mongoTemplate,
         ZeeTUserRepository userRepository,
         AuditMongoProperties mongoProperties,
-        AuditProperties auditProperties
+        AuditProperties auditProperties,
+        TransactionAuditContextResolver contextResolver
     ) {
         this.mongoTemplate = mongoTemplate;
         this.userRepository = userRepository;
         this.auditProperties = auditProperties;
+        this.contextResolver = contextResolver;
         this.collectionName = mongoProperties.getCollection().getTransactions();
     }
 
@@ -83,6 +87,9 @@ public class TransactionAuditService {
             mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("module", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
             mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("ip", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
             mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("metadata.idInvestidor", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
+            mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("metadata.idsInvestidor", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
+            mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("relatedUserId", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
+            mongoTemplate.indexOps(collectionName).ensureIndex(new Index().on("metadata.relatedUserIds", Sort.Direction.ASC).on("date", Sort.Direction.DESC));
         } catch (Exception ex) {
             log.warn("Falha ao criar indices de auditoria transacional. collection={}", collectionName, ex);
         }
@@ -91,6 +98,18 @@ public class TransactionAuditService {
     public TransactionAuditResponseDTO create(TransactionAuditRequestDTO dto) {
         TransactionAuditLog log = toEntity(dto);
         return toResponse(mongoTemplate.insert(log, collectionName));
+    }
+
+    public Map<String, Object> contextBeforeDeletion(String requestUri) {
+        TransactionAuditLog entry = new TransactionAuditLog();
+        entry.setRequestUri(requestUri);
+        try {
+            contextResolver.enrich(entry);
+            return entry.getMetadata();
+        } catch (Exception ex) {
+            log.warn("Falha ao resolver contexto antes de eliminacao. requestUri={}", requestUri, ex);
+            return Map.of();
+        }
     }
 
     @Async("auditTaskExecutor")
@@ -118,8 +137,58 @@ public class TransactionAuditService {
         return toResponse(log);
     }
 
+    /** Opt-in migration; only adds context and preserves the original actor and event. */
+    public void backfillContext() {
+        ObjectId afterId = null;
+        long updated = 0;
+        long failed = 0;
+        long incomplete = 0;
+        while (true) {
+            Criteria pending = new Criteria().orOperator(
+                Criteria.where("contextVersion").exists(false),
+                Criteria.where("contextVersion").is(null),
+                Criteria.where("contextVersion").lt(TransactionAuditContextResolver.CONTEXT_VERSION)
+            );
+            Query query = new Query(pending).with(Sort.by(Sort.Direction.ASC, "_id")).limit(200);
+            if (afterId != null) {
+                query.addCriteria(Criteria.where("_id").gt(afterId));
+            }
+            List<TransactionAuditLog> batch = mongoTemplate.find(query, TransactionAuditLog.class, collectionName);
+            if (batch.isEmpty()) break;
+            for (TransactionAuditLog entry : batch) {
+                afterId = entry.getId();
+                try {
+                    boolean hadMetadata = entry.getMetadata() != null;
+                    contextResolver.enrich(entry);
+                    Update update = new Update().set("contextVersion", entry.getContextVersion());
+                    if (entry.getRelatedUserId() != null) {
+                        update.set("relatedUserId", entry.getRelatedUserId());
+                    }
+                    if (!hadMetadata) {
+                        update.set("metadata", entry.getMetadata());
+                    } else {
+                        for (String key : List.of("idInvestidor", "idsInvestidor", "relatedUserIds")) {
+                            if (entry.getMetadata().containsKey(key)) {
+                                update.set("metadata." + key, entry.getMetadata().get(key));
+                            }
+                        }
+                    }
+                    mongoTemplate.updateFirst(new Query(Criteria.where("_id").is(entry.getId())), update, collectionName);
+                    updated++;
+                    if (!entry.getMetadata().containsKey("idsInvestidor")) incomplete++;
+                } catch (Exception ex) {
+                    failed++;
+                    log.warn("Falha ao recuperar contexto de auditoria. id={}", entry.getId(), ex);
+                }
+            }
+        }
+        log.info("Recuperacao de contexto de auditoria concluida. atualizados={}, semInvestidor={}, falhas={}",
+            updated, incomplete, failed);
+    }
+
     public TransactionAuditPageResponseDTO findAll(
         String userId,
+        String relatedUserId,
         String actionType,
         LocalDate dateFrom,
         LocalDate dateTo,
@@ -134,10 +203,10 @@ public class TransactionAuditService {
         int safePage = page != null && page >= 0 ? page : DEFAULT_PAGE;
         int safeSize = size != null && size > 0 ? Math.min(size, MAX_SIZE) : DEFAULT_SIZE;
 
-        Query baseQuery = buildQuery(userId, actionType, dateFrom, dateTo, tableName, tableId, module, idInvestidor, ip);
+        Query baseQuery = buildQuery(userId, relatedUserId, actionType, dateFrom, dateTo, tableName, tableId, module, idInvestidor, ip);
         long total = mongoTemplate.count(baseQuery, TransactionAuditLog.class, collectionName);
 
-        Query pageQuery = buildQuery(userId, actionType, dateFrom, dateTo, tableName, tableId, module, idInvestidor, ip)
+        Query pageQuery = buildQuery(userId, relatedUserId, actionType, dateFrom, dateTo, tableName, tableId, module, idInvestidor, ip)
             .with(Sort.by(Sort.Direction.DESC, "date"))
             .skip((long) safePage * safeSize)
             .limit(safeSize);
@@ -177,6 +246,7 @@ public class TransactionAuditService {
 
     private Query buildQuery(
         String userId,
+        String relatedUserId,
         String actionType,
         LocalDate dateFrom,
         LocalDate dateTo,
@@ -189,11 +259,23 @@ public class TransactionAuditService {
         List<Criteria> filters = new java.util.ArrayList<>();
 
         addEquals(filters, "userId", userId);
+        if (StringUtils.hasText(relatedUserId)) {
+            String related = relatedUserId.trim();
+            filters.add(new Criteria().orOperator(
+                Criteria.where("relatedUserId").is(related),
+                Criteria.where("metadata.relatedUserIds").is(related)
+            ));
+        }
         addEquals(filters, "actionType", actionType);
         addEquals(filters, "tableName", tableName);
         addEquals(filters, "tableId", tableId);
         addEquals(filters, "module", module);
-        addEquals(filters, "metadata.idInvestidor", idInvestidor);
+        if (idInvestidor != null) {
+            filters.add(new Criteria().orOperator(
+                Criteria.where("metadata.idInvestidor").is(idInvestidor),
+                Criteria.where("metadata.idsInvestidor").is(idInvestidor)
+            ));
+        }
         addEquals(filters, "ip", ip);
 
         Criteria dateCriteria = buildDateCriteria(dateFrom, dateTo);
@@ -239,6 +321,7 @@ public class TransactionAuditService {
         TransactionAuditLog log = new TransactionAuditLog();
         log.setDate(LocalDateTime.now());
         log.setUserId(trim(dto.getUserId()));
+        log.setRelatedUserId(trim(dto.getRelatedUserId()));
         log.setUserName(firstText(dto.getUserName(), user.userName()));
         log.setUserEmail(firstText(dto.getUserEmail(), user.userEmail()));
         log.setActionType(firstText(dto.getActionType(), inferred.actionType(), ACTION_UNKNOWN));
@@ -255,6 +338,14 @@ public class TransactionAuditService {
         log.setMetadata(dto.getMetadata());
         log.setAppDad(auditProperties.getDefaultAppDad());
         log.setAppName(auditProperties.getDefaultAppName());
+        try {
+            contextResolver.enrich(log);
+        } catch (Exception ex) {
+            // An unavailable resource must not prevent the original audit being saved.
+            // Leave contextVersion unset so the backfill can retry it later.
+            TransactionAuditService.log.warn("Falha ao resolver contexto de auditoria. tableName={}, tableId={}",
+                log.getTableName(), log.getTableId(), ex);
+        }
         return log;
     }
 
@@ -263,6 +354,7 @@ public class TransactionAuditService {
         dto.setId(log.getId() != null ? log.getId().toHexString() : null);
         dto.setDate(log.getDate());
         dto.setUserId(log.getUserId());
+        dto.setRelatedUserId(log.getRelatedUserId());
         dto.setUserName(log.getUserName());
         dto.setUserEmail(log.getUserEmail());
         dto.setActionType(log.getActionType());

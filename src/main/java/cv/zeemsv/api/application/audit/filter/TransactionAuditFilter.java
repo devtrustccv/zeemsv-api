@@ -28,6 +28,7 @@ public class TransactionAuditFilter extends OncePerRequestFilter {
     private static final String HEADER_FORWARDED_FOR = "X-Forwarded-For";
     private static final String HEADER_REAL_IP = "X-Real-IP";
     private static final String HEADER_USER_AGENT = "User-Agent";
+    private static final String PREVIOUS_CONTEXT_ATTRIBUTE = TransactionAuditFilter.class.getName() + ".previousContext";
 
     private final TransactionAuditService transactionAuditService;
     private final SessionBus sessionBus;
@@ -50,6 +51,10 @@ public class TransactionAuditFilter extends OncePerRequestFilter {
         FilterChain filterChain
     ) throws ServletException, IOException {
         long start = System.currentTimeMillis();
+        if ("DELETE".equalsIgnoreCase(request.getMethod())) {
+            request.setAttribute(PREVIOUS_CONTEXT_ATTRIBUTE,
+                transactionAuditService.contextBeforeDeletion(requestUri(request)));
+        }
         try {
             filterChain.doFilter(request, response);
         } finally {
@@ -102,6 +107,18 @@ public class TransactionAuditFilter extends OncePerRequestFilter {
 
     private Map<String, Object> metadata(HttpServletRequest request, SessionModel session, long durationMs) {
         Map<String, Object> metadata = new LinkedHashMap<>();
+        Object previousContext = request.getAttribute(PREVIOUS_CONTEXT_ATTRIBUTE);
+        if (previousContext instanceof Map<?, ?> context) {
+            context.forEach((key, value) -> metadata.put(String.valueOf(key), value));
+        }
+        Object resourceContext = request.getAttribute(TransactionAuditBodyAdvice.CONTEXT_ATTRIBUTE);
+        if (resourceContext instanceof Map<?, ?> context) {
+            context.forEach((key, value) -> metadata.put(String.valueOf(key), value));
+        }
+        // The form-encoded gateway callback does not pass through RequestBodyAdvice.
+        if (StringUtils.hasText(request.getParameter("transactionId"))) {
+            metadata.put("transactionId", request.getParameter("transactionId"));
+        }
         metadata.put("durationMs", durationMs);
         metadata.put("queryString", request.getQueryString());
         metadata.put("sessionId", session != null ? session.getId() : null);

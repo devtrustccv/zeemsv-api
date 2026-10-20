@@ -16,6 +16,8 @@ public class TransactionAuditLog {
     private ObjectId id;
     private LocalDateTime date;
     private String userId;
+    private String relatedUserId;
+    private Integer contextVersion;
     private String userName;
     private String userEmail;
     private String actionType;

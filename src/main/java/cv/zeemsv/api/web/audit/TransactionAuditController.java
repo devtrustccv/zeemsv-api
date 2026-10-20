@@ -41,6 +41,7 @@ public class TransactionAuditController {
     @GetMapping
     public ResponseEntity<ApiResponse<TransactionAuditPageResponseDTO>> findAll(
         @RequestParam(required = false) String userId,
+        @RequestParam(required = false) String relatedUserId,
         @RequestParam(required = false) String actionType,
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
@@ -54,7 +55,7 @@ public class TransactionAuditController {
     ) {
         return ResponseEntity.ok(ApiResponse.ok(
             "Auditorias transacionais encontradas",
-            service.findAll(userId, actionType, dateFrom, dateTo, tableName, tableId, module, idInvestidor, ip, page, size)
+            service.findAll(userId, relatedUserId, actionType, dateFrom, dateTo, tableName, tableId, module, idInvestidor, ip, page, size)
         ));
     }
 
