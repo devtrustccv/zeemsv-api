@@ -23,13 +23,16 @@ class LoteEnquadramentoTest {
     void loadsDirectEnquadramentoForOwnerWithoutProject() {
         var lote = mock(LoteInvestidorProjection.class);
         when(lote.getIdLote()).thenReturn(5);
+        when(lote.getIdProjeto()).thenReturn(null);
         when(repository.findProprietarioByInvestidorId(41)).thenReturn(List.of(lote));
         var enquadramento = mock(LoteEnquadramentoProjection.class);
         when(enquadramento.getIdLote()).thenReturn(5);
         when(enquadramento.getFormasComercializacao()).thenReturn("A, B");
         when(repository.findEnquadramentosByLoteIds(List.of(5))).thenReturn(List.of(enquadramento));
-        when(domainHelper.describe(DomainDescriptionHelper.FORMA_COMERCIALIZACAO, "A")).thenReturn("Forma A");
-        when(domainHelper.describe(DomainDescriptionHelper.FORMA_COMERCIALIZACAO, "B")).thenReturn("Forma B");
+        when(domainHelper.describe(anyString(), nullable(String.class))).thenAnswer(invocation -> {
+            String codigo = invocation.getArgument(1);
+            return codigo == null ? null : "Forma " + codigo;
+        });
 
         var result = service.findByInvestidorId(41).get(0);
 

@@ -44,6 +44,7 @@ import cv.zeemsv.api.infrastructure.client.PaymentGatewayPaymentClient;
 import cv.zeemsv.api.infrastructure.repository.ZeeTPagamentoIntencaoCobrancaRepository;
 import cv.zeemsv.api.infrastructure.repository.ZeeTPagamentoIntencaoRepository;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -1304,6 +1305,7 @@ public class CobrancaServiceImpl implements CobrancaService {
         dto.setIdSolicTaxa(cobranca.getIdSolicTaxa());
         dto.setDataEmissao(cobranca.getDataEmissao());
         dto.setDataVencimento(cobranca.getDataVencimento());
+        dto.setVencido(isVencido(cobranca.getDataVencimento(), cobranca.getDmEstado(), parseMoney(cobranca.getValorDivida())));
         dto.setValorTotal(cobranca.getValorTotal());
         dto.setValorPago(cobranca.getValorPago());
         dto.setValorDivida(cobranca.getValorDivida());
@@ -1444,6 +1446,11 @@ public class CobrancaServiceImpl implements CobrancaService {
         dto.setNrPrestacao(prestacao.getNrPrestacao());
         dto.setValor(prestacao.getValor());
         dto.setDataVencimento(prestacao.getDataVencimento());
+        BigDecimal totalPago = pagamentos.stream()
+            .map(this::resolveValorPago)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        dto.setVencido(isVencido(prestacao.getDataVencimento(), prestacao.getDmEstado(),
+            parseMoney(prestacao.getValor()).subtract(totalPago)));
         dto.setDmEstado(prestacao.getDmEstado());
         dto.setDmEstadoDesc(domainHelper.describe(DomainDescriptionHelper.ESTADO, prestacao.getDmEstado()));
         dto.setUserRegisto(prestacao.getUserRegisto());
@@ -1452,6 +1459,13 @@ public class CobrancaServiceImpl implements CobrancaService {
             .map(pagamento -> toPagamentoResponse(pagamento, taxasPorPagamento.getOrDefault(pagamento.getId(), Collections.emptyList()), taxasPorId))
             .toList());
         return dto;
+    }
+
+    private boolean isVencido(LocalDate dataVencimento, String estado, BigDecimal valorDivida) {
+        return dataVencimento != null
+            && dataVencimento.isBefore(LocalDate.now())
+            && !ESTADO_PAGO.equalsIgnoreCase(estado)
+            && valorDivida.signum() > 0;
     }
 
     private CobrancaPagamentoResponseDTO toPagamentoResponse(

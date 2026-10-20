@@ -17,6 +17,7 @@ public class CobrancaPrestacaoResponseDTO {
     private String nrPrestacao;
     private String valor;
     private LocalDate dataVencimento;
+    private boolean vencido;
     private String dmEstado;
     private String dmEstadoDesc;
     private String userRegisto;

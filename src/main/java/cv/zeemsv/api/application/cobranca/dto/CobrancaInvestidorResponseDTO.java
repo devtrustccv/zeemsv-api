@@ -21,6 +21,7 @@ public class CobrancaInvestidorResponseDTO {
     private Integer idSolicTaxa;
     private LocalDate dataEmissao;
     private LocalDate dataVencimento;
+    private boolean vencido;
     private String valorTotal;
     private String valorPago;
     private String valorDivida;
