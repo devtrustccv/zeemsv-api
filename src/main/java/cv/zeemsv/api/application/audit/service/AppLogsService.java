@@ -1,9 +1,9 @@
 package cv.zeemsv.api.application.audit.service;
 
 import cv.zeemsv.api.application.audit.entity.AppLogs;
+import cv.zeemsv.api.application.audit.dto.AppLogRequestContext;
 import cv.zeemsv.api.config.AuditMongoProperties;
 import cv.zeemsv.api.infrastructure.mongodb.MongodbLogsRepository;
-import jakarta.servlet.http.HttpServletRequest;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.time.LocalDateTime;
@@ -38,7 +38,7 @@ public class AppLogsService extends MongodbLogsRepository<AppLogs> {
     }
 
     @Async("auditTaskExecutor")
-    public void saveErrorAsyncSafe(Throwable error, Integer status, HttpServletRequest request) {
+    public void saveErrorAsyncSafe(Throwable error, Integer status, AppLogRequestContext request) {
         try {
             AppLogs appLog = new AppLogs();
             appLog.setDate(LocalDateTime.now());
@@ -47,11 +47,11 @@ public class AppLogsService extends MongodbLogsRepository<AppLogs> {
             appLog.setExceptionClass(error.getClass().getName());
             appLog.setStackTrace(stackTrace(error));
             appLog.setStatus(status);
-            appLog.setMethod(request != null ? request.getMethod() : null);
-            appLog.setPath(request != null ? request.getRequestURI() : null);
-            appLog.setQueryString(request != null ? request.getQueryString() : null);
-            appLog.setRemoteAddr(request != null ? request.getRemoteAddr() : null);
-            appLog.setUserAgent(request != null ? request.getHeader("User-Agent") : null);
+            appLog.setMethod(request != null ? request.method() : null);
+            appLog.setPath(request != null ? request.path() : null);
+            appLog.setQueryString(request != null ? request.queryString() : null);
+            appLog.setRemoteAddr(request != null ? request.remoteAddr() : null);
+            appLog.setUserAgent(request != null ? request.userAgent() : null);
             saveLogs(List.of(appLog));
         } catch (Exception ex) {
             log.warn("Falha ao gravar log de erro da aplicacao.", ex);

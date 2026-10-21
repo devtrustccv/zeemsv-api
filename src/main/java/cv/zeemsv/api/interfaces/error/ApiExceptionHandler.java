@@ -1,6 +1,7 @@
 package cv.zeemsv.api.interfaces.error;
 
 import cv.zeemsv.api.application.audit.service.AppLogsService;
+import cv.zeemsv.api.application.audit.dto.AppLogRequestContext;
 import cv.zeemsv.api.exceptions.BusinessException;
 import cv.zeemsv.api.exceptions.ExternalApiException;
 import cv.zeemsv.api.exceptions.OtpRequiredException;
@@ -71,6 +72,6 @@ public class ApiExceptionHandler {
     }
 
     private void auditError(Exception ex, HttpStatus status, HttpServletRequest request) {
-        appLogsService.saveErrorAsyncSafe(ex, status.value(), request);
+        appLogsService.saveErrorAsyncSafe(ex, status.value(), AppLogRequestContext.capture(request));
     }
 }
