@@ -211,6 +211,7 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         atualizarEstadoCorrecaoEAvancarProcesso(dto, solicitacao, authorization);
         auditSolicitacaoCorrection(before, solicitacao, beforeLotes, dto);
         auditSolicitacaoCorrigida(solicitacao, dto);
+        runAfterCommit(() -> runAfterCommitInNewTransaction(() -> notifyTecnicosCorrecao(solicitacao)));
 
         return enrich(mapper.toResponse(bus.findById(solicitacao.getId())));
     }
@@ -1620,6 +1621,27 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         TPedidoEntity pedido,
         ZeeTTpSolicitacaoEntity tpSolicitacao
     ) {
+        notifyTecnicos(solicitacao, pedido, tpSolicitacao, false);
+    }
+
+    private void notifyTecnicosCorrecao(ZeeTSolicitacaoEntity solicitacao) {
+        if (solicitacao.getIdPedido() == null) {
+            log.warn("Pedido nao informado para notificacao de correcao da solicitacao {}.", solicitacao.getId());
+            return;
+        }
+        TPedidoEntity pedido = pedidoRepository.findById(solicitacao.getIdPedido())
+            .orElseThrow(() -> new BusinessException("Pedido nao encontrado: " + solicitacao.getIdPedido()));
+        ZeeTTpSolicitacaoEntity tpSolicitacao = tpSolicitacaoRepository.findById(solicitacao.getIdTpSolicitacao())
+            .orElseThrow(() -> new BusinessException("Tipo de solicitacao nao encontrado: " + solicitacao.getIdTpSolicitacao()));
+        notifyTecnicos(solicitacao, pedido, tpSolicitacao, true);
+    }
+
+    private void notifyTecnicos(
+        ZeeTSolicitacaoEntity solicitacao,
+        TPedidoEntity pedido,
+        ZeeTTpSolicitacaoEntity tpSolicitacao,
+        boolean correcao
+    ) {
         Set<String> recipients = resolveTecnicoEmails();
         if (recipients.isEmpty()) {
             log.info("Nenhum email tecnico configurado para notificacao da solicitacao {}.", solicitacao.getId());
@@ -1629,14 +1651,14 @@ public class SolicitacaoServiceImpl implements SolicitacaoService {
         String origem = firstText(solicitacao.getDmOrigem(), "");
         String viaPortal = ORIGEM_PORTAL.equalsIgnoreCase(origem) || "ONLINE".equalsIgnoreCase(origem) ? " Via Portal" : "";
         String nomeTipoSolicitacao = firstText(tpSolicitacao.getNome(), tpSolicitacao.getDescricao(), "solicitacao");
-        String subject = "Nova Submissao de Pedido" + viaPortal
+        String subject = (correcao ? "Correcao de Pedido Submetida" : "Nova Submissao de Pedido") + viaPortal
             + " - Processo no - " + firstText(pedido.getIdProcesso() != null ? pedido.getIdProcesso().toString() : null, "nao informado")
             + " - " + nomeTipoSolicitacao;
         String requerente = resolveRequerenteTecnico(solicitacao, pedido);
         String pedidoNome = nomeTipoSolicitacao.replaceFirst("(?i)^Pedido de\\s*", "").trim();
         String body = "Caro Tecnico da AZEEMSV, informamos que "
             + requerente
-            + " submeteu o pedido de " + firstText(pedidoNome, nomeTipoSolicitacao)
+            + (correcao ? " submeteu a correcao do pedido de " : " submeteu o pedido de ") + firstText(pedidoNome, nomeTipoSolicitacao)
             + " - Processo no " + firstText(pedido.getIdProcesso() != null ? pedido.getIdProcesso().toString() : null, "nao informado")
             + ". Por favor consulte o processo para mais informacoes.";
 
