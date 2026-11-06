@@ -8,20 +8,26 @@ import cv.zeemsv.api.infrastructure.repository.ZeeTOrdemRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class OrdemServiceImpl implements OrdemService {
+    private static final String ESTADO_ATIVO = "A";
+
     private final ZeeTOrdemRepository repository;
     private final DomainDescriptionHelper domainHelper;
     private final NacionalidadeResolver nacionalidadeResolver;
 
     @Override
     @Transactional(readOnly = true)
-    public List<OrdemResponseDTO> findAll() {
-        return repository.findAllByOrderByNomeAsc()
+    public List<OrdemResponseDTO> findAll(String tipoOrdem) {
+        List<ZeeTOrdemEntity> ordens = StringUtils.hasText(tipoOrdem)
+            ? repository.findByDmEstadoAndTipoOrdemOrderByNomeAsc(ESTADO_ATIVO, tipoOrdem.trim())
+            : repository.findByDmEstadoOrderByNomeAsc(ESTADO_ATIVO);
+        return ordens
             .stream()
             .map(this::toResponse)
             .toList();

@@ -18,6 +18,9 @@ public class CobrancaPrestacaoResponseDTO {
     private String valor;
     private LocalDate dataVencimento;
     private boolean vencido;
+    private boolean emAnalise;
+    private boolean podePagar;
+    private String motivoBloqueioPagamento;
     private String dmEstado;
     private String dmEstadoDesc;
     private String userRegisto;

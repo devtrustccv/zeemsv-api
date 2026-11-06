@@ -29,6 +29,10 @@ public class CobrancaPagamentoResponseDTO {
     private String sessao;
     private String duc;
     private String dmEstadoPag;
+    private String pathComprovativoPagamento;
+    private String motivoRejeicao;
+    private String userValidacao;
+    private LocalDate dataValidacao;
     private String dmEstadoPagDesc;
     private LocalDate dataPagamento;
     private LocalDate dataRegisto;

@@ -68,6 +68,18 @@ public class ZeeTPagamentoEntity {
     @Column(name = "dm_estado_pag")
     private String dmEstadoPag;
 
+    @Column(name = "path_comprovativo_pagamento", length = 1000)
+    private String pathComprovativoPagamento;
+
+    @Column(name = "motivo_rejeicao", columnDefinition = "text")
+    private String motivoRejeicao;
+
+    @Column(name = "user_validacao")
+    private String userValidacao;
+
+    @Column(name = "data_validacao")
+    private LocalDate dataValidacao;
+
     @Column(name = "data_pagamento")
     private LocalDate dataPagamento;
 

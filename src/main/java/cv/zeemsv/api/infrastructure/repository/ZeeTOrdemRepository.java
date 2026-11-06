@@ -6,5 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 public interface ZeeTOrdemRepository extends JpaRepository<ZeeTOrdemEntity, Integer>, JpaSpecificationExecutor<ZeeTOrdemEntity> {
-    List<ZeeTOrdemEntity> findAllByOrderByNomeAsc();
+    List<ZeeTOrdemEntity> findByDmEstadoOrderByNomeAsc(String dmEstado);
+    List<ZeeTOrdemEntity> findByDmEstadoAndTipoOrdemOrderByNomeAsc(String dmEstado, String tipoOrdem);
 }

@@ -66,6 +66,7 @@ class CobrancaVencimentoTest {
         prestacao.setDmEstado(estado);
         var pagamento = new ZeeTPagamentoEntity();
         pagamento.setId(4);
+        pagamento.setDmEstadoPag("PAGO");
         pagamento.setIdCobranca(1);
         pagamento.setIdPrestacao(2);
         pagamento.setValorPago(new java.math.BigDecimal("100").subtract(new java.math.BigDecimal(divida)).toPlainString());

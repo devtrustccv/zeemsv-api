@@ -13,6 +13,8 @@ import lombok.Setter;
 public class CobrancaInvestidorResponseDTO {
     private Integer id;
     private String nrCobranca;
+    private String pathFatura;
+    private String pathRecibo;
     private Integer idInvestidor;
     private Integer idProjeto;
     private Integer nrProcesso;
@@ -22,6 +24,9 @@ public class CobrancaInvestidorResponseDTO {
     private LocalDate dataEmissao;
     private LocalDate dataVencimento;
     private boolean vencido;
+    private boolean emAnalise;
+    private boolean podePagar;
+    private String motivoBloqueioPagamento;
     private String valorTotal;
     private String valorPago;
     private String valorDivida;

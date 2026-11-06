@@ -22,6 +22,15 @@ public class ZeeTCobrancaEntity {
     @Column(name = "nr_cobranca")
     private String nrCobranca;
 
+    @Column(name = "path_fatura", length = 1000)
+    private String pathFatura;
+
+    @Column(name = "path_recibo", length = 1000)
+    private String pathRecibo;
+
+    @Column(name = "path_comprovativo_pagamento", length = 1000)
+    private String pathComprovativoPagamento;
+
     @Column(name = "id_solicitacao")
     private Integer idSolicitacao;
 

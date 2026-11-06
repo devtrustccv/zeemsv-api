@@ -18,6 +18,13 @@ import cv.zeemsv.api.application.paymentgateway.dto.PaymentGatewayPaymentRequest
 import cv.zeemsv.api.application.paymentgateway.dto.PaymentGatewayPaymentResponseDTO;
 import cv.zeemsv.api.application.paymentgateway.dto.PaymentGatewayPaymentValidationRequestDTO;
 import cv.zeemsv.api.exceptions.BusinessException;
+import cv.zeemsv.api.application.cobranca.dto.ComprovativoPagamentoResponseDTO;
+import cv.zeemsv.api.application.cobranca.dto.ComprovativoPagamentoRequestDTO;
+import cv.zeemsv.api.domain.documento.business.DocumentoBus;
+import cv.zeemsv.api.domain.documento.dto.UploadDTO;
+import cv.zeemsv.api.infrastructure.entity.ZeeTDocRelacaoEntity;
+import jakarta.persistence.EntityNotFoundException;
+import org.springframework.web.multipart.MultipartFile;
 import cv.zeemsv.api.infrastructure.entity.ZeeTCobrancaEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTCobrancaPrestacaoEntity;
 import cv.zeemsv.api.infrastructure.entity.ZeeTCobrancaTaxaEntity;
@@ -71,6 +78,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class CobrancaServiceImpl implements CobrancaService {
     private static final String ESTADO_ATIVO = "A";
     private static final String ESTADO_PENDENTE = "PENDENTE";
+    private static final String MOTIVO_EM_ANALISE = "Comprovativo de pagamento em análise.";
+    private static final String MOTIVO_SEM_DIVIDA = "Sem dívida pendente.";
     private static final String ESTADO_PAGO = "PAGO";
     private static final String ESTADO_FALHADO = "FALHADO";
     private static final String ESTADO_EXPIRADO = "EXPIRADO";
@@ -90,6 +99,7 @@ public class CobrancaServiceImpl implements CobrancaService {
     private static final String PAYMENT_GATEWAY_BILL_ADDR_POST_CODE = "977";
 
     private final ZeeTCobrancaRepository cobrancaRepository;
+    private final DocumentoBus documentoBus;
     private final ZeeTCobrancaPrestacaoRepository prestacaoRepository;
     private final ZeeTCobrancaTaxaRepository cobrancaTaxaRepository;
     private final ZeeTPagamentoRepository pagamentoRepository;
@@ -108,6 +118,59 @@ public class CobrancaServiceImpl implements CobrancaService {
 
     @Override
     @Transactional
+    public ComprovativoPagamentoResponseDTO receberComprovativoPagamento(Integer idCobranca, ComprovativoPagamentoRequestDTO dto, MultipartFile ficheiro) {
+        if (ficheiro == null || ficheiro.isEmpty()) {
+            throw new BusinessException("O comprovativo de pagamento e obrigatorio.");
+        }
+        ZeeTCobrancaEntity cobranca = cobrancaRepository.findByIdForPagamento(idCobranca)
+            .orElseThrow(() -> new EntityNotFoundException("Cobranca nao encontrada: " + idCobranca));
+        validateValorPagamento(dto.getValor(), cobranca, dto.getIdPrestacao());
+        validarSemComprovativoEmAnalise(idCobranca, dto.getIdPrestacao());
+        if (dto.getDataPagamento() == null || dto.getDataPagamento().isAfter(LocalDate.now())) {
+            throw new BusinessException("Data do pagamento invalida.");
+        }
+
+        CriarPagamentoRequestDTO request = new CriarPagamentoRequestDTO();
+        request.setIdCobranca(idCobranca);
+        request.setIdPrestacao(dto.getIdPrestacao());
+        request.setValor(dto.getValor());
+        request.setUser(dto.getUser());
+        request.setReferencia(dto.getReferencia());
+        ZeeTPagamentoEntity pagamento = buildPagamento(request, cobranca, findSolicTaxa(cobranca.getIdSolicTaxa()), List.of());
+        pagamento.setDmEstadoPag(ESTADO_PENDENTE);
+        pagamento.setValorPago("0");
+        pagamento.setDataPagamento(dto.getDataPagamento());
+        pagamento.setFormaPagamento(dto.getFormaPagamento());
+        pagamento.setBanco(dto.getBanco());
+        pagamento.setFlagIntegracao("false");
+        pagamento.setDataIntegracao(null);
+        pagamento.setUserIntegracao(null);
+        pagamento = pagamentoRepository.save(pagamento);
+
+        ZeeTDocRelacaoEntity documento = new ZeeTDocRelacaoEntity();
+        documento.setTipoRelacao("PAGAMENTO");
+        documento.setIdRelacao(BigDecimal.valueOf(pagamento.getId()));
+        documento.setDescricao("Comprovativo de pagamento");
+        String basePath = DocumentoBus.getBasePathForModuloOrObject("PAGAMENTO", pagamento.getId().toString());
+        UploadDTO upload = new UploadDTO(ficheiro, "comprovativo_pagamento_" + java.util.UUID.randomUUID(), basePath, documento);
+        if (upload.getFullPath().length() > 1000 || upload.getFilename().contains("/") || upload.getFilename().contains("\\")) {
+            throw new BusinessException("Nome do ficheiro invalido.");
+        }
+        documentoBus.saveOrUpdate(upload, dto.getUser());
+        pagamento.setPathComprovativoPagamento(upload.getFullPath());
+        pagamentoRepository.save(pagamento);
+
+        ComprovativoPagamentoResponseDTO response = new ComprovativoPagamentoResponseDTO();
+        response.setIdCobranca(idCobranca);
+        response.setIdPagamento(pagamento.getId());
+        response.setIdPrestacao(pagamento.getIdPrestacao());
+        response.setDmEstadoPag(pagamento.getDmEstadoPag());
+        response.setPathComprovativoPagamento(pagamento.getPathComprovativoPagamento());
+        return response;
+    }
+
+    @Override
+    @Transactional
     public RealizarPagamentoResponseDTO realizarPagamento(RealizarPagamentoRequestDTO dto) {
         List<Integer> idsCobranca = normalizeIdsCobranca(dto.getIdsCobranca());
         List<Integer> idsPrestacao = normalizeIdsPrestacao(dto.getIdsPrestacao());
@@ -115,6 +178,11 @@ public class CobrancaServiceImpl implements CobrancaService {
 
         List<ZeeTCobrancaEntity> cobrancas = findCobrancasForPagamento(idsCobranca);
         List<ZeeTCobrancaPrestacaoEntity> prestacoes = findPrestacoesForPagamento(idsCobranca, idsPrestacao);
+        if (prestacoes.isEmpty()) {
+            cobrancas.forEach(cobranca -> validarSemComprovativoEmAnalise(cobranca.getId(), null));
+        } else {
+            prestacoes.forEach(prestacao -> validarSemComprovativoEmAnalise(prestacao.getIdCobranca(), prestacao.getId()));
+        }
         BigDecimal valorTotalPagamento = prestacoes.isEmpty()
             ? calcularValorTotalDivida(cobrancas)
             : calcularValorTotalPrestacoes(prestacoes);
@@ -611,7 +679,8 @@ public class CobrancaServiceImpl implements CobrancaService {
         }
         BigDecimal dividaAtual = idPrestacao == null
             ? calcularDividaAtual(cobranca)
-            : calcularDividaPrestacao(findPrestacaoForPagamento(cobranca.getId(), idPrestacao));
+            : calcularDividaPrestacao(findPrestacaoForPagamento(cobranca.getId(), idPrestacao))
+                .min(calcularDividaAtual(cobranca));
         if (valor.compareTo(dividaAtual) > 0) {
             throw new BusinessException("O valor do pagamento nao pode ser superior a divida atual.");
         }
@@ -646,7 +715,7 @@ public class CobrancaServiceImpl implements CobrancaService {
             throw new BusinessException("Informe ao menos uma cobranca para pagamento.");
         }
 
-        Map<Integer, ZeeTCobrancaEntity> cobrancasPorId = cobrancaRepository.findAllById(idsCobranca).stream()
+        Map<Integer, ZeeTCobrancaEntity> cobrancasPorId = cobrancaRepository.findAllForPagamento(idsCobranca).stream()
             .collect(Collectors.toMap(ZeeTCobrancaEntity::getId, Function.identity()));
 
         List<Integer> idsNaoEncontrados = idsCobranca.stream()
@@ -864,6 +933,26 @@ public class CobrancaServiceImpl implements CobrancaService {
             .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    private boolean temComprovativoEmAnalise(ZeeTPagamentoEntity pagamento) {
+        return ESTADO_PENDENTE.equalsIgnoreCase(pagamento.getDmEstadoPag())
+            && org.springframework.util.StringUtils.hasText(pagamento.getPathComprovativoPagamento());
+    }
+
+    private boolean emAnalise(List<ZeeTPagamentoEntity> pagamentos, Integer idPrestacao) {
+        return pagamentos.stream()
+            .filter(this::temComprovativoEmAnalise)
+            .anyMatch(pagamento -> idPrestacao == null || pagamento.getIdPrestacao() == null
+                || Objects.equals(idPrestacao, pagamento.getIdPrestacao()));
+    }
+
+    private void validarSemComprovativoEmAnalise(Integer idCobranca, Integer idPrestacao) {
+        List<ZeeTCobrancaPrestacaoEntity> prestacoes = prestacaoRepository
+            .findByIdCobrancaInOrderByIdCobrancaAscIdAsc(List.of(idCobranca));
+        if (emAnalise(findPagamentos(List.of(idCobranca), prestacoes), idPrestacao)) {
+            throw new BusinessException(MOTIVO_EM_ANALISE);
+        }
+    }
+
     private BigDecimal calcularTotalPagoPrestacao(Integer idPrestacao) {
         return pagamentoRepository.findByIdPrestacaoInOrderByIdPrestacaoAscDataPagamentoDescIdDesc(List.of(idPrestacao))
             .stream()
@@ -879,6 +968,9 @@ public class CobrancaServiceImpl implements CobrancaService {
     }
 
     private BigDecimal resolveValorPago(ZeeTPagamentoEntity pagamento) {
+        if (!ESTADO_PAGO.equalsIgnoreCase(pagamento.getDmEstadoPag())) {
+            return BigDecimal.ZERO;
+        }
         if (pagamento.getValorPago() != null && !pagamento.getValorPago().isBlank()) {
             return parseMoney(pagamento.getValorPago());
         }
@@ -1297,6 +1389,8 @@ public class CobrancaServiceImpl implements CobrancaService {
         CobrancaInvestidorResponseDTO dto = new CobrancaInvestidorResponseDTO();
         dto.setId(cobranca.getId());
         dto.setNrCobranca(cobranca.getNrCobranca());
+        dto.setPathFatura(cobranca.getPathFatura());
+        dto.setPathRecibo(cobranca.getPathRecibo());
         dto.setIdInvestidor(cobranca.getIdInvestidor());
         dto.setIdProjeto(cobranca.getIdProjeto());
         dto.setNrProcesso(cobranca.getNrProcesso());
@@ -1305,6 +1399,14 @@ public class CobrancaServiceImpl implements CobrancaService {
         dto.setIdSolicTaxa(cobranca.getIdSolicTaxa());
         dto.setDataEmissao(cobranca.getDataEmissao());
         dto.setDataVencimento(cobranca.getDataVencimento());
+        boolean emAnalise = emAnalise(pagamentos, null);
+        BigDecimal divida = parseMoney(cobranca.getValorTotal()).subtract(pagamentos.stream()
+            .map(this::resolveValorPago).reduce(BigDecimal.ZERO, BigDecimal::add));
+        boolean temDivida = divida.signum() > 0 && !ESTADO_PAGO.equalsIgnoreCase(cobranca.getDmEstado());
+        boolean bloqueioGeral = pagamentos.stream().anyMatch(p -> p.getIdPrestacao() == null && temComprovativoEmAnalise(p));
+        dto.setEmAnalise(emAnalise);
+        dto.setPodePagar(!emAnalise && temDivida);
+        dto.setMotivoBloqueioPagamento(emAnalise ? MOTIVO_EM_ANALISE : temDivida ? null : MOTIVO_SEM_DIVIDA);
         dto.setVencido(isVencido(cobranca.getDataVencimento(), cobranca.getDmEstado(), parseMoney(cobranca.getValorDivida())));
         dto.setValorTotal(cobranca.getValorTotal());
         dto.setValorPago(cobranca.getValorPago());
@@ -1322,6 +1424,8 @@ public class CobrancaServiceImpl implements CobrancaService {
             .map(prestacao -> toPrestacaoResponse(
                 prestacao,
                 pagamentosPorPrestacao.getOrDefault(prestacao.getId(), Collections.emptyList()),
+                bloqueioGeral,
+                temDivida,
                 taxasPorPagamento,
                 taxasPorId
             ))
@@ -1436,6 +1540,8 @@ public class CobrancaServiceImpl implements CobrancaService {
     private CobrancaPrestacaoResponseDTO toPrestacaoResponse(
         ZeeTCobrancaPrestacaoEntity prestacao,
         List<ZeeTPagamentoEntity> pagamentos,
+        boolean bloqueioGeral,
+        boolean cobrancaTemDivida,
         Map<Integer, List<ZeeTPagamentoTaxaEntity>> taxasPorPagamento,
         Map<Integer, ZeeTTaxaEntity> taxasPorId
     ) {
@@ -1449,6 +1555,12 @@ public class CobrancaServiceImpl implements CobrancaService {
         BigDecimal totalPago = pagamentos.stream()
             .map(this::resolveValorPago)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
+        boolean emAnalise = bloqueioGeral || emAnalise(pagamentos, prestacao.getId());
+        boolean temDivida = cobrancaTemDivida && parseMoney(prestacao.getValor()).subtract(totalPago).signum() > 0
+            && !ESTADO_PAGO.equalsIgnoreCase(prestacao.getDmEstado());
+        dto.setEmAnalise(emAnalise);
+        dto.setPodePagar(!emAnalise && temDivida);
+        dto.setMotivoBloqueioPagamento(emAnalise ? MOTIVO_EM_ANALISE : temDivida ? null : MOTIVO_SEM_DIVIDA);
         dto.setVencido(isVencido(prestacao.getDataVencimento(), prestacao.getDmEstado(),
             parseMoney(prestacao.getValor()).subtract(totalPago)));
         dto.setDmEstado(prestacao.getDmEstado());
@@ -1491,6 +1603,10 @@ public class CobrancaServiceImpl implements CobrancaService {
         dto.setSessao(pagamento.getSessao());
         dto.setDuc(pagamento.getDuc());
         dto.setDmEstadoPag(pagamento.getDmEstadoPag());
+        dto.setPathComprovativoPagamento(pagamento.getPathComprovativoPagamento());
+        dto.setMotivoRejeicao(pagamento.getMotivoRejeicao());
+        dto.setUserValidacao(pagamento.getUserValidacao());
+        dto.setDataValidacao(pagamento.getDataValidacao());
         dto.setDmEstadoPagDesc(domainHelper.describe(DomainDescriptionHelper.ESTADO, pagamento.getDmEstadoPag()));
         dto.setDataPagamento(pagamento.getDataPagamento());
         dto.setDataRegisto(pagamento.getDataRegisto());

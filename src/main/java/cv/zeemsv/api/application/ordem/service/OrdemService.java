@@ -5,5 +5,5 @@ import cv.zeemsv.api.application.ordem.dto.OrdemResponseDTO;
 import java.util.List;
 
 public interface OrdemService {
-    List<OrdemResponseDTO> findAll();
+    List<OrdemResponseDTO> findAll(String tipoOrdem);
 }
